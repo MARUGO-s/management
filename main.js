@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzarKqR4dncC4F-g7h6IxRZfG-bCUjTIyEqUnT1Fp4BJ57RPHW9Zz2cCCSkv0oyIeba/exec"; // ★あなたのGASデプロイURLに置き換えてください
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyVsreLhqXgNf6VEmrcCi00jvfAexXnXO9Gy6V-W4Chey0FrXcw6klZDwkvvaGYhQgd/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -55,8 +55,8 @@ function initializeElements() {
 
   // フォーム送信処理
   const form = document.getElementById('loanForm');
-  const submitBtn = document.querySelector('.submit-btn');
-  const correctionBtn = document.querySelector('.correction-btn');
+  const submitBtn = document.querySelector('.submit-btn:not(.correction-btn)'); // 通常の送信ボタン
+  const correctionBtn = document.querySelector('.correction-btn'); // 修正送信ボタン
   const successMessage = document.getElementById('successMessage');
 
   // 通常の送信処理
@@ -79,14 +79,11 @@ function initializeElements() {
       return;
     }
 
-    // 修正確認
+    // 修正確認 (既存データチェックはGAS側で削除されているが、確認メッセージは残す)
     if (isCorrection) {
       const confirmMessage = '【修正データとして送信します】\n\n' +
-                           '修正を送信するには、以下の条件を満たす必要があります：\n' +
-                           '✓ 同じ日付のデータが存在する\n' +
-                           '✓ 同じ貸主・借主・品目・金額のデータが存在する\n\n' +
-                           '条件を満たさない場合は送信されません。\n' +
-                           'よろしいですか？';
+                           'この操作は既存のデータを変更しませんが、スプレッドシートに「修正」マーク付きで追加されます。\n\n' +
+                           'よろしいですか？'; // メッセージを簡略化
       if (!confirm(confirmMessage)) {
         return;
       }
@@ -106,7 +103,16 @@ function initializeElements() {
       const amountRaw = document.getElementById("amount").value;
       const normalizedAmount = amountRaw.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
 
-      const userAgent = navigator.userAgent; // デバイス判定ロジックなし
+      // デバイス判定ロジック
+      const userAgentRaw = navigator.userAgent; // 元のUser-Agent文字列を取得
+      let userAgent = "PC"; // デフォルトはPC
+
+      if (/iPhone|iPad|iPod/.test(userAgentRaw)) {
+        userAgent = "iPhone"; // iOSデバイス
+      } else if (/Android/.test(userAgentRaw)) {
+        userAgent = "Android"; // Androidデバイス
+      }
+      // その他の場合はデフォルトの "PC" のまま
 
       const data = {
         date: document.getElementById("date").value,
@@ -118,8 +124,8 @@ function initializeElements() {
         amount: normalizedAmount,
         displayName: "",
         userId: "",
-        userAgent: userAgent,
-        isCorrection: isCorrection // 修正フラグを追加
+        userAgent: userAgent, // 判定したデバイスタイプを送信
+        isCorrection: isCorrection
       };
 
       // Google Apps Scriptに送信
@@ -131,7 +137,7 @@ function initializeElements() {
       
       const response = await fetch(GAS_URL, {
         method: "POST",
-        mode: "no-cors", // ★no-corsモード
+        mode: "cors", // ★CORSモード
         headers: {
           "Content-Type": "application/json"
         },
@@ -139,11 +145,38 @@ function initializeElements() {
       });
 
       console.log('レスポンス受信:', response);
+      // response.ok や response.status が信頼できるようになります
       console.log('レスポンスステータス:', response.status);
-      console.log('レスポンスタイプ:', response.type);
-      console.log('送信完了'); // no-corsモードではここで成功ログが出るが、実質レスポンスは読めない
+      console.log('レスポンスOK:', response.ok);
 
-      // 成功処理
+      let responseText = '';
+      try {
+        responseText = await response.text(); 
+      } catch (e) {
+        console.warn('response.text() 取得中にエラーまたは空:', e);
+        // ここではエラーとして扱わず、後続のJSONパースで処理を続行
+      }
+
+      console.log('GASからの生レスポンス:', responseText);
+
+      // GASからのレスポンスをJSONとして解析し、ステータスを確認
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('GASレスポンスのJSON解析エラー:', parseError);
+        // JSONとしてパースできなかった場合、エラーとして処理
+        throw new Error("GASからの予期せぬレスポンス形式です: " + responseText);
+      }
+
+      if (result.status === "error") {
+        console.error('GAS側でエラーが発生しました:', result.message);
+        throw new Error(result.message); // GASからのエラーメッセージをスロー
+      }
+
+      console.log('送信完了');
+
+      // 成功処理 (タイムアウトはそのまま)
       setTimeout(() => {
         // ローディング状態終了
         targetBtn.classList.remove('loading');
@@ -168,6 +201,8 @@ function initializeElements() {
       console.error('送信エラー:', error);
 
       // エラー処理
+      const targetBtn = isCorrection ? correctionBtn : submitBtn;
+      const btnText = targetBtn.querySelector('.btn-text');
       targetBtn.classList.remove('loading');
       btnText.textContent = originalText;
       targetBtn.disabled = false;
@@ -175,23 +210,13 @@ function initializeElements() {
       // エラーメッセージの表示
       let errorMessage = '送信に失敗しました。';
       
-      if (isCorrection) {
-        // 修正送信の場合は特別なエラーメッセージ
-        errorMessage = '修正対象のデータが見つかりませんでした。\n\n' +
-                      '以下の項目がすべて一致するデータが必要です：\n' +
-                      '・日付\n' +
-                      '・貸主\n' +
-                      '・借主\n' +
-                      '・品目\n' +
-                      '・金額\n\n' +
-                      '既存のデータを確認してから再度お試しください。';
+      // GAS側から受け取った具体的なエラーメッセージがあればそれを使う
+      if (error.message) {
+        errorMessage = error.message; 
+      } else if (error.message && error.message.includes('network')) {
+        errorMessage = 'ネットワークエラーが発生しました。\nインターネット接続を確認してください。';
       } else {
-        // 通常送信の場合
-        if (error.message && error.message.includes('network')) {
-          errorMessage = 'ネットワークエラーが発生しました。\nインターネット接続を確認してください。';
-        } else {
-          errorMessage = '送信に失敗しました。再度お試しください。';
-        }
+        errorMessage = '送信に失敗しました。再度お試しください。';
       }
       
       alert(errorMessage);
