@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyVsreLhqXgNf6VEmrcCi00jvfAexXnXO9Gy6V-W4Chey0FrXcw6klZDwkvvaGYhQgd/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
+const GAS_URL = "https://script.google.com/macros/s/AKfycby-q1K2WtWOyv2yY-_EeonLmB5FXc0RwqprEqTeglylMiN_u7bDNg3AJVLvaVv0a5Gd/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -103,16 +103,7 @@ function initializeElements() {
       const amountRaw = document.getElementById("amount").value;
       const normalizedAmount = amountRaw.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
 
-      // デバイス判定ロジック
-      const userAgentRaw = navigator.userAgent; // 元のUser-Agent文字列を取得
-      let userAgent = "PC"; // デフォルトはPC
-
-      if (/iPhone|iPad|iPod/.test(userAgentRaw)) {
-        userAgent = "iPhone"; // iOSデバイス
-      } else if (/Android/.test(userAgentRaw)) {
-        userAgent = "Android"; // Androidデバイス
-      }
-      // その他の場合はデフォルトの "PC" のまま
+      const userAgent = navigator.userAgent; // ★デバイス判定ロジックなし（元のUser-Agent文字列をそのまま送ります）
 
       const data = {
         date: document.getElementById("date").value,
@@ -124,7 +115,7 @@ function initializeElements() {
         amount: normalizedAmount,
         displayName: "",
         userId: "",
-        userAgent: userAgent, // 判定したデバイスタイプを送信
+        userAgent: userAgent, // 元のUser-Agent文字列をそのまま送信
         isCorrection: isCorrection
       };
 
