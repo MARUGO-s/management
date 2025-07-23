@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwkBwV-CXarfeAi3S1DR4ECpvxKosjKV5cCqhl7dT-GbiuQ-FyB2CwaVNkc2COCoVa4/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxnwoRJNuiMa9x8Irvg0yMzPCRWgdyoSnSppQoZZ-DamgOhs7h4ON6B8wE5Uv0RMC7O/exec";
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -123,8 +123,11 @@ function initializeElements() {
       };
 
       // Google Apps Scriptに送信
+      console.log('=== 送信開始 ===');
+      console.log('GAS URL:', GAS_URL);
       console.log('送信データ:', data);
       console.log('修正フラグ:', isCorrection);
+      console.log('データJSON:', JSON.stringify(data));
       
       const response = await fetch(GAS_URL, {
         method: "POST",
@@ -135,9 +138,10 @@ function initializeElements() {
         body: JSON.stringify(data)
       });
 
-      // no-corsモードではレスポンステキストを取得できないため、
-      // エラーチェックは別の方法で行う
-      console.log('送信完了:', response.status);
+      console.log('レスポンス受信:', response);
+      console.log('レスポンスステータス:', response.status);
+      console.log('レスポンスタイプ:', response.type);
+      console.log('送信完了');
 
       // 成功処理
       setTimeout(() => {
