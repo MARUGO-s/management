@@ -926,25 +926,15 @@
                     const metadata = await metadataResponse.json();
                     this.debugLog('スプレッドシート情報', metadata);
                     
-                    // 「貸借表」または「表_1」シートを探す
+                    // 「貸借表」シートを探す
                     let targetSheetName = this.sheetName;
-                    const possibleSheetNames = ['貸借表', '表_1', 'Sheet1'];
-                    let targetSheet = null;
-                    
-                    for (const sheetName of possibleSheetNames) {
-                        targetSheet = metadata.sheets.find(sheet => sheet.properties.title === sheetName);
-                        if (targetSheet) {
-                            targetSheetName = sheetName;
-                            this.debugLog('対象シートが見つかりました', targetSheetName);
-                            break;
-                        }
-                    }
+                    const targetSheet = metadata.sheets.find(sheet => sheet.properties.title === this.sheetName);
                     
                     if (!targetSheet) {
-                        // どのシートも見つからない場合は最初のシートを使用
-                        targetSheetName = metadata.sheets[0].properties.title;
-                        this.debugLog('指定シートが見つからないため最初のシートを使用', targetSheetName);
+                        throw new Error(`「${this.sheetName}」シートが見つかりません`);
                     }
+                    
+                    this.debugLog('対象シートが見つかりました', targetSheetName);
                     
                     // Google Sheets API v4 を使用してデータを取得
                     const range = `${targetSheetName}!A:Z`; // 全列を取得
