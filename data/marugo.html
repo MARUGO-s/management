@@ -753,7 +753,7 @@
                 this.statusDiv = document.getElementById('status-info');
                 this.stores = new Set();
                 // ここにあなたのAPIキーを貼り付けてください
-                this.apiKey = 'AKfycbyiLypD6YWsAGRFMpb4-WHc_QyXsRh1j7483uCq8Gmdt2HG7wpDD3ge2aLT1PnkmyRD';
+                this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE';
                 this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY';
                 this.sheetName = '貸借表';
                 
@@ -925,16 +925,24 @@
                     const metadata = await metadataResponse.json();
                     this.debugLog('スプレッドシート情報', metadata);
                     
-                    // 「貸借表」シートを探す
+                    // 「貸借表」または「表_1」シートを探す
                     let targetSheetName = this.sheetName;
-                    const targetSheet = metadata.sheets.find(sheet => sheet.properties.title === this.sheetName);
+                    const possibleSheetNames = ['貸借表', '表_1', 'Sheet1'];
+                    let targetSheet = null;
+                    
+                    for (const sheetName of possibleSheetNames) {
+                        targetSheet = metadata.sheets.find(sheet => sheet.properties.title === sheetName);
+                        if (targetSheet) {
+                            targetSheetName = sheetName;
+                            this.debugLog('対象シートが見つかりました', targetSheetName);
+                            break;
+                        }
+                    }
                     
                     if (!targetSheet) {
-                        // 「貸借表」が見つからない場合は最初のシートを使用
+                        // どのシートも見つからない場合は最初のシートを使用
                         targetSheetName = metadata.sheets[0].properties.title;
                         this.debugLog('指定シートが見つからないため最初のシートを使用', targetSheetName);
-                    } else {
-                        this.debugLog('指定シートが見つかりました', targetSheetName);
                     }
                     
                     // Google Sheets API v4 を使用してデータを取得
