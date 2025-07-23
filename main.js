@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycby-q1K2WtWOyv2yY-_EeonLmB5FXc0RwqprEqTeglylMiN_u7bDNg3AJVLvaVv0a5Gd/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
+const GAS_URL = "https://script.google.com/macros/s/AKfycbww2dVjWgs4l_SplxLcGyP2-VJrb7jCx_pi6v0N8y4fMKA8NqIWEMcqnw2axZOUOK4G/exec";
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -55,8 +55,8 @@ function initializeElements() {
 
   // フォーム送信処理
   const form = document.getElementById('loanForm');
-  const submitBtn = document.querySelector('.submit-btn:not(.correction-btn)'); // 通常の送信ボタン
-  const correctionBtn = document.querySelector('.correction-btn'); // 修正送信ボタン
+  const submitBtn = document.querySelector('.submit-btn');
+  const correctionBtn = document.querySelector('.correction-btn');
   const successMessage = document.getElementById('successMessage');
 
   // 通常の送信処理
@@ -79,11 +79,11 @@ function initializeElements() {
       return;
     }
 
-    // 修正確認 (既存データチェックはGAS側で削除されているが、確認メッセージは残す)
+    // 修正確認
     if (isCorrection) {
-      const confirmMessage = '【修正データとして送信します】\n\n' +
-                           'この操作は既存のデータを変更しませんが、スプレッドシートに「修正」マーク付きで追加されます。\n\n' +
-                           'よろしいですか？'; // メッセージを簡略化
+      const confirmMessage = '修正データとして送信します。\n' +
+                           '同じ内容のデータがある場合、修正として記録されます。\n' +
+                           'よろしいですか？';
       if (!confirm(confirmMessage)) {
         return;
       }
@@ -103,7 +103,7 @@ function initializeElements() {
       const amountRaw = document.getElementById("amount").value;
       const normalizedAmount = amountRaw.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
 
-      const userAgent = navigator.userAgent; // ★デバイス判定ロジックなし（元のUser-Agent文字列をそのまま送ります）
+      const userAgent = navigator.userAgent;
 
       const data = {
         date: document.getElementById("date").value,
@@ -115,59 +115,21 @@ function initializeElements() {
         amount: normalizedAmount,
         displayName: "",
         userId: "",
-        userAgent: userAgent, // 元のUser-Agent文字列をそのまま送信
-        isCorrection: isCorrection
+        userAgent: userAgent,
+        isCorrection: isCorrection // 修正フラグを追加
       };
 
       // Google Apps Scriptに送信
-      console.log('=== 送信開始 ===');
-      console.log('GAS URL:', GAS_URL);
-      console.log('送信データ:', data);
-      console.log('修正フラグ:', isCorrection);
-      console.log('データJSON:', JSON.stringify(data));
-      
-      const response = await fetch(GAS_URL, {
+      await fetch(GAS_URL, {
         method: "POST",
-        mode: "cors", // ★CORSモード
+        mode: "no-cors",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(data)
       });
 
-      console.log('レスポンス受信:', response);
-      // response.ok や response.status が信頼できるようになります
-      console.log('レスポンスステータス:', response.status);
-      console.log('レスポンスOK:', response.ok);
-
-      let responseText = '';
-      try {
-        responseText = await response.text(); 
-      } catch (e) {
-        console.warn('response.text() 取得中にエラーまたは空:', e);
-        // ここではエラーとして扱わず、後続のJSONパースで処理を続行
-      }
-
-      console.log('GASからの生レスポンス:', responseText);
-
-      // GASからのレスポンスをJSONとして解析し、ステータスを確認
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('GASレスポンスのJSON解析エラー:', parseError);
-        // JSONとしてパースできなかった場合、エラーとして処理
-        throw new Error("GASからの予期せぬレスポンス形式です: " + responseText);
-      }
-
-      if (result.status === "error") {
-        console.error('GAS側でエラーが発生しました:', result.message);
-        throw new Error(result.message); // GASからのエラーメッセージをスロー
-      }
-
-      console.log('送信完了');
-
-      // 成功処理 (タイムアウトはそのまま)
+      // 成功処理
       setTimeout(() => {
         // ローディング状態終了
         targetBtn.classList.remove('loading');
@@ -192,25 +154,11 @@ function initializeElements() {
       console.error('送信エラー:', error);
 
       // エラー処理
-      const targetBtn = isCorrection ? correctionBtn : submitBtn;
-      const btnText = targetBtn.querySelector('.btn-text');
       targetBtn.classList.remove('loading');
       btnText.textContent = originalText;
       targetBtn.disabled = false;
 
-      // エラーメッセージの表示
-      let errorMessage = '送信に失敗しました。';
-      
-      // GAS側から受け取った具体的なエラーメッセージがあればそれを使う
-      if (error.message) {
-        errorMessage = error.message; 
-      } else if (error.message && error.message.includes('network')) {
-        errorMessage = 'ネットワークエラーが発生しました。\nインターネット接続を確認してください。';
-      } else {
-        errorMessage = '送信に失敗しました。再度お試しください。';
-      }
-      
-      alert(errorMessage);
+      alert('送信に失敗しました。再度お試しください。');
     }
   }
 }
