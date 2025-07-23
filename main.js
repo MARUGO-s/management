@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwCJMAYe29IFEWbDwiyNm07NtpOe0jDeDO2d45VgCKgBGvjxz4LM5IDIgRaa-3BKhGo/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwWNRvOcYwoHhuNJjlaIrMUPkKZlb-fHQcKV_fSlK4gBPYgOCNofL7qnt-gpXx3A6HL/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -55,8 +55,8 @@ function initializeElements() {
 
   // フォーム送信処理
   const form = document.getElementById('loanForm');
-  const submitBtn = document.querySelector('.submit-btn');
-  const correctionBtn = document.querySelector('.correction-btn');
+  const submitBtn = document.querySelector('.submit-btn:not(.correction-btn)'); // 通常の送信ボタン
+  const correctionBtn = document.querySelector('.correction-btn'); // 修正送信ボタン
   const successMessage = document.getElementById('successMessage');
 
   // 通常の送信処理
@@ -79,11 +79,11 @@ function initializeElements() {
       return;
     }
 
-    // 修正確認
+    // 修正確認 (既存データチェックはGAS側で削除されているが、確認メッセージは残す)
     if (isCorrection) {
-      const confirmMessage = '修正データとして送信します。\n' +
-                           '同じ内容のデータがある場合、修正として記録されます。\n' +
-                           'よろしいですか？';
+      const confirmMessage = '【修正データとして送信します】\n\n' +
+                           'この操作は既存のデータを変更しませんが、スプレッドシートに「修正」マーク付きで追加されます。\n\n' +
+                           'よろしいですか？'; // メッセージを簡略化
       if (!confirm(confirmMessage)) {
         return;
       }
@@ -103,7 +103,9 @@ function initializeElements() {
       const amountRaw = document.getElementById("amount").value;
       const normalizedAmount = amountRaw.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
 
-      const userAgent = navigator.userAgent;
+      // ★User-Agentの取得ロジックは削除します。
+      // dataオブジェクトには userAgent プロパティを含めないか、または任意の固定値を設定します。
+      // 今回はGAS側でI列がなくなっているので、ここではデータから削除します。
 
       const data = {
         date: document.getElementById("date").value,
@@ -115,21 +117,59 @@ function initializeElements() {
         amount: normalizedAmount,
         displayName: "",
         userId: "",
-        userAgent: userAgent,
-        isCorrection: isCorrection // 修正フラグを追加
+        // userAgent: navigator.userAgent, // ★この行を削除またはコメントアウト
+        isCorrection: isCorrection
       };
 
       // Google Apps Scriptに送信
-      await fetch(GAS_URL, {
+      console.log('=== 送信開始 ===');
+      console.log('GAS URL:', GAS_URL);
+      console.log('送信データ:', data);
+      console.log('修正フラグ:', isCorrection);
+      console.log('データJSON:', JSON.stringify(data));
+      
+      const response = await fetch(GAS_URL, {
         method: "POST",
-        mode: "no-cors",
+        mode: "cors", // ★CORSモード
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(data)
       });
 
-      // 成功処理
+      console.log('レスポンス受信:', response);
+      // response.ok や response.status が信頼できるようになります
+      console.log('レスポンスステータス:', response.status);
+      console.log('レスポンスOK:', response.ok);
+
+      let responseText = '';
+      try {
+        responseText = await response.text(); 
+      } catch (e) {
+        console.warn('response.text() 取得中にエラーまたは空:', e);
+        // ここではエラーとして扱わず、後続のJSONパースで処理を続行
+      }
+
+      console.log('GASからの生レスポンス:', responseText);
+
+      // GASからのレスポンスをJSONとして解析し、ステータスを確認
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('GASレスポンスのJSON解析エラー:', parseError);
+        // JSONとしてパースできなかった場合、エラーとして処理
+        throw new Error("GASからの予期せぬレスポンス形式です: " + responseText);
+      }
+
+      if (result.status === "error") {
+        console.error('GAS側でエラーが発生しました:', result.message);
+        throw new Error(result.message); // GASからのエラーメッセージをスロー
+      }
+
+      console.log('送信完了');
+
+      // 成功処理 (タイムアウトはそのまま)
       setTimeout(() => {
         // ローディング状態終了
         targetBtn.classList.remove('loading');
@@ -154,11 +194,25 @@ function initializeElements() {
       console.error('送信エラー:', error);
 
       // エラー処理
+      const targetBtn = isCorrection ? correctionBtn : submitBtn;
+      const btnText = targetBtn.querySelector('.btn-text');
       targetBtn.classList.remove('loading');
       btnText.textContent = originalText;
       targetBtn.disabled = false;
 
-      alert('送信に失敗しました。再度お試しください。');
+      // エラーメッセージの表示
+      let errorMessage = '送信に失敗しました。';
+      
+      // GAS側から受け取った具体的なエラーメッセージがあればそれを使う
+      if (error.message) {
+        errorMessage = error.message; 
+      } else if (error.message && error.message.includes('network')) {
+        errorMessage = 'ネットワークエラーが発生しました。\nインターネット接続を確認してください。';
+      } else {
+        errorMessage = '送信に失敗しました。再度お試しください。';
+      }
+      
+      alert(errorMessage);
     }
   }
 }
