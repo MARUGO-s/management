@@ -120,7 +120,7 @@ function initializeElements() {
       };
 
       // Google Apps Scriptに送信
-      await fetch(GAS_URL, {
+      const response = await fetch(GAS_URL, {
         method: "POST",
         mode: "no-cors",
         headers: {
@@ -128,6 +128,10 @@ function initializeElements() {
         },
         body: JSON.stringify(data)
       });
+
+      // no-corsモードではレスポンステキストを取得できないため、
+      // エラーチェックは別の方法で行う
+      console.log('送信完了');
 
       // 成功処理
       setTimeout(() => {
@@ -158,7 +162,16 @@ function initializeElements() {
       btnText.textContent = originalText;
       targetBtn.disabled = false;
 
-      alert('送信に失敗しました。再度お試しください。');
+      // エラーメッセージの表示
+      let errorMessage = '送信に失敗しました。再度お試しください。';
+      
+      if (error.message.includes('修正対象のデータが見つかりません')) {
+        errorMessage = '修正対象のデータが見つかりません。\n同じ内容のデータが既に登録されているか確認してください。\n\n確認項目:\n・日付\n・貸主\n・借主\n・品目\n・金額';
+      } else if (error.message.includes('CORS') || error.message.includes('network')) {
+        errorMessage = 'ネットワークエラーが発生しました。\nインターネット接続を確認してください。';
+      }
+      
+      alert(errorMessage);
     }
   }
 }
