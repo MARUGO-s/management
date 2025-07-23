@@ -103,7 +103,16 @@ function initializeElements() {
       const amountRaw = document.getElementById("amount").value;
       const normalizedAmount = amountRaw.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
 
-      const userAgent = navigator.userAgent;
+      // デバイス判定ロジック
+      const userAgentRaw = navigator.userAgent; // 元のUser-Agent文字列を取得
+      let userAgent = "PC"; // デフォルトはPC
+
+      if (/iPhone|iPad|iPod/.test(userAgentRaw)) {
+        userAgent = "iPhone"; // iOSデバイス
+      } else if (/Android/.test(userAgentRaw)) {
+        userAgent = "Android"; // Androidデバイス
+      }
+      // その他の場合はデフォルトの "PC" のまま
 
       const data = {
         date: document.getElementById("date").value,
@@ -115,8 +124,8 @@ function initializeElements() {
         amount: normalizedAmount,
         displayName: "",
         userId: "",
-        userAgent: userAgent,
-        isCorrection: isCorrection // 修正フラグを追加
+        userAgent: userAgent, // 判定したデバイスタイプを送信
+        isCorrection: isCorrection
       };
 
       // Google Apps Scriptに送信
