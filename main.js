@@ -81,8 +81,11 @@ function initializeElements() {
 
     // 修正確認
     if (isCorrection) {
-      const confirmMessage = '修正データとして送信します。\n' +
-                           '同じ内容のデータがある場合、修正として記録されます。\n' +
+      const confirmMessage = '【修正データとして送信します】\n\n' +
+                           '修正を送信するには、以下の条件を満たす必要があります：\n' +
+                           '✓ 同じ日付のデータが存在する\n' +
+                           '✓ 同じ貸主・借主・品目・金額のデータが存在する\n\n' +
+                           '条件を満たさない場合は送信されません。\n' +
                            'よろしいですか？';
       if (!confirm(confirmMessage)) {
         return;
@@ -120,6 +123,9 @@ function initializeElements() {
       };
 
       // Google Apps Scriptに送信
+      console.log('送信データ:', data);
+      console.log('修正フラグ:', isCorrection);
+      
       const response = await fetch(GAS_URL, {
         method: "POST",
         mode: "no-cors",
@@ -131,7 +137,7 @@ function initializeElements() {
 
       // no-corsモードではレスポンステキストを取得できないため、
       // エラーチェックは別の方法で行う
-      console.log('送信完了');
+      console.log('送信完了:', response.status);
 
       // 成功処理
       setTimeout(() => {
@@ -163,12 +169,25 @@ function initializeElements() {
       targetBtn.disabled = false;
 
       // エラーメッセージの表示
-      let errorMessage = '送信に失敗しました。再度お試しください。';
+      let errorMessage = '送信に失敗しました。';
       
-      if (error.message.includes('修正対象のデータが見つかりません')) {
-        errorMessage = '修正対象のデータが見つかりません。\n同じ内容のデータが既に登録されているか確認してください。\n\n確認項目:\n・日付\n・貸主\n・借主\n・品目\n・金額';
-      } else if (error.message.includes('CORS') || error.message.includes('network')) {
-        errorMessage = 'ネットワークエラーが発生しました。\nインターネット接続を確認してください。';
+      if (isCorrection) {
+        // 修正送信の場合は特別なエラーメッセージ
+        errorMessage = '修正対象のデータが見つかりませんでした。\n\n' +
+                      '以下の項目がすべて一致するデータが必要です：\n' +
+                      '・日付\n' +
+                      '・貸主\n' +
+                      '・借主\n' +
+                      '・品目\n' +
+                      '・金額\n\n' +
+                      '既存のデータを確認してから再度お試しください。';
+      } else {
+        // 通常送信の場合
+        if (error.message && error.message.includes('network')) {
+          errorMessage = 'ネットワークエラーが発生しました。\nインターネット接続を確認してください。';
+        } else {
+          errorMessage = '送信に失敗しました。再度お試しください。';
+        }
       }
       
       alert(errorMessage);
