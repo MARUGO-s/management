@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwkLAIw5u6q3X_x1La_UG7uoMG5_rvZ79szWhvmGA9K6yCO1_pWOZKAG8mHs7MBk1cR/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzarKqR4dncC4F-g7h6IxRZfG-bCUjTIyEqUnT1Fp4BJ57RPHW9Zz2cCCSkv0oyIeba/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -137,7 +137,7 @@ function initializeElements() {
       
       const response = await fetch(GAS_URL, {
         method: "POST",
-        mode: "no-cors",
+        mode: "cors", // ★ここを "cors" に変更
         headers: {
           "Content-Type": "application/json"
         },
@@ -145,13 +145,12 @@ function initializeElements() {
       });
 
       console.log('レスポンス受信:', response);
-      // no-cors モードでは response.status や response.ok は信頼できない
-      // 生のレスポンステキストを解析して判断する
+      // response.ok や response.status が信頼できるようになります
+      console.log('レスポンスステータス:', response.status);
+      console.log('レスポンスOK:', response.ok);
 
       let responseText = '';
       try {
-        // response.text() を try-catch で囲む
-        // no-cors だと response.text() でエラーになるケースがあるため、ここでエラーハンドリング
         responseText = await response.text(); 
       } catch (e) {
         console.warn('response.text() 取得中にエラーまたは空:', e);
