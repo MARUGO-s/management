@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyW0A5ZkmgIf9h_fXVl-3tQiMCfFOZnjWNgDT6g8tkXIeJNVl7vkZqalYCCO8kEhPIj/exec"; // このURLはあなたのデプロイURLに置き換えてください
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyW0A5ZkmgIf9h_fXVl-3tQiMCfFOZnjWNgDT6g8tkXIeJNVl7vkZqalYCCO8kEhPIj/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -55,8 +55,8 @@ function initializeElements() {
 
   // フォーム送信処理
   const form = document.getElementById('loanForm');
-  const submitBtn = document.querySelector('.submit-btn');
-  const correctionBtn = document.querySelector('.correction-btn');
+  const submitBtn = document.querySelector('.submit-btn:not(.correction-btn)'); // 通常の送信ボタン
+  const correctionBtn = document.querySelector('.correction-btn'); // 修正送信ボタン
   const successMessage = document.getElementById('successMessage');
 
   // 通常の送信処理
@@ -142,11 +142,11 @@ function initializeElements() {
       let responseText = '';
       try {
         // response.text() を try-catch で囲む
-        // no-cors だと response.text() でエラーになるケースがあるため
+        // no-cors だと response.text() でエラーになるケースがあるため、ここでエラーハンドリング
         responseText = await response.text(); 
       } catch (e) {
         console.warn('response.text() 取得中にエラーまたは空:', e);
-        // ここではエラーとして扱わず、後続のJSONパースで処理する
+        // ここではエラーとして扱わず、後続のJSONパースで処理を続行
       }
 
       console.log('GASからの生レスポンス:', responseText);
@@ -168,7 +168,7 @@ function initializeElements() {
 
       console.log('送信完了');
 
-      // 成功処理
+      // 成功処理 (タイムアウトはそのまま)
       setTimeout(() => {
         // ローディング状態終了
         targetBtn.classList.remove('loading');
@@ -193,6 +193,8 @@ function initializeElements() {
       console.error('送信エラー:', error);
 
       // エラー処理
+      const targetBtn = isCorrection ? correctionBtn : submitBtn;
+      const btnText = targetBtn.querySelector('.btn-text');
       targetBtn.classList.remove('loading');
       btnText.textContent = originalText;
       targetBtn.disabled = false;
