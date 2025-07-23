@@ -669,6 +669,7 @@
                                 <th class="sortable" onclick="sortTable(4)">カテゴリー</th>
                                 <th class="sortable" onclick="sortTable(5)">金額</th>
                                 <th class="sortable" onclick="sortTable(6)">入力者</th>
+                                <th class="sortable" onclick="sortTable(7)">修正</th>
                             </tr>
                         </thead>
                         <tbody id="details-table">
@@ -1027,10 +1028,11 @@
                 const itemIndex = getColumnIndex(['品目', 'item']);
                 const amountIndex = getColumnIndex(['金額', 'amount']);
                 const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']);
+                const correctionIndex = getColumnIndex(['修正', 'correction']);
 
                 this.debugLog('フィールドインデックス', {
                     dateIndex, nameIndex, lenderIndex, borrowerIndex, 
-                    categoryIndex, itemIndex, amountIndex, inputDateIndex
+                    categoryIndex, itemIndex, amountIndex, inputDateIndex, correctionIndex
                 });
 
                 // データ行を処理（ヘッダーをスキップ）
@@ -1053,7 +1055,8 @@
                         item: getValue(itemIndex),
                         amount: this.parseAmount(getValue(amountIndex)),
                         originalAmount: getValue(amountIndex),
-                        inputDate: getValue(inputDateIndex)
+                        inputDate: getValue(inputDateIndex),
+                        correction: getValue(correctionIndex) // 修正フラグを追加
                     };
 
                     // 店舗名を収集
@@ -1527,7 +1530,7 @@
                 const detailsTable = document.getElementById('details-table');
                 
                 if (this.searchResults.length === 0) {
-                    detailsTable.innerHTML = '<tr><td colspan="7" class="no-results">検索条件に該当するデータがありません</td></tr>';
+                    detailsTable.innerHTML = '<tr><td colspan="8" class="no-results">検索条件に該当するデータがありません</td></tr>';
                     return;
                 }
 
@@ -1543,6 +1546,7 @@
                                 <td>${row.category}</td>
                                 <td class="amount">¥${row.amount.toLocaleString()}</td>
                                 <td>${row.name}</td>
+                                <td>${row.correction || ''}</td>
                             </tr>
                         `;
                     } else {
@@ -1562,6 +1566,7 @@
                                 <td>${row.category}</td>
                                 <td class="amount ${amountClass}">¥${row.amount.toLocaleString()}</td>
                                 <td>${row.name}</td>
+                                <td>${row.correction || ''}</td>
                             </tr>
                         `;
                     }
@@ -1585,7 +1590,8 @@
                     カテゴリー: row.category,
                     品目: row.item,
                     金額: row.amount,
-                    入力日時: row.inputDate
+                    入力日時: row.inputDate,
+                    修正: row.correction || ''
                 })));
 
                 const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
