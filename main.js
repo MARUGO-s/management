@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyiLypD6YWsAGRFMpb4-WHc_QyXsRh1j7483uCq8Gmdt2HG7wpDD3ge2aLT1PnkmyRD/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyZ7pcOd0wfNSIoniJtP2mcGqF8mCbdt7JvcAO4z7Dy0BS2ETtRgP3U4GQXhECyaiJT/exec";
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -56,21 +56,47 @@ function initializeElements() {
   // フォーム送信処理
   const form = document.getElementById('loanForm');
   const submitBtn = document.querySelector('.submit-btn');
+  const correctionBtn = document.querySelector('.correction-btn');
   const successMessage = document.getElementById('successMessage');
 
+  // 通常の送信処理
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    await submitForm(false); // 修正フラグ = false
+  });
 
+  // 修正送信処理
+  correctionBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    await submitForm(true); // 修正フラグ = true
+  });
+
+  // 共通の送信処理
+  async function submitForm(isCorrection) {
     // バリデーション
     if (!categoryInput.value) {
       alert('カテゴリーを選択してください');
       return;
     }
 
+    // 修正確認
+    if (isCorrection) {
+      const confirmMessage = '修正データとして送信します。\n' +
+                           '同じ内容のデータがある場合、修正として記録されます。\n' +
+                           'よろしいですか？';
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+    }
+
     // ローディング状態開始
-    submitBtn.classList.add('loading');
-    submitBtn.querySelector('.btn-text').textContent = '送信中...';
-    submitBtn.disabled = true;
+    const targetBtn = isCorrection ? correctionBtn : submitBtn;
+    const btnText = targetBtn.querySelector('.btn-text');
+    const originalText = btnText.textContent;
+    
+    targetBtn.classList.add('loading');
+    btnText.textContent = isCorrection ? '修正送信中...' : '送信中...';
+    targetBtn.disabled = true;
 
     try {
       // 金額の正規化（全角数字を半角に変換）
@@ -89,7 +115,8 @@ function initializeElements() {
         amount: normalizedAmount,
         displayName: "",
         userId: "",
-        userAgent: userAgent
+        userAgent: userAgent,
+        isCorrection: isCorrection // 修正フラグを追加
       };
 
       // Google Apps Scriptに送信
@@ -105,14 +132,16 @@ function initializeElements() {
       // 成功処理
       setTimeout(() => {
         // ローディング状態終了
-        submitBtn.classList.remove('loading');
-        submitBtn.querySelector('.btn-text').textContent = '📨 送信する';
-        submitBtn.disabled = false;
+        targetBtn.classList.remove('loading');
+        btnText.textContent = originalText;
+        targetBtn.disabled = false;
 
         // 成功メッセージ表示
-        successMessage.classList.add('show');
+        const message = document.getElementById('successMessage');
+        message.textContent = isCorrection ? '✅ 修正送信完了しました！' : '✅ 送信完了しました！';
+        message.classList.add('show');
         setTimeout(() => {
-          successMessage.classList.remove('show');
+          message.classList.remove('show');
         }, 3000);
 
         // フォームリセット
@@ -125,13 +154,13 @@ function initializeElements() {
       console.error('送信エラー:', error);
 
       // エラー処理
-      submitBtn.classList.remove('loading');
-      submitBtn.querySelector('.btn-text').textContent = '📨 送信する';
-      submitBtn.disabled = false;
+      targetBtn.classList.remove('loading');
+      btnText.textContent = originalText;
+      targetBtn.disabled = false;
 
       alert('送信に失敗しました。再度お試しください。');
     }
-  });
+  }
 }
 
 // 初期化処理
