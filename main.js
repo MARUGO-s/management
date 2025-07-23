@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyW0A5ZkmgIf9h_fXVl-3tQiMCfFOZnjWNgDT6g8tkXIeJNVl7vkZqalYCCO8kEhPIj/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyrxdPn3y85l-lWaCnPar2etBsfv-wd1HqBO7mMHbASH83KorUXKOxxQ2z_2_GDLI8G/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -103,8 +103,7 @@ function initializeElements() {
       const amountRaw = document.getElementById("amount").value;
       const normalizedAmount = amountRaw.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
 
-      // ここが元のUser-Agent文字列をそのまま使用する部分です
-      const userAgent = navigator.userAgent; // デバイス判定ロジックなし
+      const userAgent = navigator.userAgent;
 
       const data = {
         date: document.getElementById("date").value,
@@ -116,8 +115,8 @@ function initializeElements() {
         amount: normalizedAmount,
         displayName: "",
         userId: "",
-        userAgent: userAgent, // 元のUser-Agent文字列をそのまま送信
-        isCorrection: isCorrection
+        userAgent: userAgent,
+        isCorrection: isCorrection // 修正フラグを追加
       };
 
       // Google Apps Scriptに送信
