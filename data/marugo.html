@@ -755,7 +755,7 @@
                 // ここにあなたのAPIキーを貼り付けてください
                 this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE';
                 this.spreadsheetId = '1RmmYz4R7QlJz_wG8dkFZzPBTiSLagr8u04O5pTxK4j8';
-                this.sheetName = '貸借記録';
+                this.sheetName = '貸借表';
                 
                 // パスワード設定（実際の運用では環境変数やサーバーサイドで管理）
                 this.correctPasswords = [
@@ -925,12 +925,20 @@
                     const metadata = await metadataResponse.json();
                     this.debugLog('スプレッドシート情報', metadata);
                     
-                    // 最初のシートの名前を取得
-                    const firstSheetName = metadata.sheets[0].properties.title;
-                    this.debugLog('使用するシート名', firstSheetName);
+                    // 「貸借表」シートを探す
+                    let targetSheetName = this.sheetName;
+                    const targetSheet = metadata.sheets.find(sheet => sheet.properties.title === this.sheetName);
+                    
+                    if (!targetSheet) {
+                        // 「貸借表」が見つからない場合は最初のシートを使用
+                        targetSheetName = metadata.sheets[0].properties.title;
+                        this.debugLog('指定シートが見つからないため最初のシートを使用', targetSheetName);
+                    } else {
+                        this.debugLog('指定シートが見つかりました', targetSheetName);
+                    }
                     
                     // Google Sheets API v4 を使用してデータを取得
-                    const range = `${firstSheetName}!A:Z`; // 全列を取得
+                    const range = `${targetSheetName}!A:Z`; // 全列を取得
                     const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${range}?key=${this.apiKey}`;
                     
                     this.debugLog('API リクエスト URL', url);
