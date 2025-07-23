@@ -1,4 +1,4 @@
-const GAS_URL = "ここにあなたのGASウェブアプリのURLを貼り付けてください"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwkLAIw5u6q3X_x1La_UG7uoMG5_rvZ79szWhvmGA9K6yCO1_pWOZKAG8mHs7MBk1cR/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
