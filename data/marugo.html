@@ -1261,30 +1261,55 @@
 
                     const startDate = document.getElementById('start-date').value;
                     const endDate = document.getElementById('end-date').value;
+                    const storeName = document.getElementById('store-name').value; // 店舗名を取得
                     
                     let results = this.data.filter(row => {
                         // 修正列に「✏️修正」があるかチェック (J列またはI列に相当)
                         const isCorrectionMarked = row.correction && row.correction.includes('✏️修正');
 
+                        if (!isCorrectionMarked) return false; // 修正マークがない場合は除外
+
                         // 期間指定がある場合の絞り込み
-                        if (isCorrectionMarked && row.date) {
+                        if (row.date) {
                             const rowDate = new Date(row.date);
                             const start = startDate ? new Date(startDate) : null;
                             const end = endDate ? new Date(endDate) : null;
                             
                             if (start && rowDate < start) return false;
                             if (end && rowDate > end) return false;
+                        }
+
+                        // 店舗名による絞り込み
+                        if (storeName) {
+                            // 店舗名が指定されている場合、その店舗が貸主または借主である修正データのみ
+                            return row.lender === storeName || row.borrower === storeName;
+                        } else {
+                            // 店舗名が指定されていない場合、全ての修正データを表示
                             return true;
                         }
-                        return false; // 修正マークがない、または日付がない場合はフィルタ
                     });
 
                     this.searchResults = results;
+                    
+                    // 表示タイトルを店舗名に応じて変更
+                    const displayTitle = storeName ? `${storeName}の修正データ詳細` : '修正データ詳細（全店舗）';
+                    
                     this.log(`修正データ検索完了: ${this.searchResults.length}件の修正取引が見つかりました`, 'success');
-                    this.displayAllDataResults("修正データ詳細"); // 修正データは全データ表示と同じ形式で表示
+                    
+                    // 店舗名が指定されている場合は店舗別表示、指定されていない場合は全データ表示
+                    if (storeName) {
+                        this.displayResults(storeName); // 店舗別検索と同じ形式で表示
+                        // タイトルを修正データ用に変更
+                        document.getElementById('details-title').textContent = displayTitle;
+                    } else {
+                        this.displayAllDataResults(displayTitle); // 全データ表示と同じ形式で表示
+                    }
                     
                     if (results.length === 0) {
-                        this.log('指定された期間内に修正データが見つかりませんでした。', 'info');
+                        const message = storeName 
+                            ? `${storeName}の修正データが指定された期間内に見つかりませんでした。`
+                            : '指定された期間内に修正データが見つかりませんでした。';
+                        this.log(message, 'info');
                     }
                 }
                 catch (error) {
