@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwV3Rerqq183yMAon3LOxgWJp80vhlA8HdcxtQMjxVmDvD2bQI-IxI0UNpCzgXc1Uv8/exec";
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -234,6 +234,11 @@ async function searchReverseTransaction() {
             </div>
             ` : ''}
           </div>
+          <div class="match-actions">
+            <button class="correction-action-btn" id="correction-from-search">
+              ✏️ このデータを修正として送信
+            </button>
+          </div>
         </div>
       `;
     } else {
@@ -246,11 +251,32 @@ async function searchReverseTransaction() {
             📅 ${currentData.date} | ${currentData.borrower} → ${currentData.lender}<br>
             🏷️ ${currentData.category} | 📝 ${currentData.item} | 💵 ¥${parseInt(currentData.amount).toLocaleString('ja-JP')}
           </div>
+          <div class="match-actions">
+            <button class="correction-action-btn" id="correction-from-search-new">
+              ✏️ 新規修正として送信
+            </button>
+          </div>
         </div>
       `;
     }
 
     searchResult.classList.add('show');
+
+    // 修正ボタンのイベントリスナーを追加（一致した場合）
+    const correctionFromSearchBtn = document.getElementById('correction-from-search');
+    if (correctionFromSearchBtn) {
+      correctionFromSearchBtn.addEventListener('click', async () => {
+        await handleCorrectionFromSearch('found');
+      });
+    }
+
+    // 修正ボタンのイベントリスナーを追加（見つからなかった場合）
+    const correctionFromSearchNewBtn = document.getElementById('correction-from-search-new');
+    if (correctionFromSearchNewBtn) {
+      correctionFromSearchNewBtn.addEventListener('click', async () => {
+        await handleCorrectionFromSearch('not_found');
+      });
+    }
 
   } catch (error) {
     console.error('検索エラー:', error);
@@ -267,6 +293,57 @@ async function searchReverseTransaction() {
     searchBtn.disabled = false;
     searchBtn.classList.remove('loading');
     btnText.textContent = originalText;
+  }
+}
+
+// 検索結果からの修正送信処理
+async function handleCorrectionFromSearch(type = 'found') {
+  const categoryInput = document.getElementById('category');
+  
+  // バリデーション
+  if (!categoryInput.value) {
+    alert('カテゴリーを選択してください');
+    return;
+  }
+
+  // 修正確認ダイアログ（タイプに応じてメッセージを変更）
+  let confirmMessage;
+  
+  if (type === 'found') {
+    confirmMessage = `🔍 逆取引データが見つかりました！
+
+現在入力されているデータを修正として送信しますか？
+
+📅 ${document.getElementById("date").value}
+👤 ${document.getElementById("name").value}
+🔄 ${document.getElementById("lender").value} → ${document.getElementById("borrower").value}
+📝 ${document.getElementById("item").value} (${document.getElementById("category").value})
+💵 ¥${parseInt(convertToHalfWidthNumber(document.getElementById("amount").value)).toLocaleString('ja-JP')}
+
+※ 修正フラグ付きでスプレッドシートに送信されます`;
+  } else {
+    confirmMessage = `❓ 逆取引データは見つかりませんでした
+
+それでも現在のデータを修正として送信しますか？
+
+📅 ${document.getElementById("date").value}
+👤 ${document.getElementById("name").value}
+🔄 ${document.getElementById("lender").value} → ${document.getElementById("borrower").value}
+📝 ${document.getElementById("item").value} (${document.getElementById("category").value})
+💵 ¥${parseInt(convertToHalfWidthNumber(document.getElementById("amount").value)).toLocaleString('ja-JP')}
+
+※ 新規修正データとして送信されます`;
+  }
+
+  if (confirm(confirmMessage)) {
+    // 検索結果を非表示にする
+    const searchResult = document.getElementById('search-result');
+    if (searchResult) {
+      searchResult.classList.remove('show');
+    }
+
+    // 修正送信を実行
+    await submitForm(true); // 修正フラグ = true
   }
 }
 
@@ -310,19 +387,12 @@ function initializeElements() {
 
   // フォーム送信処理
   const form = document.getElementById('loanForm');
-  const submitBtn = document.querySelector('.submit-btn:not(.correction-btn)');
-  const correctionBtn = document.querySelector('.correction-btn');
+  const submitBtn = document.querySelector('.submit-btn:not(.search-btn)');
 
   // 通常の送信処理
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     await submitForm(false); // 修正フラグ = false
-  });
-
-  // 修正送信処理
-  correctionBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    await submitForm(true); // 修正フラグ = true
   });
 
   // 逆取引検索処理
@@ -335,8 +405,8 @@ function initializeElements() {
   // 共通の送信処理
   async function submitForm(isCorrection) {
     const statusDisplay = document.getElementById('status-display');
-    const targetBtn = isCorrection ? correctionBtn : submitBtn;
-    const btnText = targetBtn.querySelector('.btn-text');
+    const submitBtn = document.querySelector('.submit-btn:not(.search-btn)');
+    const btnText = submitBtn.querySelector('.btn-text');
     const originalText = btnText.textContent;
 
     // 初期化
@@ -349,16 +419,15 @@ function initializeElements() {
       return;
     }
 
-    // 修正確認
+    // 修正確認（逆取引検索からの修正送信の場合のみ）
     if (isCorrection) {
-      if (!confirm('修正データとして送信します。\nよろしいですか？')) {
-        return;
-      }
+      // この確認は handleCorrectionFromSearch で既に行われているためスキップ
+      console.log('修正データとして送信中...');
     }
 
     // ボタンを無効化
-    targetBtn.disabled = true;
-    targetBtn.classList.add('loading');
+    submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
     btnText.textContent = isCorrection ? '修正送信中...' : '送信中...';
     
     // 状態表示を開始
@@ -442,9 +511,9 @@ function initializeElements() {
       // 成功処理
       setTimeout(() => {
         // ローディング状態終了
-        targetBtn.classList.remove('loading');
+        submitBtn.classList.remove('loading');
         btnText.textContent = originalText;
-        targetBtn.disabled = false;
+        submitBtn.disabled = false;
 
         // 成功メッセージ表示
         const message = document.getElementById('successMessage');
@@ -478,9 +547,9 @@ function initializeElements() {
       }
 
       // エラー処理
-      targetBtn.classList.remove('loading');
+      submitBtn.classList.remove('loading');
       btnText.textContent = originalText;
-      targetBtn.disabled = false;
+      submitBtn.disabled = false;
 
       // エラーメッセージ表示
       const errorMessage = document.getElementById('errorMessage');
