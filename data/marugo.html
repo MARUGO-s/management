@@ -232,23 +232,24 @@
             align-items: end;
         }
 
+        /* ボタン群の配置をPC向けに調整 */
         .button-group {
-            display: flex;
+            display: flex; /* Flexboxを使用 */
+            flex-wrap: wrap; /* 必要に応じて折り返し */
             gap: 15px; /* ボタン間の間隔 */
             align-items: center;
-            flex-wrap: wrap; /* ボタンが複数になった場合のために折り返しを許可 */
-            justify-content: flex-start; /* 左寄せ (PC向け) */
-            width: 100%; /* 親要素いっぱいに広げる */
+            justify-content: flex-start; /* 左寄せ */
+            width: 100%; /* グリッドの全幅を使用 */
             grid-column: 1 / -1; /* グリッドの全幅を使用 */
             margin-top: 10px; /* フォーム要素との間に少し間隔 */
         }
 
-        .sub-buttons { /* 新しい補助ボタンのラッパー */
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: flex-start; /* 左寄せ (PC向け) */
-            /* flex-grow: 1; は不要、ボタンが右に寄るのを防ぐため */
+        .sub-buttons { /* 補助ボタンのラッパー */
+            display: flex; /* Flexboxを使用 */
+            gap: 15px; /* ボタン間の間隔 */
+            flex-wrap: wrap; /* 必要に応じて折り返し */
+            justify-content: flex-start; /* 左寄せ */
+            flex-grow: 1; /* 親の残りのスペースを埋めるように広がる */
         }
 
         .form-group label {
@@ -276,25 +277,25 @@
             border-color: #5a7c5a;
         }
 
+        /* 個別ボタンのスタイルはそのまま */
         .search-btn,
         .all-data-btn,
         .correction-search-btn {
             flex-shrink: 0; /* 縮小しない */
-            /* width: auto; 個別の幅はコンテンツに合わせる */
             min-width: 120px; /* ある程度の最小幅を確保 */
-            padding: 15px 20px; /* パディングを少し調整 */
+            padding: 15px 20px; /* パディングを調整 */
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: transform 0.2s ease;
+            height: fit-content;
         }
 
         .search-btn {
             background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
             color: white;
             border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-            height: fit-content;
         }
 
         .search-btn:hover {
@@ -305,29 +306,16 @@
             background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
             color: white;
             border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-            height: fit-content;
         }
 
         .all-data-btn:hover {
             transform: translateY(-2px);
         }
         
-        /* 修正データ検索ボタンのスタイル */
         .correction-search-btn {
             background: linear-gradient(135deg, #a67f3f 0%, #8a6a2a 100%); /* 少し異なる色で強調 */
             color: white;
             border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-            height: fit-content;
         }
         .correction-search-btn:hover {
             transform: translateY(-2px);
@@ -605,11 +593,13 @@
             .button-group {
                 flex-direction: column; /* モバイルでは縦並び */
                 gap: 10px;
+                justify-content: center; /* 中央寄せ */
             }
 
             .sub-buttons { /* モバイルでは補助ボタンも縦並び */
                 flex-direction: column;
                 width: 100%; /* 親要素いっぱいに広げる */
+                justify-content: center; /* 中央寄せ */
             }
 
             .search-btn,
@@ -687,10 +677,10 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <div class="button-group">
+                <div class="form-group" style="grid-column: 1 / -1; margin-top: 0;"> <div class="button-group">
                         <button type="submit" class="search-btn">🔍 検索実行</button>
-                        <div class="sub-buttons"> <button type="button" class="all-data-btn" id="all-data-btn">📋 全データを表示</button>
+                        <div class="sub-buttons">
+                            <button type="button" class="all-data-btn" id="all-data-btn">📋 全データを表示</button>
                             <button type="button" class="correction-search-btn" id="correction-search-btn">✏️ 修正データ検索</button>
                         </div>
                     </div>
@@ -848,7 +838,8 @@
                 console.log('入力パスワード:', password);
                 
                 // パスワードをSHA-256でハッシュ化
-                const passwordHash = await this.hashPassword(password);
+                const passwordHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
+                    .then(hashBuffer => Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join(''));
                 console.log('パスワードハッシュ:', passwordHash);
                 console.log('設定済みハッシュ:', this.correctPasswords);
 
@@ -884,7 +875,7 @@
                 await this.init();
             }
 
-            async hashPassword(password) {
+            async hashPassword(password) { // 冗長な定義を削除
                 const encoder = new TextEncoder();
                 const data = encoder.encode(password);
                 const hash = await crypto.subtle.digest('SHA-256', data);
@@ -1679,7 +1670,7 @@
                     return;
                 }
 
-                // userAgentを含むマッピング (スプレッドシートから読み取ったままの形式)
+                // userAgentも含むマッピング (スプレッドシートから読み取ったままの形式)
                 const csvData = Papa.unparse(this.searchResults.map(row => ({
                     日付: row.date,
                     取引名: row.name,
