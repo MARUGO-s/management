@@ -295,6 +295,24 @@
         .all-data-btn:hover {
             transform: translateY(-2px);
         }
+        
+        /* 修正データ検索ボタンのスタイル */
+        .correction-search-btn {
+            background: linear-gradient(135deg, #a67f3f 0%, #8a6a2a 100%); /* 少し異なる色で強調 */
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            height: fit-content;
+        }
+        .correction-search-btn:hover {
+            transform: translateY(-2px);
+        }
+
 
         .results-section {
             display: none;
@@ -478,6 +496,11 @@
             color: #8a5a5a;
         }
 
+        .type-貸借 { /* 全データ表示時の「貸借」タグ用 */
+            background: #e0f2f7;
+            color: #007bff;
+        }
+
         .no-results {
             text-align: center;
             padding: 50px;
@@ -564,7 +587,8 @@
             }
 
             .search-btn,
-            .all-data-btn {
+            .all-data-btn,
+            .correction-search-btn { /* 新しいボタンもレスポンシブ対応 */
                 width: 100%;
             }
         }
@@ -633,8 +657,7 @@
 
                 <div class="form-group">
                     <label for="store-name">店舗名</label>
-                    <select id="store-name" name="storeName" required>
-                        <option value="">店舗を選択してください</option>
+                    <select id="store-name" name="storeName"> <option value="">店舗を選択してください（任意）</option>
                     </select>
                 </div>
 
@@ -642,7 +665,7 @@
                     <div class="button-group">
                         <button type="submit" class="search-btn">🔍 検索実行</button>
                         <button type="button" class="all-data-btn" id="all-data-btn">📋 全データを表示</button>
-                    </div>
+                        <button type="button" class="correction-search-btn" id="correction-search-btn">✏️ 修正データ検索</button> </div>
                 </div>
             </form>
         </div>
@@ -751,7 +774,7 @@
                 this.searchResults = []; // 検索結果データ
                 this.statusDiv = document.getElementById('status-info');
                 this.stores = new Set();
-                // ★あなたのAPIキーを貼り付けてください
+                // ここにあなたのAPIキーを貼り付けてください
                 this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE'; // ダミーのキー
                 this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'; // ダミーのID
                 this.sheetName = '貸借表'; // シート名
@@ -935,7 +958,7 @@
                     this.debugLog('対象シートが見つかりました', targetSheetName);
                     
                     // Google Sheets API v4 を使用してデータを取得
-                    const range = `${targetSheetName}!A:J`; // A列からJ列までを取得 (User-AgentはI列、修正はJ列)
+                    const range = `${targetSheetName}!A:J`; // A列からJ列までを取得 (User-Agentが削除されたのでJ列までで良い)
                     const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${range}?key=${this.apiKey}`;
                     
                     this.debugLog('API リクエスト URL', url);
@@ -1017,7 +1040,7 @@
                 const amountIndex = getColumnIndex(['金額', 'amount']); // G列
                 const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']); // H列
                 // const userAgentIndex = getColumnIndex(['DEVICE', 'device']); // I列 - 今回は削除
-                const correctionIndex = getColumnIndex(['修正', 'correction']); // J列
+                const correctionIndex = getColumnIndex(['修正', 'correction']); // J列（User-Agent削除により繰り上がり、シートではI列に相当する可能性あり）
 
                 this.debugLog('フィールドインデックス', {
                     dateIndex, nameIndex, lenderIndex, borrowerIndex, 
@@ -1179,6 +1202,7 @@
                 const searchForm = document.getElementById('search-form');
                 const exportBtn = document.getElementById('export-btn');
                 const allDataBtn = document.getElementById('all-data-btn');
+                const correctionSearchBtn = document.getElementById('correction-search-btn'); // 新しいボタン
 
                 searchForm.addEventListener('submit', (e) => {
                     e.preventDefault();
@@ -1187,6 +1211,10 @@
 
                 allDataBtn.addEventListener('click', () => {
                     this.showAllData();
+                });
+
+                correctionSearchBtn.addEventListener('click', () => { // 新しいボタンのイベントリスナー
+                    this.searchCorrections();
                 });
 
                 exportBtn.addEventListener('click', () => {
@@ -1202,7 +1230,7 @@
                 document.getElementById('end-date').value = today.toISOString().split('T')[0];
             }
 
-            // ★修正検索機能（修正済み）
+            // ★修正データのみを検索する機能
             searchCorrections() {
                 this.log('修正データを検索中...', 'loading');
                 
@@ -1212,12 +1240,11 @@
                         return;
                     }
 
-                    // 期間フィルタの取得（もしあれば）
                     const startDate = document.getElementById('start-date').value;
                     const endDate = document.getElementById('end-date').value;
                     
                     let results = this.data.filter(row => {
-                        // 修正列に「✏️修正」があるかチェック (J列を想定)
+                        // 修正列に「✏️修正」があるかチェック (J列またはI列に相当)
                         const isCorrectionMarked = row.correction && row.correction.includes('✏️修正');
 
                         // 期間指定がある場合の絞り込み
@@ -1235,7 +1262,7 @@
 
                     this.searchResults = results;
                     this.log(`修正データ検索完了: ${this.searchResults.length}件の修正取引が見つかりました`, 'success');
-                    this.displayAllDataResults(); // 修正データは全データ表示と同じ形式で表示
+                    this.displayAllDataResults("修正データ詳細"); // 修正データは全データ表示と同じ形式で表示
                     
                     if (results.length === 0) {
                         this.log('指定された期間内に修正データが見つかりませんでした。', 'info');
@@ -1248,13 +1275,13 @@
 
 
             // ★店舗別検索機能（修正済み）
-            performSearch() { // メソッドとして定義
+            performSearch() { 
                 const startDate = document.getElementById('start-date').value;
                 const endDate = document.getElementById('end-date').value;
                 const storeName = document.getElementById('store-name').value;
 
                 if (!startDate || !endDate || !storeName) {
-                    this.log('すべての検索条件を入力してください', 'error');
+                    this.log('開始日、終了日、店舗名をすべて入力してください', 'error'); // メッセージを明確化
                     return;
                 }
                 
@@ -1276,7 +1303,7 @@
                 this.searchResults = [...this.data]; // 全データをコピー
 
                 this.log(`全データ表示: ${this.searchResults.length}件の取引を表示中`, 'success');
-                this.displayAllDataResults();
+                this.displayAllDataResults("全取引詳細");
             }
 
             displayResults(storeName) {
@@ -1298,13 +1325,13 @@
                 });
             }
 
-            displayAllDataResults() {
+            displayAllDataResults(titleText = "全取引詳細") { // タイトルを引数で受け取る
                 const resultsSection = document.getElementById('results-section');
                 resultsSection.style.display = 'block';
 
                 // ヘッダーとサブタイトルを更新
-                document.getElementById('details-title').textContent = '全取引詳細';
-                document.getElementById('details-subtitle').textContent = '全期間・全店舗の取引データ（各列をクリックでソート）';
+                document.getElementById('details-title').textContent = titleText;
+                document.getElementById('details-subtitle').textContent = '期間内の取引データ（各列をクリックでソート）'; // 全データ表示でもこのサブタイトルを使う
 
                 this.updateAllDataSummaryCards();
                 this.updateDetailsTable(true); // 全データ表示モード
@@ -1573,8 +1600,6 @@
                 }
 
                 detailsTable.innerHTML = this.searchResults.map(row => {
-                    // I列 (9番目の要素) がUser-Agentとして使われていたが、削除されたため、修正マークはJ列 (10番目の要素) からI列 (9番目の要素) に繰り上がる
-                    // row.correction が J列から取得されることを想定
                     const correctionDisplay = row.correction || ''; 
 
                     if (isAllData) {
