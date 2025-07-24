@@ -754,7 +754,7 @@
                 this.statusDiv = document.getElementById('status-info');
                 this.stores = new Set();
                 // ここにあなたのAPIキーを貼り付けてください
-                this.apiKey = 'AIzaSyC0Y8UrvMXrQ3YdfP4Hc6Jm2XR7i0_-42U';
+                this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE';
                 this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY';
                 this.sheetName = '貸借表';
                 
@@ -1202,7 +1202,53 @@
                 document.getElementById('end-date').value = today.toISOString().split('T')[0];
             }
 
-            performSearch() {
+            searchCorrections() {
+                this.loading = true;
+                this.errorMessage = '';
+                
+                try {
+                    // データが読み込まれていない場合は先に読み込む
+                    if (!this.allData || this.allData.length === 0) {
+                        this.errorMessage = 'データを先に読み込んでください。「📊 全データ表示」をクリックしてください。';
+                        this.loading = false;
+                        return;
+                    }
+
+                    // 修正データのみをフィルタリング
+                    let results = this.allData.filter(row => {
+                        // 修正列（I列）に「✏️修正」があるかチェック
+                        return row.correction && row.correction.includes('✏️修正');
+                    });
+
+                    // 期間指定がある場合の絞り込み
+                    if (this.startDate || this.endDate) {
+                        results = results.filter(row => {
+                            if (!row.date) return false;
+                            
+                            const rowDate = new Date(row.date);
+                            const start = this.startDate ? new Date(this.startDate) : null;
+                            const end = this.endDate ? new Date(this.endDate) : null;
+                            
+                            if (start && rowDate < start) return false;
+                            if (end && rowDate > end) return false;
+                            return true;
+                        });
+                    }
+
+                    this.searchResults = results;
+                    this.updateTable();
+                    this.updateSummary();
+                    
+                    if (results.length === 0) {
+                        this.errorMessage = '指定された期間内に修正データが見つかりませんでした。';
+                    }
+                } catch (error) {
+                    console.error('修正検索エラー:', error);
+                    this.errorMessage = '修正データの検索中にエラーが発生しました。';
+                } finally {
+                    this.loading = false;
+                }
+            },
                 const startDate = document.getElementById('start-date').value;
                 const endDate = document.getElementById('end-date').value;
                 const storeName = document.getElementById('store-name').value;
