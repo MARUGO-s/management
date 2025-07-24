@@ -237,16 +237,18 @@
             gap: 15px; /* ボタン間の間隔 */
             align-items: center;
             flex-wrap: wrap; /* ボタンが複数になった場合のために折り返しを許可 */
-            justify-content: center; /* 中央寄せ */
+            justify-content: flex-start; /* 左寄せ (PC向け) */
             width: 100%; /* 親要素いっぱいに広げる */
+            grid-column: 1 / -1; /* グリッドの全幅を使用 */
+            margin-top: 10px; /* フォーム要素との間に少し間隔 */
         }
 
         .sub-buttons { /* 新しい補助ボタンのラッパー */
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
-            justify-content: center;
-            flex-grow: 1; /* 親の残りのスペースを埋めるように広がる */
+            justify-content: flex-start; /* 左寄せ (PC向け) */
+            /* flex-grow: 1; は不要、ボタンが右に寄るのを防ぐため */
         }
 
         .form-group label {
@@ -266,6 +268,7 @@
             font-size: 16px;
             outline: none;
             transition: border-color 0.3s ease;
+            width: 100%; /* フォーム要素が幅いっぱいに広がるように */
         }
 
         .form-group input:focus,
@@ -273,11 +276,19 @@
             border-color: #5a7c5a;
         }
 
+        .search-btn,
+        .all-data-btn,
+        .correction-search-btn {
+            flex-shrink: 0; /* 縮小しない */
+            /* width: auto; 個別の幅はコンテンツに合わせる */
+            min-width: 120px; /* ある程度の最小幅を確保 */
+            padding: 15px 20px; /* パディングを少し調整 */
+        }
+
         .search-btn {
             background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
             color: white;
             border: none;
-            padding: 15px 30px;
             border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
@@ -294,7 +305,6 @@
             background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
             color: white;
             border: none;
-            padding: 15px 30px;
             border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
@@ -312,7 +322,6 @@
             background: linear-gradient(135deg, #a67f3f 0%, #8a6a2a 100%); /* 少し異なる色で強調 */
             color: white;
             border: none;
-            padding: 15px 30px;
             border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
@@ -557,6 +566,7 @@
             transform: translateY(-2px);
         }
 
+        /* モバイル対応 */
         @media (max-width: 768px) {
             .search-form {
                 grid-template-columns: 1fr;
@@ -1285,7 +1295,8 @@
                     if (results.length === 0) {
                         this.log('指定された期間内に修正データが見つかりませんでした。', 'info');
                     }
-                } catch (error) {
+                }
+                catch (error) {
                     console.error('修正検索エラー:', error);
                     this.log('修正データの検索中にエラーが発生しました。', 'error');
                 }
@@ -1668,7 +1679,7 @@
                     return;
                 }
 
-                // userAgentも含むマッピング (スプレッドシートから読み取ったままの形式)
+                // userAgentを含むマッピング (スプレッドシートから読み取ったままの形式)
                 const csvData = Papa.unparse(this.searchResults.map(row => ({
                     日付: row.date,
                     取引名: row.name,
