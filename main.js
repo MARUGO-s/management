@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwWNRvOcYwoHhuNJjlaIrMUPkKZlb-fHQcKV_fSlK4gBPYgOCNofL7qnt-gpXx3A6HL/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwF_x5czMejcm3DnJ72eewfpIWePNYobBwHhS74I1zvLnMKrBXrSeBGe8b3d1koLsWU/exec"; // 例: https://script.google.com/macros/s/AKfycbw........................../exec
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -103,9 +103,7 @@ function initializeElements() {
       const amountRaw = document.getElementById("amount").value;
       const normalizedAmount = amountRaw.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
 
-      // ★User-Agentの取得ロジックは削除します。
-      // dataオブジェクトには userAgent プロパティを含めないか、または任意の固定値を設定します。
-      // 今回はGAS側でI列がなくなっているので、ここではデータから削除します。
+      // userAgentはデータに含めません
 
       const data = {
         date: document.getElementById("date").value,
@@ -117,7 +115,7 @@ function initializeElements() {
         amount: normalizedAmount,
         displayName: "",
         userId: "",
-        // userAgent: navigator.userAgent, // ★この行を削除またはコメントアウト
+        // userAgent: navigator.userAgent, // ★この行を削除
         isCorrection: isCorrection
       };
 
