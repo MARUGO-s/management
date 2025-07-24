@@ -234,9 +234,19 @@
 
         .button-group {
             display: flex;
-            gap: 15px;
+            gap: 15px; /* ボタン間の間隔 */
             align-items: center;
             flex-wrap: wrap; /* ボタンが複数になった場合のために折り返しを許可 */
+            justify-content: center; /* 中央寄せ */
+            width: 100%; /* 親要素いっぱいに広げる */
+        }
+
+        .sub-buttons { /* 新しい補助ボタンのラッパー */
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            flex-grow: 1; /* 親の残りのスペースを埋めるように広がる */
         }
 
         .form-group label {
@@ -583,14 +593,19 @@
             }
 
             .button-group {
-                flex-direction: column;
+                flex-direction: column; /* モバイルでは縦並び */
                 gap: 10px;
+            }
+
+            .sub-buttons { /* モバイルでは補助ボタンも縦並び */
+                flex-direction: column;
+                width: 100%; /* 親要素いっぱいに広げる */
             }
 
             .search-btn,
             .all-data-btn,
-            .correction-search-btn { /* 新しいボタンもレスポンシブ対応 */
-                width: 100%;
+            .correction-search-btn {
+                width: 100%; /* 幅を100%に */
             }
         }
     </style>
@@ -665,8 +680,10 @@
                 <div class="form-group">
                     <div class="button-group">
                         <button type="submit" class="search-btn">🔍 検索実行</button>
-                        <button type="button" class="all-data-btn" id="all-data-btn">📋 全データを表示</button>
-                        <button type="button" class="correction-search-btn" id="correction-search-btn">✏️ 修正データ検索</button> </div>
+                        <div class="sub-buttons"> <button type="button" class="all-data-btn" id="all-data-btn">📋 全データを表示</button>
+                            <button type="button" class="correction-search-btn" id="correction-search-btn">✏️ 修正データ検索</button>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1040,7 +1057,7 @@
                 const itemIndex = getColumnIndex(['品目', 'item']); // F列
                 const amountIndex = getColumnIndex(['金額', 'amount']); // G列
                 const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']); // H列
-                const userAgentIndex = getColumnIndex(['DEVICE', 'device']); // I列 (今回は使用しないが取得はする)
+                const userAgentIndex = getColumnIndex(['DEVICE', 'device']); // I列 
                 const correctionIndex = getColumnIndex(['修正', 'correction']); // J列
 
                 this.debugLog('フィールドインデックス', {
@@ -1281,8 +1298,8 @@
                 const endDate = document.getElementById('end-date').value;
                 const storeName = document.getElementById('store-name').value;
 
-                if (!startDate || !endDate || !storeName) {
-                    this.log('開始日、終了日、店舗名をすべて入力してください', 'error'); // メッセージを明確化
+                if (!startDate || !endDate) { // 店舗名は任意になったので必須チェックから外す
+                    this.log('開始日と終了日を両方入力してください', 'error'); // メッセージを明確化
                     return;
                 }
                 
@@ -1290,12 +1307,13 @@
 
                 this.searchResults = this.data.filter(row => {
                     const dateMatch = row.date >= startDate && row.date <= endDate;
-                    const storeMatch = row.lender === storeName || row.borrower === storeName;
+                    // 店舗名が選択されている場合のみ店舗で絞り込み
+                    const storeMatch = storeName ? (row.lender === storeName || row.borrower === storeName) : true; 
                     return dateMatch && storeMatch;
                 });
 
                 this.log(`検索完了: ${this.searchResults.length}件の取引が見つかりました`, 'success');
-                this.displayResults(storeName);
+                this.displayResults(storeName || "全店舗"); // 店舗名がない場合は「全店舗」と表示
             }
 
             showAllData() {
@@ -1650,7 +1668,7 @@
                     return;
                 }
 
-                // userAgentを削除した新しいマッピング
+                // userAgentも含むマッピング (スプレッドシートから読み取ったままの形式)
                 const csvData = Papa.unparse(this.searchResults.map(row => ({
                     日付: row.date,
                     取引名: row.name,
@@ -1660,6 +1678,7 @@
                     品目: row.item,
                     金額: row.amount,
                     入力日時: row.inputDate,
+                    DEVICE: row.userAgent, // userAgentを含める
                     修正: row.correction || ''
                 })));
 
