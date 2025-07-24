@@ -236,6 +236,7 @@
             display: flex;
             gap: 15px;
             align-items: center;
+            flex-wrap: wrap; /* ボタンが複数になった場合のために折り返しを許可 */
         }
 
         .form-group label {
@@ -958,7 +959,7 @@
                     this.debugLog('対象シートが見つかりました', targetSheetName);
                     
                     // Google Sheets API v4 を使用してデータを取得
-                    const range = `${targetSheetName}!A:J`; // A列からJ列までを取得 (User-Agentが削除されたのでJ列までで良い)
+                    const range = `${targetSheetName}!A:J`; // A列からJ列までを取得
                     const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${range}?key=${this.apiKey}`;
                     
                     this.debugLog('API リクエスト URL', url);
@@ -1039,12 +1040,12 @@
                 const itemIndex = getColumnIndex(['品目', 'item']); // F列
                 const amountIndex = getColumnIndex(['金額', 'amount']); // G列
                 const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']); // H列
-                // const userAgentIndex = getColumnIndex(['DEVICE', 'device']); // I列 - 今回は削除
-                const correctionIndex = getColumnIndex(['修正', 'correction']); // J列（User-Agent削除により繰り上がり、シートではI列に相当する可能性あり）
+                const userAgentIndex = getColumnIndex(['DEVICE', 'device']); // I列 (今回は使用しないが取得はする)
+                const correctionIndex = getColumnIndex(['修正', 'correction']); // J列
 
                 this.debugLog('フィールドインデックス', {
                     dateIndex, nameIndex, lenderIndex, borrowerIndex, 
-                    categoryIndex, itemIndex, amountIndex, inputDateIndex, correctionIndex
+                    categoryIndex, itemIndex, amountIndex, inputDateIndex, userAgentIndex, correctionIndex
                 });
 
                 // データ行を処理（ヘッダーをスキップ）
@@ -1068,7 +1069,7 @@
                         amount: this.parseAmount(getValue(amountIndex)),
                         originalAmount: getValue(amountIndex),
                         inputDate: getValue(inputDateIndex),
-                        // userAgent: getValue(userAgentIndex), // userAgentは削除
+                        userAgent: getValue(userAgentIndex), // userAgentも取得
                         correction: getValue(correctionIndex) // 修正フラグを追加
                     };
 
