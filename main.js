@@ -320,7 +320,9 @@ async function handleCorrectionFromSearch(type = 'found') {
 📝 ${document.getElementById("item").value} (${document.getElementById("category").value})
 💵 ¥${parseInt(convertToHalfWidthNumber(document.getElementById("amount").value)).toLocaleString('ja-JP')}
 
-※ 修正フラグ付きでスプレッドシートに送信されます`;
+🔥 修正フラグ: ✏️修正 が自動的に付与されます
+※ 修正データとしてスプレッドシートに送信されます
+※ 元のデータはそのまま保持されます`;
   } else {
     confirmMessage = `❓ 逆取引データは見つかりませんでした
 
@@ -332,6 +334,7 @@ async function handleCorrectionFromSearch(type = 'found') {
 📝 ${document.getElementById("item").value} (${document.getElementById("category").value})
 💵 ¥${parseInt(convertToHalfWidthNumber(document.getElementById("amount").value)).toLocaleString('ja-JP')}
 
+🔥 修正フラグ: ✏️修正 が自動的に付与されます
 ※ 新規修正データとして送信されます`;
   }
 
@@ -342,8 +345,192 @@ async function handleCorrectionFromSearch(type = 'found') {
       searchResult.classList.remove('show');
     }
 
-    // 修正送信を実行
-    await submitForm(true); // 修正フラグ = true
+    // 修正送信を実行（修正専用の送信）
+    await submitCorrectionForm();
+  }
+}
+
+// 修正専用の送信処理
+async function submitCorrectionForm() {
+  const statusDisplay = document.getElementById('status-display');
+  const submitBtn = document.querySelector('.submit-btn:not(.search-btn)');
+  const btnText = submitBtn.querySelector('.btn-text');
+  const originalText = btnText.textContent;
+  const categoryInput = document.getElementById('category');
+  const categoryOptions = document.querySelectorAll('.category-option');
+  const form = document.getElementById('loanForm');
+
+  // 初期化
+  hideMessages();
+  resetSteps();
+
+  // ボタンを無効化
+  submitBtn.disabled = true;
+  submitBtn.classList.add('loading');
+  btnText.textContent = '修正送信中...';
+  
+  // 状態表示を開始
+  if (statusDisplay) {
+    statusDisplay.classList.add('show');
+  }
+
+  try {
+    // Step 1: データ検証
+    if (statusDisplay) {
+      await showStep('step-validation', '📋 修正データを検証中...');
+      await delay(600);
+    }
+
+    // 修正データの準備（修正フラグを必ず含める）
+    const data = {
+      date: document.getElementById("date").value,
+      name: document.getElementById("name").value,
+      lender: document.getElementById("lender").value,
+      borrower: document.getElementById("borrower").value,
+      category: document.getElementById("category").value,
+      item: document.getElementById("item").value,
+      amount: convertToHalfWidthNumber(document.getElementById("amount").value),
+      isCorrection: true,        // 🔥 修正フラグを必ず true に設定
+      userAgent: navigator.userAgent,
+      correctionOnly: true,      // 修正専用送信であることを示すフラグ
+      correctionMark: "✏️修正",  // 修正マークも明示的に設定
+      sendType: "CORRECTION"     // 送信タイプを明示
+    };
+
+    // バリデーション
+    if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.amount) {
+      throw new Error('すべての必須項目を入力してください。');
+    }
+
+    if (data.lender === data.borrower) {
+      throw new Error('貸主と借主は異なる店舗を選択してください。');
+    }
+
+    const amountNumber = parseInt(data.amount);
+    if (isNaN(amountNumber) || amountNumber <= 0) {
+      throw new Error('正しい金額を入力してください。');
+    }
+
+    // 🔥 修正フラグの確認（必須チェック）
+    if (data.isCorrection !== true) {
+      throw new Error('修正フラグが正しく設定されていません。');
+    }
+
+    if (!data.correctionMark || data.correctionMark !== "✏️修正") {
+      throw new Error('修正マークが正しく設定されていません。');
+    }
+
+    // デバッグ用：修正送信データを詳細確認
+    console.log('=== 🔥 修正専用送信データ（詳細） ===');
+    console.log('📍 送信タイプ:', data.sendType);
+    console.log('📍 修正フラグ (isCorrection):', data.isCorrection);
+    console.log('📍 修正専用フラグ (correctionOnly):', data.correctionOnly);
+    console.log('📍 修正マーク (correctionMark):', data.correctionMark);
+    console.log('📍 全送信データ:', data);
+    console.log('🔥🔥🔥 修正データのみを送信中！ 🔥🔥🔥');
+    
+    // 修正フラグが確実に設定されていることを再確認
+    if (data.isCorrection === true && data.correctionOnly === true && data.correctionMark === "✏️修正") {
+      console.log('✅ 修正フラグの確認完了 - 送信準備OK');
+    } else {
+      console.error('❌ 修正フラグの確認失敗');
+      throw new Error('修正フラグの設定に問題があります。');
+    }
+
+    if (statusDisplay) {
+      completeStep('step-validation', '✅ 修正データ検証完了');
+
+      // Step 2: 送信開始
+      await showStep('step-sending', '📤 修正データを送信中...');
+      await delay(400);
+    }
+
+    // Google Apps Scriptに修正データを送信
+    const response = await fetch(GAS_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (statusDisplay) {
+      completeStep('step-sending', '✅ 修正データ送信完了');
+
+      // Step 3: データ挿入
+      await showStep('step-inserting', '💾 修正データを挿入中...');
+      await delay(800);
+      completeStep('step-inserting', '✅ 修正データ挿入完了');
+
+      // Step 4: バックアップ作成
+      await showStep('step-backup', '🔄 バックアップを作成中...');
+      await delay(1000);
+      completeStep('step-backup', '✅ バックアップ作成完了');
+
+      // Step 5: 完了
+      await showStep('step-complete', '🎉 修正送信が完了しました！');
+      completeStep('step-complete', '🎉 修正送信完了！');
+    }
+
+    // 成功処理
+    setTimeout(() => {
+      // ローディング状態終了
+      submitBtn.classList.remove('loading');
+      btnText.textContent = originalText;
+      submitBtn.disabled = false;
+
+      // 成功メッセージ表示
+      const message = document.getElementById('successMessage');
+      message.textContent = '✅ 修正データの送信が完了しました！';
+      message.classList.add('show');
+      setTimeout(() => {
+        message.classList.remove('show');
+      }, 3000);
+
+      // フォームリセット
+      form.reset();
+      categoryOptions.forEach(opt => opt.classList.remove('selected'));
+      document.getElementById('date').valueAsDate = new Date();
+      
+      if (statusDisplay) {
+        statusDisplay.classList.remove('show');
+      }
+    }, statusDisplay ? 500 : 1000);
+
+  } catch (error) {
+    console.error('修正送信エラー:', error);
+    
+    // エラー状態を表示
+    if (statusDisplay) {
+      const activeStep = document.querySelector('.status-step.active');
+      if (activeStep) {
+        activeStep.classList.remove('active');
+        activeStep.classList.add('error');
+        activeStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
+      }
+    }
+
+    // エラー処理
+    submitBtn.classList.remove('loading');
+    btnText.textContent = originalText;
+    submitBtn.disabled = false;
+
+    // エラーメッセージ表示
+    const errorMessage = document.getElementById('errorMessage');
+    if (errorMessage) {
+      errorMessage.textContent = `❌ 修正送信エラー: ${error.message}`;
+      errorMessage.classList.add('show');
+      
+      setTimeout(() => {
+        errorMessage.classList.remove('show');
+        if (statusDisplay) {
+          statusDisplay.classList.remove('show');
+        }
+      }, 5000);
+    } else {
+      alert(`修正送信エラー: ${error.message}`);
+    }
   }
 }
 
