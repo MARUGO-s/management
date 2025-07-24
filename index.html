@@ -154,6 +154,13 @@
       transform: translateY(-1px);
     }
 
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
     .submit-btn {
       width: 100%;
       padding: 18px 24px;
@@ -167,16 +174,25 @@
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
-      margin-top: 20px;
     }
 
-    .submit-btn:hover {
+    .correction-btn {
+      background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
+    }
+
+    .submit-btn:hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 10px 25px rgba(74, 85, 104, 0.4);
     }
 
     .submit-btn:active {
       transform: translateY(0);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
     }
 
     .submit-btn::before {
@@ -272,6 +288,101 @@
       transform: translateX(0);
     }
 
+    .error-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #f56565, #e53e3e);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(245, 101, 101, 0.3);
+      transform: translateX(400px);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      font-weight: 600;
+    }
+
+    .error-message.show {
+      transform: translateX(0);
+    }
+
+    /* 状態表示エリア */
+    .status-display {
+      margin: 20px 0;
+      padding: 20px;
+      border-radius: 16px;
+      background: rgba(74, 85, 104, 0.05);
+      border: 2px solid rgba(74, 85, 104, 0.1);
+      display: none;
+      text-align: center;
+    }
+
+    .status-display.show {
+      display: block;
+      animation: statusSlideIn 0.4s ease-out;
+    }
+
+    @keyframes statusSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .status-step {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 12px 0;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0.3;
+      transition: all 0.4s ease;
+      color: #4a5568;
+    }
+
+    .status-step.active {
+      opacity: 1;
+      color: #4a5568;
+      transform: scale(1.05);
+    }
+
+    .status-step.completed {
+      opacity: 1;
+      color: #38a169;
+    }
+
+    .status-step.error {
+      opacity: 1;
+      color: #e53e3e;
+    }
+
+    .status-icon {
+      margin-right: 8px;
+      font-size: 16px;
+    }
+
+    .mini-loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(74, 85, 104, 0.2);
+      border-top: 2px solid #4a5568;
+      border-radius: 50%;
+      animation: miniSpin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes miniSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
     @media (max-width: 640px) {
       .container {
         padding: 30px 20px;
@@ -285,6 +396,18 @@
 
       .category-grid {
         grid-template-columns: 1fr;
+      }
+
+      .success-message, .error-message {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+        left: 20px;
+        transform: translateY(100px);
+      }
+
+      .success-message.show, .error-message.show {
+        transform: translateY(0);
       }
     }
 
@@ -365,12 +488,16 @@
 
       <div class="form-group">
         <label for="lender">📤 貸主</label>
-        <select id="lender" required></select>
+        <select id="lender" required>
+          <option value="">選択してください</option>
+        </select>
       </div>
 
       <div class="form-group">
         <label for="borrower">📥 借主</label>
-        <select id="borrower" required></select>
+        <select id="borrower" required>
+          <option value="">選択してください</option>
+        </select>
       </div>
 
       <div class="form-group">
@@ -391,7 +518,31 @@
       <div class="form-group">
         <label for="amount">💵 金額</label>
         <div class="amount-input">
-          <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric">
+          <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric" placeholder="金額を入力">
+        </div>
+      </div>
+
+      <!-- 状態表示エリア -->
+      <div class="status-display" id="status-display">
+        <div class="status-step" id="step-validation">
+          <span class="status-icon">📋</span>
+          <span>データを検証中...</span>
+        </div>
+        <div class="status-step" id="step-sending">
+          <span class="status-icon">📤</span>
+          <span>スプレッドシートに送信中...</span>
+        </div>
+        <div class="status-step" id="step-inserting">
+          <span class="status-icon">💾</span>
+          <span>データを挿入中...</span>
+        </div>
+        <div class="status-step" id="step-backup">
+          <span class="status-icon">🔄</span>
+          <span>バックアップを作成中...</span>
+        </div>
+        <div class="status-step" id="step-complete">
+          <span class="status-icon">✅</span>
+          <span>送信完了！</span>
         </div>
       </div>
 
@@ -413,6 +564,10 @@
 
   <div class="success-message" id="successMessage">
     ✅ 送信完了しました！
+  </div>
+
+  <div class="error-message" id="errorMessage">
+    ❌ 送信に失敗しました
   </div>
 
   <script src="main.js"></script>
