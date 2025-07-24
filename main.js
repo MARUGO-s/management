@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxqGk9aEJIKUdS63uYz_3sx9zx-tkJGq7Q_f_Lv_8cXLyoXEkLZ98hQgXTakXB0lFh-/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxv3Ssyc4VTniJCVCNOuFHJrYN8OYYUkKiI7N573IjqHP9RvtIkQzPTtBdx9JRlS5C8/exec";
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -81,9 +81,7 @@ function initializeElements() {
 
     // 修正確認
     if (isCorrection) {
-      const confirmMessage = '修正データとして送信します。\n' +
-                           'よろしいですか？';
-      if (!confirm(confirmMessage)) {
+      if (!confirm('修正データとして送信します。\nよろしいですか？')) {
         return;
       }
     }
@@ -98,10 +96,6 @@ function initializeElements() {
     targetBtn.disabled = true;
 
     try {
-      // 金額の正規化（全角数字を半角に変換）
-      const amountRaw = document.getElementById("amount").value;
-      const normalizedAmount = amountRaw.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
-
       const data = {
         date: document.getElementById("date").value,
         name: document.getElementById("name").value,
@@ -109,17 +103,11 @@ function initializeElements() {
         borrower: document.getElementById("borrower").value,
         category: document.getElementById("category").value,
         item: document.getElementById("item").value,
-        amount: normalizedAmount,
-        isCorrection: isCorrection // 修正フラグを追加
+        amount: document.getElementById("amount").value,
+        isCorrection: isCorrection
       };
 
       // Google Apps Scriptに送信
-      console.log('=== 送信開始 ===');
-      console.log('GAS URL:', GAS_URL);
-      console.log('送信データ:', data);
-      console.log('修正フラグ:', isCorrection);
-      console.log('データJSON:', JSON.stringify(data));
-      
       const response = await fetch(GAS_URL, {
         method: "POST",
         mode: "no-cors",
@@ -128,11 +116,6 @@ function initializeElements() {
         },
         body: JSON.stringify(data)
       });
-
-      console.log('レスポンス受信:', response);
-      console.log('レスポンスステータス:', response.status);
-      console.log('レスポンスタイプ:', response.type);
-      console.log('送信完了');
 
       // 成功処理
       setTimeout(() => {
@@ -157,20 +140,13 @@ function initializeElements() {
 
     } catch (error) {
       console.error('送信エラー:', error);
-
+      
       // エラー処理
       targetBtn.classList.remove('loading');
       btnText.textContent = originalText;
       targetBtn.disabled = false;
 
-      // エラーメッセージの表示
-      let errorMessage = '送信に失敗しました。再度お試しください。';
-      
-      if (error.message && error.message.includes('network')) {
-        errorMessage = 'ネットワークエラーが発生しました。\nインターネット接続を確認してください。';
-      }
-      
-      alert(errorMessage);
+      alert('送信に失敗しました。再度お試しください。');
     }
   }
 }
