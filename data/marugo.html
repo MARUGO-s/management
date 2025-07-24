@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>店舗別貸借分析システム</title>
     <style>
+        /* CSSスタイルは変更なし */
         * {
             margin: 0;
             padding: 0;
@@ -571,7 +572,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- ログイン画面 -->
         <div class="login-screen" id="login-screen">
             <div class="login-card">
                 <h1 class="login-title">🔐 システムログイン</h1>
@@ -600,7 +600,6 @@
             </div>
         </div>
 
-        <!-- メインアプリケーション -->
         <div class="main-app" id="main-app">
             <div class="header" style="position: relative;">
                 <h1>📊 店舗別貸借分析システム</h1>
@@ -682,7 +681,6 @@
                 <button class="export-btn" id="export-btn">📊 結果をCSV出力</button>
             </div>
         </div>
-        <!-- メインアプリケーション終了 -->
         </div>
     </div>
 
@@ -749,19 +747,19 @@
 
         class GoogleSheetsAPIAnalyzer {
             constructor() {
-                this.data = [];
-                this.searchResults = [];
+                this.data = []; // スプレッドシートから読み込んだ全データ
+                this.searchResults = []; // 検索結果データ
                 this.statusDiv = document.getElementById('status-info');
                 this.stores = new Set();
-                // ここにあなたのAPIキーを貼り付けてください
-                this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE';
-                this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY';
-                this.sheetName = '貸借表';
+                // ★あなたのAPIキーを貼り付けてください
+                this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE'; // ダミーのキー
+                this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'; // ダミーのID
+                this.sheetName = '貸借表'; // シート名
                 
                 // パスワード設定（実際の運用では環境変数やサーバーサイドで管理）
                 this.correctPasswords = [
-                    'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', // "hello"
-                    'e258d248fda94c63753607f7c4494ee0fcbe92f1a76bfdac795c9d84101eb317', // "marugo"
+                    'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', // "hello"のSHA-256ハッシュ
+                    'e258d248fda94c63753607f7c4494ee0fcbe92f1a76bfdac795c9d84101eb317', // "marugo"のSHA-256ハッシュ
                     
                 ];
                 
@@ -803,7 +801,7 @@
                 console.log('パスワードハッシュ:', passwordHash);
                 console.log('設定済みハッシュ:', this.correctPasswords);
 
-                // 簡単なテスト用：平文パスワードもチェック
+                // 簡単なテスト用：平文パスワードもチェック（本番では推奨されません）
                 const validPasswords = ['hello', 'marugo', 'admin'];
                 
                 if (this.correctPasswords.includes(passwordHash) || validPasswords.includes(password)) {
@@ -850,7 +848,7 @@
                 this.setDefaultDates();
                 
                 // APIキーが設定されている場合は自動接続
-                if (this.apiKey !== 'YOUR_API_KEY_HERE') {
+                if (this.apiKey && this.apiKey !== 'YOUR_API_KEY_HERE') { // APIキーが空でないこともチェック
                     await this.connectToGoogleSheets();
                 } else {
                     this.log('APIキーを設定してください', 'error');
@@ -937,7 +935,7 @@
                     this.debugLog('対象シートが見つかりました', targetSheetName);
                     
                     // Google Sheets API v4 を使用してデータを取得
-                    const range = `${targetSheetName}!A:Z`; // 全列を取得
+                    const range = `${targetSheetName}!A:J`; // A列からJ列までを取得 (User-AgentはI列、修正はJ列)
                     const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${range}?key=${this.apiKey}`;
                     
                     this.debugLog('API リクエスト URL', url);
@@ -1010,15 +1008,16 @@
                     return -1;
                 };
 
-                const dateIndex = getColumnIndex(['›', '日付', 'date', '取引日']);
-                const nameIndex = getColumnIndex(['名前', 'name', '取引名']);
-                const lenderIndex = getColumnIndex(['貸主', 'lender']);
-                const borrowerIndex = getColumnIndex(['借主', 'borrower']);
-                const categoryIndex = getColumnIndex(['カテゴリー', 'category']);
-                const itemIndex = getColumnIndex(['品目', 'item']);
-                const amountIndex = getColumnIndex(['金額', 'amount']);
-                const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']);
-                const correctionIndex = getColumnIndex(['修正', 'correction']);
+                const dateIndex = getColumnIndex(['›', '日付', 'date', '取引日']); // A列
+                const nameIndex = getColumnIndex(['名前', 'name', '取引名']); // B列
+                const lenderIndex = getColumnIndex(['貸主', 'lender']); // C列
+                const borrowerIndex = getColumnIndex(['借主', 'borrower']); // D列
+                const categoryIndex = getColumnIndex(['カテゴリー', 'category']); // E列
+                const itemIndex = getColumnIndex(['品目', 'item']); // F列
+                const amountIndex = getColumnIndex(['金額', 'amount']); // G列
+                const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']); // H列
+                // const userAgentIndex = getColumnIndex(['DEVICE', 'device']); // I列 - 今回は削除
+                const correctionIndex = getColumnIndex(['修正', 'correction']); // J列
 
                 this.debugLog('フィールドインデックス', {
                     dateIndex, nameIndex, lenderIndex, borrowerIndex, 
@@ -1046,6 +1045,7 @@
                         amount: this.parseAmount(getValue(amountIndex)),
                         originalAmount: getValue(amountIndex),
                         inputDate: getValue(inputDateIndex),
+                        // userAgent: getValue(userAgentIndex), // userAgentは削除
                         correction: getValue(correctionIndex) // 修正フラグを追加
                     };
 
@@ -1202,53 +1202,53 @@
                 document.getElementById('end-date').value = today.toISOString().split('T')[0];
             }
 
+            // ★修正検索機能（修正済み）
             searchCorrections() {
-                this.loading = true;
-                this.errorMessage = '';
+                this.log('修正データを検索中...', 'loading');
                 
                 try {
-                    // データが読み込まれていない場合は先に読み込む
-                    if (!this.allData || this.allData.length === 0) {
-                        this.errorMessage = 'データを先に読み込んでください。「📊 全データ表示」をクリックしてください。';
-                        this.loading = false;
+                    if (!this.data || this.data.length === 0) {
+                        this.log('データを先に読み込んでください。「📋 全データを表示」をクリックしてください。', 'error');
                         return;
                     }
 
-                    // 修正データのみをフィルタリング
-                    let results = this.allData.filter(row => {
-                        // 修正列（I列）に「✏️修正」があるかチェック
-                        return row.correction && row.correction.includes('✏️修正');
-                    });
+                    // 期間フィルタの取得（もしあれば）
+                    const startDate = document.getElementById('start-date').value;
+                    const endDate = document.getElementById('end-date').value;
+                    
+                    let results = this.data.filter(row => {
+                        // 修正列に「✏️修正」があるかチェック (J列を想定)
+                        const isCorrectionMarked = row.correction && row.correction.includes('✏️修正');
 
-                    // 期間指定がある場合の絞り込み
-                    if (this.startDate || this.endDate) {
-                        results = results.filter(row => {
-                            if (!row.date) return false;
-                            
+                        // 期間指定がある場合の絞り込み
+                        if (isCorrectionMarked && row.date) {
                             const rowDate = new Date(row.date);
-                            const start = this.startDate ? new Date(this.startDate) : null;
-                            const end = this.endDate ? new Date(this.endDate) : null;
+                            const start = startDate ? new Date(startDate) : null;
+                            const end = endDate ? new Date(endDate) : null;
                             
                             if (start && rowDate < start) return false;
                             if (end && rowDate > end) return false;
                             return true;
-                        });
-                    }
+                        }
+                        return false; // 修正マークがない、または日付がない場合はフィルタ
+                    });
 
                     this.searchResults = results;
-                    this.updateTable();
-                    this.updateSummary();
+                    this.log(`修正データ検索完了: ${this.searchResults.length}件の修正取引が見つかりました`, 'success');
+                    this.displayAllDataResults(); // 修正データは全データ表示と同じ形式で表示
                     
                     if (results.length === 0) {
-                        this.errorMessage = '指定された期間内に修正データが見つかりませんでした。';
+                        this.log('指定された期間内に修正データが見つかりませんでした。', 'info');
                     }
                 } catch (error) {
                     console.error('修正検索エラー:', error);
-                    this.errorMessage = '修正データの検索中にエラーが発生しました。';
-                } finally {
-                    this.loading = false;
+                    this.log('修正データの検索中にエラーが発生しました。', 'error');
                 }
-            },
+            }
+
+
+            // ★店舗別検索機能（修正済み）
+            performSearch() { // メソッドとして定義
                 const startDate = document.getElementById('start-date').value;
                 const endDate = document.getElementById('end-date').value;
                 const storeName = document.getElementById('store-name').value;
@@ -1257,6 +1257,8 @@
                     this.log('すべての検索条件を入力してください', 'error');
                     return;
                 }
+                
+                this.log('検索実行中...', 'loading');
 
                 this.searchResults = this.data.filter(row => {
                     const dateMatch = row.date >= startDate && row.date <= endDate;
@@ -1269,6 +1271,7 @@
             }
 
             showAllData() {
+                this.log('全データ表示中...', 'loading');
                 // 真の全データ表示（期間フィルタも適用しない）
                 this.searchResults = [...this.data]; // 全データをコピー
 
@@ -1281,8 +1284,8 @@
                 resultsSection.style.display = 'block';
 
                 // ヘッダーとサブタイトルを店舗検索用に設定
-                document.getElementById('details-title').textContent = '取引詳細';
-                document.getElementById('details-subtitle').textContent = '期間内の全取引データ（各列をクリックでソート）';
+                document.getElementById('details-title').textContent = `${storeName}の取引詳細`;
+                document.getElementById('details-subtitle').textContent = '期間内の取引データ（各列をクリックでソート）';
 
                 this.updateSummaryCards(storeName);
                 this.updateDetailsTable(false); // 店舗別検索モード
@@ -1356,21 +1359,20 @@
                     }
                     
                     totalAmount += row.amount;
-                    totalByCategory[category] += row.amount;
-                    countByCategory[category]++;
+                    totalByCategory[category] = (totalByCategory[category] || 0) + row.amount;
+                    countByCategory[category] = (countByCategory[category] || 0) + 1;
 
                     // 店舗別統計
-                    if (!storeTransactions[row.lender]) {
-                        storeTransactions[row.lender] = { lent: 0, borrowed: 0, count: 0 };
+                    if (row.lender) {
+                        if (!storeTransactions[row.lender]) storeTransactions[row.lender] = { lent: 0, borrowed: 0, count: 0 };
+                        storeTransactions[row.lender].lent += row.amount;
+                        storeTransactions[row.lender].count++;
                     }
-                    if (!storeTransactions[row.borrower]) {
-                        storeTransactions[row.borrower] = { lent: 0, borrowed: 0, count: 0 };
+                    if (row.borrower) {
+                        if (!storeTransactions[row.borrower]) storeTransactions[row.borrower] = { lent: 0, borrowed: 0, count: 0 };
+                        storeTransactions[row.borrower].borrowed += row.amount;
+                        storeTransactions[row.borrower].count++;
                     }
-                    
-                    storeTransactions[row.lender].lent += row.amount;
-                    storeTransactions[row.lender].count++;
-                    storeTransactions[row.borrower].borrowed += row.amount;
-                    storeTransactions[row.borrower].count++;
                 });
 
                 // 最も活発な店舗（取引件数ベース）
@@ -1381,10 +1383,10 @@
                 const createBreakdown = (categoryData, showCounts = false, countData = null) => {
                     const categories = ['食材', '飲料', 'その他'];
                     return categories
-                        .filter(category => categoryData[category] !== 0)
+                        .filter(category => (categoryData[category] || 0) !== 0)
                         .map(category => {
-                            const amount = categoryData[category];
-                            const countText = showCounts && countData && countData[category] > 0
+                            const amount = categoryData[category] || 0;
+                            const countText = showCounts && countData && (countData[category] || 0) > 0
                                 ? ` (${countData[category]}件)` 
                                 : '';
                             return `<span class="breakdown-item">${category}: ¥${amount.toLocaleString()}${countText}</span>`;
@@ -1418,7 +1420,7 @@
                             ${(() => {
                                 const categories = ['食材', '飲料', 'その他'];
                                 return categories
-                                    .filter(category => countByCategory[category] > 0)
+                                    .filter(category => (countByCategory[category] || 0) > 0)
                                     .map(category => {
                                         const avg = Math.round(totalByCategory[category] / countByCategory[category]);
                                         return `<span class="breakdown-item">${category}: ¥${avg.toLocaleString()}</span>`;
@@ -1483,30 +1485,30 @@
                     
                     if (row.lender === storeName) {
                         totalLent += row.amount;
-                        lentByCategory[category] += row.amount;
-                        lentCountByCategory[category]++;
+                        lentByCategory[category] = (lentByCategory[category] || 0) + row.amount;
+                        lentCountByCategory[category] = (lentCountByCategory[category] || 0) + 1;
                     } else if (row.borrower === storeName) {
                         totalBorrowed += row.amount;
-                        borrowedByCategory[category] += row.amount;
-                        borrowedCountByCategory[category]++;
+                        borrowedByCategory[category] = (borrowedByCategory[category] || 0) + row.amount;
+                        borrowedCountByCategory[category] = (borrowedCountByCategory[category] || 0) + 1;
                     }
                 });
 
                 const balance = totalLent - totalBorrowed;
                 const balanceByCategory = {
-                    '食材': lentByCategory['食材'] - borrowedByCategory['食材'],
-                    '飲料': lentByCategory['飲料'] - borrowedByCategory['飲料'],
-                    'その他': lentByCategory['その他'] - borrowedByCategory['その他']
+                    '食材': (lentByCategory['食材'] || 0) - (borrowedByCategory['食材'] || 0),
+                    '飲料': (lentByCategory['飲料'] || 0) - (borrowedByCategory['飲料'] || 0),
+                    'その他': (lentByCategory['その他'] || 0) - (borrowedByCategory['その他'] || 0)
                 };
 
                 // 内訳表示用のヘルパー関数
                 const createBreakdown = (categoryData, showCounts = false, countData = null) => {
                     const categories = ['食材', '飲料', 'その他'];
                     return categories
-                        .filter(category => categoryData[category] !== 0)
+                        .filter(category => (categoryData[category] || 0) !== 0)
                         .map(category => {
-                            const amount = categoryData[category];
-                            const countText = showCounts && countData && countData[category] > 0
+                            const amount = categoryData[category] || 0;
+                            const countText = showCounts && countData && (countData[category] || 0) > 0
                                 ? ` (${countData[category]}件)` 
                                 : '';
                             return `<span class="breakdown-item">${category}: ¥${amount.toLocaleString()}${countText}</span>`;
@@ -1546,14 +1548,14 @@
                         <div class="breakdown">
                             ${(() => {
                                 const totalCountByCategory = {
-                                    '食材': lentCountByCategory['食材'] + borrowedCountByCategory['食材'],
-                                    '飲料': lentCountByCategory['飲料'] + borrowedCountByCategory['飲料'],
-                                    'その他': lentCountByCategory['その他'] + borrowedCountByCategory['その他']
+                                    '食材': (lentCountByCategory['食材'] || 0) + (borrowedCountByCategory['食材'] || 0),
+                                    '飲料': (lentCountByCategory['飲料'] || 0) + (borrowedCountByCategory['飲料'] || 0),
+                                    'その他': (lentCountByCategory['その他'] || 0) + (borrowedCountByCategory['その他'] || 0)
                                 };
                                 
                                 const categories = ['食材', '飲料', 'その他'];
                                 return categories
-                                    .filter(category => totalCountByCategory[category] > 0)
+                                    .filter(category => (totalCountByCategory[category] || 0) > 0)
                                     .map(category => `<span class="breakdown-item">${category}: ${totalCountByCategory[category]}件</span>`)
                                     .join('<br>');
                             })()}
@@ -1571,18 +1573,22 @@
                 }
 
                 detailsTable.innerHTML = this.searchResults.map(row => {
+                    // I列 (9番目の要素) がUser-Agentとして使われていたが、削除されたため、修正マークはJ列 (10番目の要素) からI列 (9番目の要素) に繰り上がる
+                    // row.correction が J列から取得されることを想定
+                    const correctionDisplay = row.correction || ''; 
+
                     if (isAllData) {
                         // 全データ表示時: 貸主→借主の形で表示
                         return `
                             <tr>
                                 <td>${row.date}</td>
-                                <td><span class="type-tag type-貸出">貸借</span></td>
+                                <td><span class="type-tag type-貸借">貸借</span></td>
                                 <td>${row.lender} → ${row.borrower}</td>
                                 <td>${row.item}</td>
                                 <td>${row.category}</td>
                                 <td class="amount">¥${row.amount.toLocaleString()}</td>
                                 <td>${row.name}</td>
-                                <td>${row.correction || ''}</td>
+                                <td>${correctionDisplay}</td>
                             </tr>
                         `;
                     } else {
@@ -1602,7 +1608,7 @@
                                 <td>${row.category}</td>
                                 <td class="amount ${amountClass}">¥${row.amount.toLocaleString()}</td>
                                 <td>${row.name}</td>
-                                <td>${row.correction || ''}</td>
+                                <td>${correctionDisplay}</td>
                             </tr>
                         `;
                     }
@@ -1618,6 +1624,7 @@
                     return;
                 }
 
+                // userAgentを削除した新しいマッピング
                 const csvData = Papa.unparse(this.searchResults.map(row => ({
                     日付: row.date,
                     取引名: row.name,
