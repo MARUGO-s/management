@@ -176,10 +176,6 @@
       overflow: hidden;
     }
 
-    .correction-btn {
-      background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
-    }
-
     .search-btn {
       background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
     }
@@ -422,6 +418,45 @@
       color: #2d3748;
       font-family: 'Courier New', monospace;
     }
+
+    .match-actions {
+      margin-top: 20px;
+      text-align: center;
+      padding-top: 15px;
+      border-top: 1px solid rgba(21, 87, 36, 0.1);
+    }
+
+    .correction-action-btn {
+      background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .correction-action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(214, 158, 46, 0.3);
+    }
+
+    .correction-action-btn:active {
+      transform: translateY(0);
+    }
+
+    .search-no-match .correction-action-btn {
+      background: linear-gradient(135deg, #f6ad55 0%, #dd6b20 100%);
+    }
+
+    .search-no-match .correction-action-btn:hover {
+      box-shadow: 0 8px 20px rgba(246, 173, 85, 0.3);
+    }
     .status-display {
       margin: 20px 0;
       padding: 20px;
@@ -542,6 +577,12 @@
 
       .match-details-value {
         font-size: 13px;
+      }
+
+      .correction-action-btn {
+        width: 100%;
+        padding: 15px 20px;
+        font-size: 14px;
       }
     }
 
@@ -695,10 +736,6 @@
         <button type="submit" class="submit-btn">
           <span class="loading"></span>
           <span class="btn-text">📨 送信する</span>
-        </button>
-        <button type="button" class="submit-btn correction-btn">
-          <span class="loading"></span>
-          <span class="btn-text">✏️ 修正を送信</span>
         </button>
         <button type="button" class="submit-btn search-btn" id="search-btn">
           <span class="loading"></span>
