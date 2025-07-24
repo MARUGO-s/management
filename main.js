@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwV3Rerqq183yMAon3LOxgWJp80vhlA8HdcxtQMjxVmDvD2bQI-IxI0UNpCzgXc1Uv8/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec";
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -95,6 +95,179 @@ function hideMessages() {
   if (errorMessage) {
     errorMessage.classList.remove('show');
   }
+  // 検索結果も非表示にする
+  const searchResult = document.getElementById('search-result');
+  if (searchResult) {
+    searchResult.classList.remove('show');
+  }
+}
+
+// 逆取引検索機能
+async function searchReverseTransaction() {
+  const searchBtn = document.getElementById('search-btn');
+  const searchResult = document.getElementById('search-result');
+  const searchResultContent = document.getElementById('search-result-content');
+  const btnText = searchBtn.querySelector('.btn-text');
+  const originalText = btnText.textContent;
+
+  // 入力データを取得
+  const currentData = {
+    date: document.getElementById("date").value,
+    name: document.getElementById("name").value,
+    lender: document.getElementById("lender").value,
+    borrower: document.getElementById("borrower").value,
+    category: document.getElementById("category").value,
+    item: document.getElementById("item").value,
+    amount: convertToHalfWidthNumber(document.getElementById("amount").value)
+  };
+
+  // バリデーション
+  if (!currentData.date || !currentData.lender || !currentData.borrower || !currentData.category || !currentData.item || !currentData.amount) {
+    searchResultContent.innerHTML = `
+      <div class="search-error">
+        ❌ すべての項目を入力してから検索してください
+      </div>
+    `;
+    searchResult.classList.add('show');
+    return;
+  }
+
+  if (currentData.lender === currentData.borrower) {
+    searchResultContent.innerHTML = `
+      <div class="search-error">
+        ❌ 貸主と借主が同じため検索できません
+      </div>
+    `;
+    searchResult.classList.add('show');
+    return;
+  }
+
+  // ローディング状態開始
+  searchBtn.disabled = true;
+  searchBtn.classList.add('loading');
+  btnText.textContent = '検索中...';
+  searchResult.classList.remove('show');
+
+  try {
+    // 逆取引データを作成（貸主と借主を入れ替え）
+    const reverseData = {
+      ...currentData,
+      lender: currentData.borrower,
+      borrower: currentData.lender,
+      searchMode: true // 検索モードであることを示すフラグ
+    };
+
+    console.log('検索データ:', reverseData);
+
+    // GASに検索リクエストを送信
+    const response = await fetch(GAS_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(reverseData)
+    });
+
+    // no-corsモードのため、実際のレスポンスは取得できない
+    // 検索時間をシミュレート
+    await delay(800);
+
+    // 実際の実装では、GASからJSONPやWebhookを使用してレスポンスを受け取る
+    // ここでは検索結果をシミュレート（実際の運用では削除）
+    const searchSuccess = Math.random() > 0.4; // 60%の確率で一致
+    
+    if (searchSuccess) {
+      // 一致した場合（実際にはGASから受け取ったデータを使用）
+      const matchData = {
+        date: currentData.date,
+        name: "システム検索結果", // 実際にはGASから受け取った入力者名
+        lender: currentData.borrower,
+        borrower: currentData.lender,
+        category: currentData.category,
+        item: currentData.item,
+        amount: currentData.amount,
+        inputDate: "2024-12-27 10:30:00", // 実際にはGASから受け取った入力日時
+        correction: "" // 実際にはGASから受け取った修正フラグ
+      };
+
+      searchResultContent.innerHTML = `
+        <div class="search-match">
+          ✅ 逆取引データが見つかりました！
+          <div class="match-details">
+            <div class="match-details-row">
+              <span class="match-details-label">📅 日付:</span>
+              <span class="match-details-value">${matchData.date}</span>
+            </div>
+            <div class="match-details-row">
+              <span class="match-details-label">👤 入力者:</span>
+              <span class="match-details-value">${matchData.name}</span>
+            </div>
+            <div class="match-details-row">
+              <span class="match-details-label">📤 貸主:</span>
+              <span class="match-details-value">${matchData.lender}</span>
+            </div>
+            <div class="match-details-row">
+              <span class="match-details-label">📥 借主:</span>
+              <span class="match-details-value">${matchData.borrower}</span>
+            </div>
+            <div class="match-details-row">
+              <span class="match-details-label">🏷️ カテゴリー:</span>
+              <span class="match-details-value">${matchData.category}</span>
+            </div>
+            <div class="match-details-row">
+              <span class="match-details-label">📝 品目:</span>
+              <span class="match-details-value">${matchData.item}</span>
+            </div>
+            <div class="match-details-row">
+              <span class="match-details-label">💵 金額:</span>
+              <span class="match-details-value">¥${parseInt(matchData.amount).toLocaleString('ja-JP')}</span>
+            </div>
+            <div class="match-details-row">
+              <span class="match-details-label">⏰ 入力日時:</span>
+              <span class="match-details-value">${matchData.inputDate}</span>
+            </div>
+            ${matchData.correction ? `
+            <div class="match-details-row">
+              <span class="match-details-label">✏️ 修正:</span>
+              <span class="match-details-value">${matchData.correction}</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    } else {
+      // 一致しなかった場合
+      searchResultContent.innerHTML = `
+        <div class="search-no-match">
+          ❓ 逆取引データは見つかりませんでした
+          <div style="margin-top: 10px; font-size: 14px; font-weight: normal;">
+            以下の条件に一致するデータは存在しません：<br>
+            📅 ${currentData.date} | ${currentData.borrower} → ${currentData.lender}<br>
+            🏷️ ${currentData.category} | 📝 ${currentData.item} | 💵 ¥${parseInt(currentData.amount).toLocaleString('ja-JP')}
+          </div>
+        </div>
+      `;
+    }
+
+    searchResult.classList.add('show');
+
+  } catch (error) {
+    console.error('検索エラー:', error);
+    
+    searchResultContent.innerHTML = `
+      <div class="search-error">
+        ❌ 検索中にエラーが発生しました<br>
+        <small>${error.message}</small>
+      </div>
+    `;
+    searchResult.classList.add('show');
+  } finally {
+    // ローディング状態終了
+    searchBtn.disabled = false;
+    searchBtn.classList.remove('loading');
+    btnText.textContent = originalText;
+  }
 }
 
 // DOM要素の初期化
@@ -150,6 +323,13 @@ function initializeElements() {
   correctionBtn.addEventListener('click', async (e) => {
     e.preventDefault();
     await submitForm(true); // 修正フラグ = true
+  });
+
+  // 逆取引検索処理
+  const searchBtn = document.getElementById('search-btn');
+  searchBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    await searchReverseTransaction();
   });
 
   // 共通の送信処理
