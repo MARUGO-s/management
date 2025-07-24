@@ -263,7 +263,6 @@ async function searchReverseTransaction() { //
     searchResult.classList.add('show'); //
 
     // イベントデリゲーションを使用して、検索結果内のボタンクリックを処理
-    // 検索結果コンテナに一度だけリスナーを追加し、ボタンのIDで分岐
     // 既存のリスナーが重複しないよう、removeEventListenerで削除してから追加
     const existingListener = searchResultContent.dataset.listenerAdded;
     if (existingListener) {
@@ -370,7 +369,9 @@ async function submitData(options = {}) {
   const statusDisplay = document.getElementById('status-display'); //
   const submitBtn = document.querySelector('.submit-btn:not(.search-btn)'); //
   const btnText = submitBtn.querySelector('.btn-text'); //
-  const originalText = btnText.textContent; //
+  const originalText = submitBtn.dataset.originalText || btnText.textContent; // 元のテキストを保持
+  submitBtn.dataset.originalText = originalText; // 初回設定
+
   const categoryInput = document.getElementById('category'); //
   const categoryOptions = document.querySelectorAll('.category-option'); //
   const form = document.getElementById('loanForm'); //
@@ -411,7 +412,7 @@ async function submitData(options = {}) {
       item: document.getElementById("item").value, //
       amount: convertToHalfWidthNumber(document.getElementById("amount").value), //
       isCorrection: isCorrection, //
-      userAgent: navigator.userAgent, //
+      // userAgent: navigator.userAgent, // <- この行を削除しました
     };
 
     // 修正専用のフラグとマークを追加
