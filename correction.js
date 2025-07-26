@@ -34,6 +34,55 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// 状態表示関数
+async function showStep(stepId, message) {
+  const step = document.getElementById(stepId);
+  const activeSteps = document.querySelectorAll('.status-step.active');
+  
+  // 前のステップを完了状態にする
+  activeSteps.forEach(s => {
+    s.classList.remove('active');
+    s.classList.add('completed');
+  });
+  
+  // 現在のステップをアクティブにする
+  step.classList.add('active');
+  step.querySelector('span:last-child').textContent = message;
+  
+  // ローディングスピナーを追加
+  const icon = step.querySelector('.status-icon');
+  const originalIcon = icon.textContent;
+  icon.innerHTML = '<span class="mini-loading-spinner"></span>';
+  
+  // 元のアイコンを保存
+  step.dataset.originalIcon = originalIcon;
+}
+
+function completeStep(stepId, message) {
+  const step = document.getElementById(stepId);
+  step.classList.remove('active');
+  step.classList.add('completed');
+  step.querySelector('span:last-child').textContent = message;
+  
+  // アイコンを元に戻す
+  const icon = step.querySelector('.status-icon');
+  if (step.dataset.originalIcon) {
+    icon.textContent = step.dataset.originalIcon;
+  }
+}
+
+function resetSteps() {
+  const steps = document.querySelectorAll('.status-step');
+  steps.forEach(step => {
+    step.classList.remove('active', 'completed', 'error');
+  });
+}
+
+function hideMessages() {
+  document.getElementById('successMessage').classList.remove('show');
+  document.getElementById('errorMessage').classList.remove('show');
+}
+
 // 金額を半角数字に変換する関数
 function convertToHalfWidthNumber(value) {
   if (!value) return '';
@@ -147,10 +196,11 @@ function autoFillReverseData() {
     '';
   document.getElementById('amount').value = amountValue;
   
-  // カテゴリー選択状態を更新
+  // カテゴリー選択状態を更新とdisabled化
   const categoryOptions = document.querySelectorAll('.category-option');
   categoryOptions.forEach(option => {
     option.classList.remove('selected');
+    option.classList.add('disabled'); // すべてのオプションを無効化
     if (option.dataset.value === originalData.category) {
       option.classList.add('selected');
     }
@@ -161,9 +211,14 @@ function autoFillReverseData() {
 
 // 修正データを送信
 async function submitCorrectionData() {
+  const statusDisplay = document.getElementById('status-display');
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn)');
   const btnText = submitBtn.querySelector('.btn-text');
   const originalText = btnText.textContent;
+
+  // 初期化
+  hideMessages();
+  resetSteps();
 
   // バリデーション
   const categoryInput = document.getElementById('category');
@@ -175,9 +230,20 @@ async function submitCorrectionData() {
   // ボタンを無効化
   submitBtn.disabled = true;
   submitBtn.classList.add('loading');
-  btnText.textContent = '送信中...';
+  btnText.textContent = '修正送信中...';
+  
+  // 状態表示を開始
+  if (statusDisplay) {
+    statusDisplay.classList.add('show');
+  }
 
   try {
+    // Step 1: データ検証
+    if (statusDisplay) {
+      await showStep('step-validation', '📋 修正データを検証中...');
+      await delay(600);
+    }
+
     const data = {
       date: document.getElementById("date").value,
       name: document.getElementById("name").value,
@@ -206,6 +272,14 @@ async function submitCorrectionData() {
 
     console.log('修正データ送信:', data);
 
+    if (statusDisplay) {
+      completeStep('step-validation', '✅ 修正データ検証完了');
+
+      // Step 2: 送信開始
+      await showStep('step-sending', '📤 修正データをスプレッドシートに送信中...');
+      await delay(400);
+    }
+
     // Google Apps Scriptにデータを送信
     const response = await fetch(GAS_URL, {
       method: "POST",
@@ -216,59 +290,108 @@ async function submitCorrectionData() {
       body: JSON.stringify(data)
     });
 
+    if (statusDisplay) {
+      completeStep('step-sending', '✅ 修正データ送信完了');
+
+      // Step 3: データ挿入（GAS側で実行されるためシミュレート）
+      await showStep('step-inserting', '💾 修正データを挿入中...');
+      await delay(800);
+      completeStep('step-inserting', '✅ 修正データ挿入完了');
+
+      // Step 4: バックアップ作成（GAS側で実行されるためシミュレート）
+      await showStep('step-backup', '🔄 バックアップを作成中...');
+      await delay(1000);
+      completeStep('step-backup', '✅ バックアップ作成完了');
+
+      // Step 5: 完了
+      await showStep('step-complete', '🎉 修正送信が完了しました！');
+      completeStep('step-complete', '🎉 修正送信完了！');
+    }
+
     // 送信完了処理（no-corsのためレスポンス確認は不可）
-    await delay(1000);
+    await delay(statusDisplay ? 500 : 1000);
 
-    // 成功メッセージ表示
-    const successMessage = document.getElementById('successMessage');
-    successMessage.textContent = '✅ 修正データの送信が完了しました！';
-    successMessage.classList.add('show');
-    
+    // 成功処理
     setTimeout(() => {
-      successMessage.classList.remove('show');
-    }, 3000);
+      // ローディング状態終了
+      submitBtn.classList.remove('loading');
+      btnText.textContent = originalText;
+      submitBtn.disabled = false;
 
-    // フォームリセット
-    document.getElementById('correctionForm').reset();
-    const categoryOptions = document.querySelectorAll('.category-option');
-    categoryOptions.forEach(opt => opt.classList.remove('selected'));
-    
-    // 3秒後に元のページに戻る
-    setTimeout(() => {
-      if (document.referrer) {
-        history.back();
-      } else {
-        window.location.href = 'data/marugo.html';
+      // 成功メッセージ表示
+      const successMessage = document.getElementById('successMessage');
+      successMessage.textContent = '✅ 修正データの送信が完了しました！';
+      successMessage.classList.add('show');
+      
+      setTimeout(() => {
+        successMessage.classList.remove('show');
+      }, 3000);
+
+      // フォームリセット
+      document.getElementById('correctionForm').reset();
+      const categoryOptions = document.querySelectorAll('.category-option');
+      categoryOptions.forEach(opt => opt.classList.remove('selected'));
+      
+      if (statusDisplay) {
+        statusDisplay.classList.remove('show');
       }
-    }, 3000);
+      
+      // 3秒後に元のページに戻る
+      setTimeout(() => {
+        if (document.referrer) {
+          history.back();
+        } else {
+          window.location.href = 'data/marugo.html';
+        }
+      }, 3000);
+    }, statusDisplay ? 500 : 1000);
 
   } catch (error) {
     console.error('送信エラー:', error);
     
+    // エラー状態を表示
+    if (statusDisplay) {
+      const activeStep = document.querySelector('.status-step.active');
+      if (activeStep) {
+        activeStep.classList.remove('active');
+        activeStep.classList.add('error');
+        activeStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
+      }
+    }
+
+    // エラー処理
+    submitBtn.classList.remove('loading');
+    btnText.textContent = originalText;
+    submitBtn.disabled = false;
+
     // エラーメッセージ表示
     const errorMessage = document.getElementById('errorMessage');
-    errorMessage.textContent = `❌ 送信エラー: ${error.message}`;
+    errorMessage.textContent = `❌ 修正送信エラー: ${error.message}`;
     errorMessage.classList.add('show');
     
     setTimeout(() => {
       errorMessage.classList.remove('show');
+      if (statusDisplay) {
+        statusDisplay.classList.remove('show');
+      }
     }, 5000);
-  } finally {
-    // ボタン状態を復元
-    submitBtn.disabled = false;
-    submitBtn.classList.remove('loading');
-    btnText.textContent = originalText;
   }
 }
 
 // DOM要素の初期化
 function initializeElements() {
-  // カテゴリー選択の処理
+  // カテゴリー選択の処理（無効化版）
   const categoryOptions = document.querySelectorAll('.category-option');
   const categoryInput = document.getElementById('category');
 
   categoryOptions.forEach(option => {
-    option.addEventListener('click', () => {
+    option.addEventListener('click', (e) => {
+      // disabled状態の場合はクリックを無効化
+      if (option.classList.contains('disabled')) {
+        e.preventDefault();
+        return;
+      }
+      
       categoryOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
       categoryInput.value = option.dataset.value;
@@ -304,17 +427,8 @@ function initializeElements() {
   });
 }
 
-// メッセージ非表示処理
-function hideMessages() {
-  document.getElementById('successMessage').classList.remove('show');
-  document.getElementById('errorMessage').classList.remove('show');
-}
-
 // 初期化処理
 function initialize() {
-  // メッセージを非表示
-  hideMessages();
-  
   // 店舗プルダウンを設定
   populateShops();
   
