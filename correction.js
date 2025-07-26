@@ -16,10 +16,6 @@ function populateShops() {
   const lenderSelect = document.getElementById("lender");
   const borrowerSelect = document.getElementById("borrower");
 
-  // オプションをクリア (disabledにすると値が送信されないため、一旦disabledを解除してオプションを追加し、再度disabledにする)
-  // または、selectedOptionを保持してdisabledに設定する
-  // 今回は無効化するだけなので、最初に disabled に設定された要素に直接値を入れます
-
   shops.forEach(shop => {
     const option1 = document.createElement("option");
     option1.value = shop;
@@ -168,7 +164,7 @@ function autoFillReverseData() {
 async function submitCorrectionData() {
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn)');
   const btnText = submitBtn.querySelector('.btn-text');
-  const originalText = btnText.textContent;
+  const originalText = btnText.textContent; // 元のテキストを保持
 
   // バリデーション (disabledなフィールドは値が取れない場合があるため、originalDataから取得)
   const data = {
@@ -200,10 +196,10 @@ async function submitCorrectionData() {
     return;
   }
 
-  // ボタンを無効化
+  // ボタンを無効化し、「データ送信中...」に表示を更新
   submitBtn.disabled = true;
   submitBtn.classList.add('loading');
-  btnText.textContent = '送信中...';
+  btnText.textContent = 'データ送信中...'; // 1段階目の表示
 
   try {
     console.log('修正データ送信:', data);
@@ -218,8 +214,12 @@ async function submitCorrectionData() {
       body: JSON.stringify(data)
     });
 
+    // ここでGASが書き込みを行っていると想定し、表示を「書き込み中...」に更新
+    btnText.textContent = '書き込み中...'; // 2段階目の表示
+    await delay(1000); // 書き込み処理を待つための遅延（実際のGASの処理時間に合わせて調整）
+
     // 送信完了処理（no-corsのためレスポンス確認は不可）
-    await delay(1000);
+    // await delay(1000); // すでに上記のdelayがあるので重複を避けるか調整
 
     // 成功メッセージ表示
     const successMessage = document.getElementById('successMessage');
@@ -231,9 +231,6 @@ async function submitCorrectionData() {
     }, 3000);
 
     // フォームリセット (入力不可になったので実質的には表示をクリアしない)
-    // document.getElementById('correctionForm').reset();
-    // const categoryOptions = document.querySelectorAll('.category-option');
-    // categoryOptions.forEach(opt => opt.classList.remove('selected', 'disabled')); // disabledも削除して再利用可能にすることも可能だが、今回はそのまま
 
     // 3秒後に元のページに戻る
     setTimeout(() => {
@@ -259,7 +256,7 @@ async function submitCorrectionData() {
     // ボタン状態を復元
     submitBtn.disabled = false;
     submitBtn.classList.remove('loading');
-    btnText.textContent = originalText;
+    btnText.textContent = originalText; // 元のテキストに戻す
   }
 }
 
@@ -268,7 +265,7 @@ function initializeElements() {
   // カテゴリー選択の処理は無効化するため、イベントリスナーは設定しない
   const categoryOptions = document.querySelectorAll('.category-option');
   categoryOptions.forEach(option => {
-    option.classList.add('disabled'); // すべてのカテゴリーオプションを無効化
+    // option.classList.add('disabled'); // autoFillReverseData で disabled に設定されるため、ここでは不要
   });
 
   // 金額入力の自動フォーマット（半角・全角対応）
@@ -326,15 +323,10 @@ function initialize() {
     // 元データが無い場合はエラー表示
     alert('修正対象のデータが見つかりません。データ一覧ページから再度選択してください。');
     // 元のページに戻る
-    // document.referrer が存在しない場合のフォールバックも追加
     setTimeout(() => { // アラートが表示されるのを待ってから遷移
         if (document.referrer) {
             history.back();
         } else {
-            // marugo.html への相対パスが正しいか確認してください
-            // 例: window.location.href = '/data/marugo.html'; (ルートからのパスの場合)
-            // 例: window.location.href = '../marugo.html'; (correction.htmlと同じ階層にmarugo.htmlがある場合)
-            // 現在のパス構成を考慮し、'../marugo.html' が適切と判断しました。
             window.location.href = 'data/marugo.html'; 
         }
     }, 100); // 少し遅延させてアラートが先に表示されるようにする
