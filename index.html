@@ -176,10 +176,6 @@
       overflow: hidden;
     }
 
-    .search-btn {
-      background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
-    }
-
     .submit-btn:hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 10px 25px rgba(74, 85, 104, 0.4);
@@ -307,156 +303,6 @@
       transform: translateX(0);
     }
 
-    /* 検索結果表示エリア */
-    .search-result {
-      margin: 20px 0;
-      padding: 20px;
-      border-radius: 16px;
-      background: rgba(49, 130, 206, 0.05);
-      border: 2px solid rgba(49, 130, 206, 0.1);
-      display: none;
-      animation: searchResultSlideIn 0.4s ease-out;
-    }
-
-    .search-result.show {
-      display: block;
-    }
-
-    @keyframes searchResultSlideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .search-result-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 15px;
-      font-weight: 600;
-      color: #3182ce;
-    }
-
-    .search-result-icon {
-      margin-right: 8px;
-      font-size: 18px;
-    }
-
-    .search-result-title {
-      font-size: 16px;
-    }
-
-    .search-result-content {
-      background: rgba(255, 255, 255, 0.8);
-      border-radius: 12px;
-      padding: 15px;
-      border: 1px solid rgba(49, 130, 206, 0.2);
-    }
-
-    .search-match {
-      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-      border: 2px solid #c3e6cb;
-      color: #155724;
-      padding: 15px;
-      border-radius: 12px;
-      font-weight: 600;
-      text-align: center;
-    }
-
-    .search-no-match {
-      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-      border: 2px solid #ffeaa7;
-      color: #856404;
-      padding: 15px;
-      border-radius: 12px;
-      font-weight: 600;
-      text-align: center;
-    }
-
-    .search-error {
-      background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-      border: 2px solid #f5c6cb;
-      color: #721c24;
-      padding: 15px;
-      border-radius: 12px;
-      font-weight: 600;
-      text-align: center;
-    }
-
-    .match-details {
-      margin-top: 15px;
-      padding: 15px;
-      background: rgba(255, 255, 255, 0.9);
-      border-radius: 10px;
-      border: 1px solid rgba(21, 87, 36, 0.1);
-    }
-
-    .match-details-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 8px 0;
-      padding: 5px 0;
-      border-bottom: 1px solid rgba(21, 87, 36, 0.1);
-      font-size: 14px;
-    }
-
-    .match-details-row:last-child {
-      border-bottom: none;
-    }
-
-    .match-details-label {
-      font-weight: 600;
-      color: #4a5568;
-    }
-
-    .match-details-value {
-      color: #2d3748;
-      font-family: 'Courier New', monospace;
-    }
-
-    .match-actions {
-      margin-top: 20px;
-      text-align: center;
-      padding-top: 15px;
-      border-top: 1px solid rgba(21, 87, 36, 0.1);
-    }
-
-    .correction-action-btn {
-      background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .correction-action-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(214, 158, 46, 0.3);
-    }
-
-    .correction-action-btn:active {
-      transform: translateY(0);
-    }
-
-    .search-no-match .correction-action-btn {
-      background: linear-gradient(135deg, #f6ad55 0%, #dd6b20 100%);
-    }
-
-    .search-no-match .correction-action-btn:hover {
-      box-shadow: 0 8px 20px rgba(246, 173, 85, 0.3);
-    }
     .status-display {
       margin: 20px 0;
       padding: 20px;
@@ -562,27 +408,6 @@
       .button-group {
         flex-direction: column;
         gap: 10px;
-      }
-
-      .search-result {
-        margin: 15px 0;
-        padding: 15px;
-      }
-
-      .match-details-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 5px;
-      }
-
-      .match-details-value {
-        font-size: 13px;
-      }
-
-      .correction-action-btn {
-        width: 100%;
-        padding: 15px 20px;
-        font-size: 14px;
       }
     }
 
@@ -697,17 +522,6 @@
         </div>
       </div>
 
-      <!-- 検索結果表示エリア -->
-      <div class="search-result" id="search-result">
-        <div class="search-result-header">
-          <span class="search-result-icon">🔍</span>
-          <span class="search-result-title">逆取引検索結果</span>
-        </div>
-        <div class="search-result-content" id="search-result-content">
-          <!-- 検索結果がここに表示されます -->
-        </div>
-      </div>
-
       <!-- 状態表示エリア -->
       <div class="status-display" id="status-display">
         <div class="status-step" id="step-validation">
@@ -732,14 +546,10 @@
         </div>
       </div>
 
-       <div class="button-group">
+      <div class="button-group">
         <button type="submit" class="submit-btn">
           <span class="loading"></span>
           <span class="btn-text">📨 送信する</span>
-        </button>
-        <button type="button" class="submit-btn search-btn" id="search-btn">
-          <span class="loading"></span>
-          <span class="btn-text">🔍 逆取引を検索</span>
         </button>
       </div>
     </form>
