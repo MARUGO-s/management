@@ -29,107 +29,6 @@
             backdrop-filter: blur(10px);
         }
 
-        .login-screen {
-            display: block;
-            text-align: center;
-            padding: 50px 30px;
-        }
-
-        .main-app {
-            display: none;
-        }
-
-        .login-card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            margin: 0 auto;
-        }
-
-        .login-title {
-            font-size: 2rem;
-            background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 30px;
-        }
-
-        .login-form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .password-input {
-            padding: 15px 20px;
-            border: 2px solid #cccccc;
-            border-radius: 15px;
-            font-size: 16px;
-            outline: none;
-            transition: all 0.3s ease;
-        }
-
-        .password-input:focus {
-            border-color: #5a7c5a;
-            box-shadow: 0 0 15px rgba(90, 124, 90, 0.2);
-        }
-
-        .login-btn {
-            background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 15px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        }
-
-        .login-btn:hover {
-            transform: translateY(-2px);
-        }
-
-        .login-error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 15px;
-            font-weight: 600;
-            display: none;
-        }
-
-        .security-note {
-            margin-top: 20px;
-            font-size: 14px;
-            color: #666;
-            line-height: 1.5;
-        }
-
-        .logout-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: transform 0.2s ease;
-            z-index: 10;
-        }
-
-        .logout-btn:hover {
-            transform: translateY(-2px);
-        }
-
         .home-btn {
             position: absolute;
             top: 20px;
@@ -155,7 +54,7 @@
             text-align: center;
             margin-bottom: 40px;
             position: relative;
-            padding-top: 20px;
+            padding-top: 10px;
         }
 
         .header h1 {
@@ -1053,7 +952,7 @@
             }
 
             .header {
-                padding-top: 70px;
+                padding-top: 40px;
             }
 
             .header h1 {
@@ -1105,41 +1004,11 @@
 </head>
 <body>
     <div class="container">
-        <div class="login-screen" id="login-screen">
-            <div class="login-card">
-                <h1 class="login-title">🔐 システムログイン</h1>
-                <p style="color: #666; margin-bottom: 30px;">店舗別貸借分析システムにアクセスするにはパスワードを入力してください</p>
-                
-                <form class="login-form" id="login-form">
-                    <input 
-                        type="password" 
-                        id="password-input" 
-                        class="password-input" 
-                        placeholder="パスワードを入力"
-                        autocomplete="current-password"
-                        required
-                    >
-                    <button type="submit" class="login-btn">🚀 ログイン</button>
-                </form>
-                
-                <div class="login-error" id="login-error">
-                    ❌ パスワードが正しくありません
-                </div>
-                
-                <div class="security-note">
-                    🛡️ このシステムは認証されたユーザーのみアクセス可能です<br>
-                    パスワードを忘れた場合は管理者にお問い合わせください
-                </div>
-            </div>
+        <div class="header" style="position: relative;">
+            <h1>📊 店舗別貸借分析システム</h1>
+            <p>Google Sheets API を使用してリアルタイムデータ分析</p>
+            <a href="https://marugo-s.github.io/management/" class="home-btn">🏠 トップページ</a>
         </div>
-
-        <div class="main-app" id="main-app">
-            <div class="header" style="position: relative;">
-                <h1>📊 店舗別貸借分析システム</h1>
-                <p>Google Sheets API を使用してリアルタイムデータ分析</p>
-                <a href="https://marugo-s.github.io/management/" class="home-btn">🏠 トップページ</a>
-                <button class="logout-btn" id="logout-btn">🚪 ログアウト</button>
-            </div>
 
         <div class="status-section">
             <h3>📈 システム状態</h3>
@@ -1216,7 +1085,6 @@
                 <button class="export-btn" id="export-btn">📊 結果をCSV出力</button>
             </div>
         </div>
-        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
@@ -1282,6 +1150,8 @@
 
         class GoogleSheetsAPIAnalyzer {
             constructor() {
+                console.log('=== GoogleSheetsAPIAnalyzer 初期化開始 ===');
+                
                 this.data = []; // スプレッドシートから読み込んだ全データ
                 this.searchResults = []; // 検索結果データ
                 this.statusDiv = document.getElementById('status-info');
@@ -1291,72 +1161,13 @@
                 this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'; // ダミーのID
                 this.sheetName = '貸借表'; // シート名
                 
-                this.initAuth();
-            }
-
-            async initAuth() {
-                this.setupAuthListeners();
-                // 既にログイン済みかチェック
-                if (sessionStorage.getItem('authenticated') === 'true') {
-                    this.showMainApp();
-                }
-            }
-
-            setupAuthListeners() {
-                const loginForm = document.getElementById('login-form');
-                const logoutBtn = document.getElementById('logout-btn');
-
-                loginForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleLogin();
-                });
-
-                logoutBtn.addEventListener('click', () => {
-                    this.handleLogout();
-                });
-            }
-
-            async handleLogin() {
-                const passwordInput = document.getElementById('password-input');
-                const password = passwordInput.value.trim(); // 前後の空白を除去
-                const errorDiv = document.getElementById('login-error');
-
-                console.log('入力されたパスワード:', `"${password}"`); // デバッグ用
+                console.log('基本設定完了');
+                console.log('システム初期化開始');
                 
-                // 有効なパスワードリスト
-                const validPasswords = ['hello', 'marugo', 'admin', 'test'];
+                // 直接システムを初期化
+                this.init();
                 
-                console.log('有効なパスワード:', validPasswords); // デバッグ用
-                console.log('パスワード一致チェック:', validPasswords.includes(password)); // デバッグ用
-                
-                if (validPasswords.includes(password)) {
-                    sessionStorage.setItem('authenticated', 'true');
-                    this.showMainApp();
-                    errorDiv.style.display = 'none';
-                    passwordInput.value = '';
-                    console.log('ログイン成功');
-                } else {
-                    errorDiv.style.display = 'block';
-                    passwordInput.value = '';
-                    passwordInput.focus();
-                    console.log('ログイン失敗 - 入力されたパスワード:', `"${password}"`);
-                }
-            }
-
-            handleLogout() {
-                sessionStorage.removeItem('authenticated');
-                document.getElementById('login-screen').style.display = 'block';
-                document.getElementById('main-app').style.display = 'none';
-                document.getElementById('password-input').value = '';
-                document.getElementById('login-error').style.display = 'none';
-            }
-
-            async showMainApp() {
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('main-app').style.display = 'block';
-                
-                // メインアプリを初期化
-                await this.init();
+                console.log('=== コンストラクタ完了 ===');
             }
 
             async init() {
@@ -1694,7 +1505,7 @@
                 const searchForm = document.getElementById('search-form');
                 const exportBtn = document.getElementById('export-btn');
                 const allDataBtn = document.getElementById('all-data-btn');
-                const correctionSearchBtn = document.getElementById('correction-search-btn'); // 新しいボタン
+                const correctionSearchBtn = document.getElementById('correction-search-btn');
 
                 searchForm.addEventListener('submit', (e) => {
                     e.preventDefault();
@@ -1705,7 +1516,7 @@
                     this.showAllData();
                 });
 
-                correctionSearchBtn.addEventListener('click', () => { // 新しいボタンのイベントリスナー
+                correctionSearchBtn.addEventListener('click', () => {
                     this.searchCorrections();
                 });
 
@@ -1722,7 +1533,7 @@
                 document.getElementById('end-date').value = today.toISOString().split('T')[0];
             }
 
-            // ★修正データのみを検索する機能
+            // 修正データのみを検索する機能
             searchCorrections() {
                 this.log('修正データを検索中...', 'loading');
                 
@@ -1792,7 +1603,7 @@
             }
 
 
-            // ★店舗別検索機能（修正済み）
+            // 店舗別検索機能
             performSearch() { 
                 const startDate = document.getElementById('start-date').value;
                 const endDate = document.getElementById('end-date').value;
