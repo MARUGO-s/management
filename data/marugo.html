@@ -29,6 +29,75 @@
             backdrop-filter: blur(10px);
         }
 
+        .auto-login-screen {
+            display: block;
+            text-align: center;
+            padding: 50px 30px;
+        }
+
+        .main-app {
+            display: none;
+        }
+
+        .auto-login-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .auto-login-title {
+            font-size: 2rem;
+            background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+        }
+
+        .auto-login-status {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .auto-login-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #5a7c5a;
+            border-radius: 50%;
+            animation: autoLoginSpin 1s linear infinite;
+            margin: 20px 0;
+        }
+
+        @keyframes autoLoginSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            z-index: 10;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+        }
+
         .home-btn {
             position: absolute;
             top: 20px;
@@ -54,7 +123,7 @@
             text-align: center;
             margin-bottom: 40px;
             position: relative;
-            padding-top: 10px;
+            padding-top: 20px;
         }
 
         .header h1 {
@@ -1004,11 +1073,26 @@
 </head>
 <body>
     <div class="container">
-        <div class="header" style="position: relative;">
-            <h1>📊 店舗別貸借分析システム</h1>
-            <p>Google Sheets API を使用してリアルタイムデータ分析</p>
-            <a href="https://marugo-s.github.io/management/" class="home-btn">🏠 トップページ</a>
+        <div class="auto-login-screen" id="auto-login-screen">
+            <div class="auto-login-card">
+                <h1 class="auto-login-title">🔐 システム認証</h1>
+                <div class="auto-login-status" id="auto-login-status">
+                    APIキーによる自動認証中...
+                </div>
+                <div class="auto-login-spinner"></div>
+                <div style="margin-top: 20px; font-size: 14px; color: #666;">
+                    🛡️ セキュア接続でデータにアクセス中です
+                </div>
+            </div>
         </div>
+
+        <div class="main-app" id="main-app">
+            <div class="header" style="position: relative;">
+                <h1>📊 店舗別貸借分析システム</h1>
+                <p>Google Sheets API を使用してリアルタイムデータ分析</p>
+                <a href="https://marugo-s.github.io/management/" class="home-btn">🏠 トップページ</a>
+                <button class="logout-btn" id="logout-btn">🚪 ログアウト</button>
+            </div>
 
         <div class="status-section">
             <h3>📈 システム状態</h3>
@@ -1085,6 +1169,7 @@
                 <button class="export-btn" id="export-btn">📊 結果をCSV出力</button>
             </div>
         </div>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
@@ -1157,17 +1242,143 @@
                 this.statusDiv = document.getElementById('status-info');
                 this.stores = new Set();
                 // ここにあなたのAPIキーを貼り付けてください
-                this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE'; // ダミーのキー
-                this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'; // ダミーのID
+                this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE'; // 実際のAPIキー
+                this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'; // 実際のスプレッドシートID
                 this.sheetName = '貸借表'; // シート名
                 
                 console.log('基本設定完了');
-                console.log('システム初期化開始');
+                console.log('自動認証開始');
                 
-                // 直接システムを初期化
-                this.init();
+                // 自動認証を開始
+                this.initAutoAuth();
                 
                 console.log('=== コンストラクタ完了 ===');
+            }
+
+            async initAutoAuth() {
+                console.log('=== 自動認証開始 ===');
+                
+                // ログアウトボタンのイベントリスナーを設定
+                this.setupLogoutListener();
+                
+                // 既にログイン済みかチェック
+                const isAuthenticated = sessionStorage.getItem('apiAuthenticated') === 'true';
+                console.log('既存認証状態:', isAuthenticated);
+                
+                if (isAuthenticated) {
+                    console.log('既にAPI認証済み - メインアプリを表示');
+                    await this.showMainApp();
+                } else {
+                    console.log('API認証実行中...');
+                    await this.performAutoAuth();
+                }
+                
+                console.log('=== 自動認証完了 ===');
+            }
+
+            async performAutoAuth() {
+                const statusElement = document.getElementById('auto-login-status');
+                
+                try {
+                    // 認証ステータス更新
+                    statusElement.textContent = 'Google Sheets API に接続中...';
+                    
+                    // 少し待ってから認証開始（ユーザー体験向上）
+                    await this.delay(1000);
+                    
+                    // APIキーの有効性をテスト
+                    const isValidKey = await this.validateApiKey();
+                    
+                    if (isValidKey) {
+                        statusElement.textContent = '✅ API認証成功 - システムを初期化中...';
+                        await this.delay(500);
+                        
+                        // 認証成功をセッションに保存
+                        sessionStorage.setItem('apiAuthenticated', 'true');
+                        
+                        // メインアプリに移行
+                        await this.showMainApp();
+                        
+                    } else {
+                        throw new Error('APIキーが無効または期限切れです');
+                    }
+                    
+                } catch (error) {
+                    console.error('自動認証エラー:', error);
+                    statusElement.textContent = `❌ 認証失敗: ${error.message}`;
+                    
+                    // エラー時の再試行ボタンを表示
+                    setTimeout(() => {
+                        statusElement.innerHTML = `
+                            ❌ 認証に失敗しました<br>
+                            <button onclick="location.reload()" style="margin-top: 15px; padding: 10px 20px; background: #5a7c5a; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                                🔄 再試行
+                            </button>
+                        `;
+                    }, 2000);
+                }
+            }
+
+            async validateApiKey() {
+                try {
+                    // APIキーの有効性をテスト（簡単なAPI呼び出し）
+                    const testUrl = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?key=${this.apiKey}`;
+                    const response = await fetch(testUrl);
+                    
+                    return response.ok;
+                } catch (error) {
+                    console.error('APIキー検証エラー:', error);
+                    return false;
+                }
+            }
+
+            setupLogoutListener() {
+                const logoutBtn = document.getElementById('logout-btn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', () => {
+                        this.handleLogout();
+                    });
+                    console.log('ログアウトリスナー設定完了');
+                }
+            }
+
+            handleLogout() {
+                sessionStorage.removeItem('apiAuthenticated');
+                window.location.reload(); // ページをリロードして初期状態に戻る
+            }
+
+            async showMainApp() {
+                console.log('=== メインアプリ表示開始 ===');
+                
+                const autoLoginScreen = document.getElementById('auto-login-screen');
+                const mainApp = document.getElementById('main-app');
+                
+                console.log('自動ログイン画面要素:', autoLoginScreen);
+                console.log('メインアプリ要素:', mainApp);
+                
+                if (autoLoginScreen && mainApp) {
+                    autoLoginScreen.style.display = 'none';
+                    mainApp.style.display = 'block';
+                    console.log('画面切り替え完了');
+                    
+                    // メインアプリを初期化
+                    try {
+                        await this.init();
+                        console.log('メインアプリ初期化完了');
+                    } catch (error) {
+                        console.error('メインアプリ初期化エラー:', error);
+                    }
+                } else {
+                    console.error('画面要素が見つかりません');
+                    console.error('自動ログイン画面:', autoLoginScreen);
+                    console.error('メインアプリ:', mainApp);
+                }
+                
+                console.log('=== メインアプリ表示完了 ===');
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
             }
 
             async init() {
