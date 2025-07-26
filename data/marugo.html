@@ -1291,13 +1291,6 @@
                 this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'; // ダミーのID
                 this.sheetName = '貸借表'; // シート名
                 
-                // パスワード設定（実際の運用では環境変数やサーバーサイドで管理）
-                this.correctPasswords = [
-                    'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', // "hello"のSHA-256ハッシュ
-                    'e258d248fda94c63753607f7c4494ee0fcbe92f1a76bfdac795c9d84101eb317', // "marugo"のSHA-256ハッシュ
-                    
-                ];
-                
                 this.initAuth();
             }
 
@@ -1325,31 +1318,28 @@
 
             async handleLogin() {
                 const passwordInput = document.getElementById('password-input');
-                const password = passwordInput.value;
+                const password = passwordInput.value.trim(); // 前後の空白を除去
                 const errorDiv = document.getElementById('login-error');
 
-                // デバッグ用：入力されたパスワードとハッシュをコンソールに表示
-                console.log('入力パスワード:', password);
+                console.log('入力されたパスワード:', `"${password}"`); // デバッグ用
                 
-                // パスワードをSHA-256でハッシュ化
-                const passwordHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
-                    .then(hashBuffer => Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join(''));
-                console.log('パスワードハッシュ:', passwordHash);
-                console.log('設定済みハッシュ:', this.correctPasswords);
-
-                // 簡単なテスト用：平文パスワードもチェック（本番では推奨されません）
-                const validPasswords = ['hello', 'marugo', 'admin'];
+                // 有効なパスワードリスト
+                const validPasswords = ['hello', 'marugo', 'admin', 'test'];
                 
-                if (this.correctPasswords.includes(passwordHash) || validPasswords.includes(password)) {
+                console.log('有効なパスワード:', validPasswords); // デバッグ用
+                console.log('パスワード一致チェック:', validPasswords.includes(password)); // デバッグ用
+                
+                if (validPasswords.includes(password)) {
                     sessionStorage.setItem('authenticated', 'true');
                     this.showMainApp();
                     errorDiv.style.display = 'none';
+                    passwordInput.value = '';
                     console.log('ログイン成功');
                 } else {
                     errorDiv.style.display = 'block';
                     passwordInput.value = '';
                     passwordInput.focus();
-                    console.log('ログイン失敗');
+                    console.log('ログイン失敗 - 入力されたパスワード:', `"${password}"`);
                 }
             }
 
@@ -1367,15 +1357,6 @@
                 
                 // メインアプリを初期化
                 await this.init();
-            }
-
-            async hashPassword(password) { // 冗長な定義を削除
-                const encoder = new TextEncoder();
-                const data = encoder.encode(password);
-                const hash = await crypto.subtle.digest('SHA-256', data);
-                return Array.from(new Uint8Array(hash))
-                    .map(b => b.toString(16).padStart(2, '0'))
-                    .join('');
             }
 
             async init() {
