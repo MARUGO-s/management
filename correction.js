@@ -1,710 +1,230 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>逆取引修正フォーム</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      position: relative;
-      overflow-x: hidden;
-    }
-
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="75" cy="75" r="0.3" fill="rgba(255,255,255,0.03)"/><circle cx="50" cy="10" r="0.4" fill="rgba(255,255,255,0.04)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .floating-shapes {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .shape {
-      position: absolute;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 50%;
-      animation: float 6s ease-in-out infinite;
-    }
-
-    .shape:nth-child(1) {
-      width: 80px;
-      height: 80px;
-      top: 10%;
-      left: 10%;
-      animation-delay: -1s;
-    }
-
-    .shape:nth-child(2) {
-      width: 60px;
-      height: 60px;
-      top: 20%;
-      right: 20%;
-      animation-delay: -2s;
-    }
-
-    .shape:nth-child(3) {
-      width: 40px;
-      height: 40px;
-      bottom: 30%;
-      left: 30%;
-      animation-delay: -3s;
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0px) rotate(0deg); }
-      50% { transform: translateY(-20px) rotate(180deg); }
-    }
-
-    .container {
-      background: rgba(255, 255, 255, 0.98);
-      backdrop-filter: blur(20px);
-      border-radius: 24px;
-      padding: 40px;
-      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
-      max-width: 500px;
-      width: 100%;
-      position: relative;
-      z-index: 2;
-      transform: translateY(20px);
-      opacity: 0;
-      animation: slideIn 0.8s ease-out forwards;
-    }
-
-    @keyframes slideIn {
-      to {
-        transform: translateY(0);
-        opacity: 1;
-      }
-    }
-
-    .header-section {
-      text-align: center;
-      margin-bottom: 30px;
-      position: relative;
-    }
-
-    .back-btn {
-      position: absolute;
-      top: 0;
-      left: 0;
-      background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: transform 0.2s ease;
-    }
-
-    .back-btn:hover {
-      transform: translateY(-2px);
-    }
-
-    h2 {
-      color: #2d3748;
-      font-size: 2.2rem;
-      font-weight: 700;
-      margin-bottom: 10px;
-      background: linear-gradient(135deg, #d69e2e, #b7791f);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .subtitle {
-      color: #4a5568;
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 20px;
-    }
-
-    .original-data-section {
-      background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-      border: 2px solid #e2e8f0;
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 25px;
-    }
-
-    .original-data-header {
-      color: #2d3748;
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 15px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .original-data-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      font-size: 14px;
-    }
-
-    .original-data-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 12px;
-      background: rgba(255, 255, 255, 0.8);
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
-    }
-
-    .original-data-label {
-      font-weight: 600;
-      color: #4a5568;
-    }
-
-    .original-data-value {
-      color: #2d3748;
-      font-family: 'Courier New', monospace;
-    }
-
-    .form-group {
-      margin-bottom: 25px;
-      position: relative;
-    }
-
-    label {
-      display: block;
-      font-weight: 600;
-      color: #4a5568;
-      margin-bottom: 8px;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    input, select {
-      width: 100%;
-      padding: 16px 20px;
-      font-size: 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.8);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      font-family: inherit;
-    }
-
-    /* 無効化された入力フィールドのスタイル */
-    input:disabled, select:disabled {
-      background: #e9e9e9;
-      color: #888;
-      cursor: not-allowed;
-      border-color: #dcdcdc;
-      transform: none;
-      box-shadow: none;
-    }
-    input:disabled:hover, select:disabled:hover {
-        border-color: #dcdcdc;
-        transform: none;
-    }
-
-    input:focus, select:focus {
-      outline: none;
-      border-color: #d69e2e;
-      background: rgba(255, 255, 255, 1);
-      box-shadow: 0 0 0 3px rgba(214, 158, 46, 0.1);
-      transform: translateY(-2px);
-    }
-
-    input:hover, select:hover {
-      border-color: #cbd5e0;
-      transform: translateY(-1px);
-    }
-
-    .category-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-top: 8px;
-    }
-
-    .category-option {
-      padding: 12px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      background: rgba(255, 255, 255, 0.8);
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-
-    /* 無効化されたカテゴリーオプションのスタイル */
-    .category-option.disabled {
-        background: #e9e9e9;
-        color: #888;
-        cursor: not-allowed;
-        border-color: #dcdcdc;
-        transform: none;
-    }
-    .category-option.disabled:hover {
-        border-color: #dcdcdc;
-        transform: none;
-        background: #e9e9e9;
-    }
-
-    .category-option:hover {
-      border-color: #d69e2e;
-      background: rgba(214, 158, 46, 0.1);
-      transform: translateY(-1px);
-    }
-
-    .category-option.selected {
-      border-color: #d69e2e;
-      background: linear-gradient(135deg, #d69e2e, #b7791f);
-      color: white;
-    }
-
-    /* 選択された無効カテゴリーのスタイル */
-    .category-option.selected.disabled {
-        background: linear-gradient(135deg, #b7791f, #a67f3f);
-        color: white;
-        border-color: #d69e2e;
-    }
-
-    .amount-input {
-      position: relative;
-    }
-
-    .amount-input::before {
-      content: '¥';
-      position: absolute;
-      left: 20px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #4a5568;
-      font-weight: 600;
-      font-size: 1.2rem;
-      z-index: 1;
-    }
-
-    .amount-input input {
-      padding-left: 40px;
-    }
-
-    .correction-notice {
-      background: linear-gradient(135deg, #fff5cd 0%, #ffeaa7 100%);
-      border: 2px solid #d69e2e;
-      border-radius: 16px;
-      padding: 20px;
-      margin: 25px 0;
-      text-align: center;
-    }
-
-    .correction-notice-header {
-      color: #b7791f;
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-
-    .correction-notice-text {
-      color: #8a6914;
-      font-size: 14px;
-      line-height: 1.4;
-    }
-
-    .status-display {
-      margin: 20px 0;
-      padding: 20px;
-      border-radius: 16px;
-      background: rgba(214, 158, 46, 0.05);
-      border: 2px solid rgba(214, 158, 46, 0.1);
-      display: none;
-      text-align: center;
-    }
-
-    .status-display.show {
-      display: block;
-      animation: statusSlideIn 0.4s ease-out;
-    }
-
-    @keyframes statusSlideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .status-step {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 12px 0;
-      font-size: 14px;
-      font-weight: 600;
-      opacity: 0.3;
-      transition: all 0.4s ease;
-      color: #b7791f;
-    }
-
-    .status-step.active {
-      opacity: 1;
-      color: #b7791f;
-      transform: scale(1.05);
-    }
-
-    .status-step.completed {
-      opacity: 1;
-      color: #38a169;
-    }
-
-    .status-step.error {
-      opacity: 1;
-      color: #e53e3e;
-    }
-
-    .status-icon {
-      margin-right: 8px;
-      font-size: 16px;
-    }
-
-    .mini-loading-spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(214, 158, 46, 0.2);
-      border-top: 2px solid #d69e2e;
-      border-radius: 50%;
-      animation: miniSpin 1s linear infinite;
-      margin-right: 8px;
-    }
-
-    @keyframes miniSpin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .button-group {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    .submit-btn {
-      width: 100%;
-      padding: 18px 24px;
-      background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 1.1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .submit-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(214, 158, 46, 0.4);
-    }
-
-    .submit-btn:active {
-      transform: translateY(0);
-    }
-
-    .submit-btn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .submit-btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      transition: left 0.5s;
-    }
-
-    .submit-btn:hover::before {
-      left: 100%;
-    }
-
-    .cancel-btn {
-      background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
-    }
-
-    .cancel-btn:hover:not(:disabled) {
-      box-shadow: 0 10px 25px rgba(138, 138, 138, 0.4);
-    }
-
-    .success-message {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: linear-gradient(135deg, #68d391, #4fd1c7);
-      color: white;
-      padding: 16px 24px;
-      border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(104, 211, 145, 0.3);
-      transform: translateX(400px);
-      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 1000;
-      font-weight: 600;
-    }
-
-    .success-message.show {
-      transform: translateX(0);
-    }
-
-    .error-message {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: linear-gradient(135deg, #f56565, #e53e3e);
-      color: white;
-      padding: 16px 24px;
-      border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(245, 101, 101, 0.3);
-      transform: translateX(400px);
-      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 1000;
-      font-weight: 600;
-    }
-
-    .error-message.show {
-      transform: translateX(0);
-    }
-
-    .loading {
-      display: none;
-      width: 20px;
-      height: 20px;
-      border: 2px solid #ffffff;
-      border-radius: 50%;
-      border-top-color: transparent;
-      animation: spin 1s linear infinite;
-      margin-right: 8px;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .submit-btn.loading .loading {
-      display: inline-block;
-    }
-
-    .submit-btn.loading::before {
-      display: none;
-    }
-
-    @media (max-width: 640px) {
-      .container {
-        padding: 30px 20px;
-        margin: 10px;
-        border-radius: 16px;
-      }
-
-      h2 {
-        font-size: 1.8rem;
-      }
-
-      .category-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .original-data-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .success-message, .error-message {
-        top: auto;
-        bottom: 20px;
-        right: 20px;
-        left: 20px;
-        transform: translateY(100px);
-      }
-
-      .success-message.show, .error-message.show {
-        transform: translateY(0);
-      }
-    }
-  </style>
-
-<link rel="icon" href="favicon-v2.ico" type="image/x-icon">
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180x180-v2.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-512x512.png">
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16x16.png">  
-<link rel="manifest" href="site-v2.webmanifest">
-  
-</head>
-<body>
-  <div class="floating-shapes">
-    <div class="shape"></div>
-    <div class="shape"></div>
-    <div class="shape"></div>
-  </div>
-
-  <div class="container">
-    <div class="header-section">
-      <a href="data/marugo.html" class="back-btn">
-        ← 戻る
-      </a>
-      <h2>✏️ 逆取引修正</h2>
-      <p class="subtitle">選択されたデータの逆取引を送信します</p>
-    </div>
-
-    <!-- 元データ表示セクション -->
-    <div class="original-data-section" id="original-data-section">
-      <div class="original-data-header">
-        📋 元のデータ
-      </div>
-      <div class="original-data-grid" id="original-data-grid">
-        <!-- 元データがここに表示されます -->
-      </div>
-    </div>
-
-    <!-- 修正通知 -->
-    <div class="correction-notice">
-      <div class="correction-notice-header">🔄 逆取引として送信</div>
-      <div class="correction-notice-text">
-        貸主と借主を入れ替えて修正データとして送信します。<br>
-        自動的に「✏️修正」マークが付与されます。
-      </div>
-    </div>
-
-    <form id="correctionForm">
-      <div class="form-group">
-        <label for="date">📅 日付</label>
-        <input type="date" id="date" required disabled>
-      </div>
-
-      <div class="form-group">
-        <label for="name">📋 名前</label>
-        <input type="text" id="name" required placeholder="入力者名を入力" value="システム修正" disabled>
-      </div>
-
-      <div class="form-group">
-        <label for="lender">📤 貸主</label>
-        <select id="lender" required disabled>
-          <option value="">選択してください</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="borrower">📥 借主</label>
-        <select id="borrower" required disabled>
-          <option value="">選択してください</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>🏷️ カテゴリー</label>
-        <div class="category-grid">
-          <div class="category-option" data-value="食材">🍎 食材</div>
-          <div class="category-option" data-value="飲料">🥤 飲料</div>
-          <div class="category-option" data-value="その他">📦 その他</div>
-        </div>
-        <input type="hidden" id="category" required>
-      </div>
-
-      <div class="form-group">
-        <label for="item">📝 品目</label>
-        <input type="text" id="item" required placeholder="品目を入力" disabled>
-      </div>
-
-      <div class="form-group">
-        <label for="amount">💵 金額</label>
-        <div class="amount-input">
-          <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric" placeholder="金額を入力" disabled>
-        </div>
-      </div>
-
-      <!-- 状態表示エリア -->
-      <div class="status-display" id="status-display">
-        <div class="status-step" id="step-validation">
-          <span class="status-icon">📋</span>
-          <span>修正データを検証中...</span>
-        </div>
-        <div class="status-step" id="step-sending">
-          <span class="status-icon">📤</span>
-          <span>修正データをスプレッドシートに送信中...</span>
-        </div>
-        <div class="status-step" id="step-inserting">
-          <span class="status-icon">💾</span>
-          <span>修正データを挿入中...</span>
-        </div>
-        <div class="status-step" id="step-backup">
-          <span class="status-icon">🔄</span>
-          <span>バックアップを作成中...</span>
-        </div>
-        <div class="status-step" id="step-complete">
-          <span class="status-icon">✅</span>
-          <span>修正送信完了！</span>
-        </div>
-      </div>
-
-      <div class="button-group">
-        <button type="submit" class="submit-btn">
-          <span class="loading"></span>
-          <span class="btn-text">✏️ 修正データを送信</span>
-        </button>
-        <button type="button" class="submit-btn cancel-btn" onclick="history.back()">
-          <span class="btn-text">❌ キャンセル</span>
-        </button>
-      </div>
-    </form>
-  </div>
-
-  <div class="success-message" id="successMessage">
-    ✅ 修正データの送信が完了しました！
-  </div>
-
-  <div class="error-message" id="errorMessage">
-    ❌ 送信に失敗しました
-  </div>
-
-  <script src="correction.js"></script>
-</body>
-</html>
+// Google Apps ScriptのウェブアプリURLをここに設定してください
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec'; 
+
+document.addEventListener('DOMContentLoaded', () => {
+    const correctionForm = document.getElementById('correctionForm');
+    const originalDataGrid = document.getElementById('original-data-grid');
+    const dateInput = document.getElementById('date');
+    const nameInput = document.getElementById('name');
+    const lenderSelect = document.getElementById('lender');
+    const borrowerSelect = document.getElementById('borrower');
+    const categoryHiddenInput = document.getElementById('category');
+    const itemInput = document.getElementById('item');
+    const amountInput = document.getElementById('amount');
+    const statusDisplay = document.getElementById('status-display');
+    const submitBtn = document.querySelector('.submit-btn');
+    const successMessage = document.getElementById('successMessage');
+    const errorMessage = document.getElementById('errorMessage');
+
+    let originalData = null; // marugo.htmlから渡された元のデータを保持
+
+    // 貸主・借主のプルダウンオプションを生成する関数
+    function populatePeopleDropdowns(lenderName, borrowerName) {
+        const people = Array.from(new Set([lenderName, borrowerName, '個人A', '個人B', '個人C', '個人D', '個人E', '個人F', '個人G'])); // サンプルの名前。実際には動的に取得するのが望ましい
+        people.sort(); // ソート
+
+        lenderSelect.innerHTML = '<option value="">選択してください</option>';
+        borrowerSelect.innerHTML = '<option value="">選択してください</option>';
+
+        people.forEach(person => {
+            const lenderOption = document.createElement('option');
+            lenderOption.value = person;
+            lenderOption.textContent = person;
+            lenderSelect.appendChild(lenderOption);
+
+            const borrowerOption = document.createElement('option');
+            borrowerOption.value = person;
+            borrowerOption.textContent = person;
+            borrowerSelect.appendChild(borrowerOption);
+        });
+
+        // デフォルトで逆取引の貸主・借主を選択状態にする
+        lenderSelect.value = borrowerName;
+        borrowerSelect.value = lenderName;
+    }
+
+    // sessionStorageからデータを受け取り、フォームに表示する
+    function loadCorrectionData() {
+        const storedData = sessionStorage.getItem('correctionData');
+        if (storedData) {
+            originalData = JSON.parse(storedData);
+
+            // 元データを表示
+            originalDataGrid.innerHTML = `
+                <div class="original-data-item"><span class="original-data-label">日付</span><span class="original-data-value">${originalData.date || 'N/A'}</span></div>
+                <div class="original-data-item"><span class="original-data-label">入力者</span><span class="original-data-value">${originalData.name || 'N/A'}</span></div>
+                <div class="original-data-item"><span class="original-data-label">貸主</span><span class="original-data-value">${originalData.lender || 'N/A'}</span></div>
+                <div class="original-data-item"><span class="original-data-label">借主</span><span class="original-data-value">${originalData.borrower || 'N/A'}</span></div>
+                <div class="original-data-item"><span class="original-data-label">カテゴリー</span><span class="original-data-value">${originalData.category || 'N/A'}</span></div>
+                <div class="original-data-item"><span class="original-data-label">品目</span><span class="original-data-value">${originalData.item || 'N/A'}</span></div>
+                <div class="original-data-item"><span class="original-data-label">金額</span><span class="original-data-value">¥${(originalData.amount || 0).toLocaleString()}</span></div>
+                <div class="original-data-item"><span class="original-data-label">修正フラグ</span><span class="original-data-value">${originalData.correction || 'なし'}</span></div>
+                <div class="original-data-item"><span class="original-data-label">元のシート行</span><span class="original-data-value">${originalData.originalRowIndex || 'N/A'}</span></div>
+            `;
+
+            // フォームフィールドにデータを設定
+            dateInput.value = originalData.date || '';
+            // nameInputは「システム修正」で固定
+
+            populatePeopleDropdowns(originalData.lender, originalData.borrower); // 貸主と借主を入れ替えてセット
+
+            // カテゴリーを設定し、選択状態にする
+            const categoryOptions = document.querySelectorAll('.category-option');
+            categoryOptions.forEach(option => {
+                option.classList.remove('selected');
+                if (option.dataset.value === originalData.category) {
+                    option.classList.add('selected');
+                    categoryHiddenInput.value = originalData.category;
+                }
+                // すべてのカテゴリを無効にする
+                option.classList.add('disabled');
+            });
+            
+            itemInput.value = originalData.item || '';
+            amountInput.value = (originalData.amount || 0).toLocaleString(); // 金額をカンマ区切りで表示
+
+            // 全ての入力フィールドを読み取り専用にする
+            dateInput.disabled = true;
+            nameInput.disabled = true;
+            lenderSelect.disabled = true;
+            borrowerSelect.disabled = true;
+            itemInput.disabled = true;
+            amountInput.disabled = true;
+
+        } else {
+            // データがない場合は、ユーザーにmarugo.htmlに戻るように促すか、エラー表示
+            alert('修正対象のデータが見つかりません。前のページに戻ってデータを選択してください。');
+            window.location.href = '../marugo.html'; // marugo.htmlに戻る
+        }
+    }
+
+    // フォーム送信処理
+    correctionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // フォームが既に送信中の場合は何もしない
+        if (submitBtn.disabled) {
+            return;
+        }
+
+        // 送信ボタンを無効化し、ローディング表示
+        submitBtn.disabled = true;
+        submitBtn.classList.add('loading');
+        submitBtn.querySelector('.btn-text').textContent = '送信中...';
+        statusDisplay.classList.add('show');
+        resetStatusSteps();
+
+        // フォームデータの収集 (今回は読み取り専用なのでoriginalDataから取得)
+        const correctedData = {
+            date: originalData.date,
+            name: "システム修正", // 固定値
+            lender: originalData.borrower, // 貸主と借主を入れ替える
+            borrower: originalData.lender,   // 貸主と借主を入れ替える
+            category: originalData.category,
+            item: originalData.item,
+            amount: parseFloat(originalData.amount), // 数値に戻す
+            correction: "✏️修正", // 修正フラグを追加
+            originalRowIndex: originalData.originalRowIndex // 元の行のインデックス (GAS側で必要に応じて使用)
+        };
+
+        // ステータス表示の更新ヘルパー関数
+        function updateStatus(stepId, type, message = '') {
+            const stepElement = document.getElementById(stepId);
+            if (stepElement) {
+                stepElement.classList.remove('active', 'completed', 'error');
+                if (type === 'active') {
+                    stepElement.classList.add('active');
+                    stepElement.innerHTML = `<span class="mini-loading-spinner"></span><span>${message}</span>`;
+                } else if (type === 'completed') {
+                    stepElement.classList.add('completed');
+                    stepElement.innerHTML = `<span class="status-icon">✅</span><span>${message}</span>`;
+                } else if (type === 'error') {
+                    stepElement.classList.add('error');
+                    stepElement.innerHTML = `<span class="status-icon">❌</span><span>${message}</span>`;
+                }
+            }
+        }
+
+        function resetStatusSteps() {
+            const steps = ['step-validation', 'step-sending', 'step-inserting', 'step-backup', 'step-complete'];
+            steps.forEach(stepId => {
+                const stepElement = document.getElementById(stepId);
+                if (stepElement) {
+                    stepElement.classList.remove('active', 'completed', 'error');
+                    // 元のテキストに戻す
+                    if (stepId === 'step-validation') stepElement.innerHTML = `<span class="status-icon">📋</span><span>修正データを検証中...</span>`;
+                    if (stepId === 'step-sending') stepElement.innerHTML = `<span class="status-icon">📤</span><span>修正データをスプレッドシートに送信中...</span>`;
+                    if (stepId === 'step-inserting') stepElement.innerHTML = `<span class="status-icon">💾</span><span>修正データを挿入中...</span>`;
+                    if (stepId === 'step-backup') stepElement.innerHTML = `<span class="status-icon">🔄</span><span>バックアップを作成中...</span>`;
+                    if (stepId === 'step-complete') stepElement.innerHTML = `<span class="status-icon">✅</span><span>修正送信完了！</span>`;
+                }
+            });
+        }
+
+
+        try {
+            updateStatus('step-validation', 'active', '修正データを検証中...');
+            // 簡単なバリデーション (disabledなので基本OKだが念のため)
+            if (!correctedData.date || !correctedData.lender || !correctedData.borrower || !correctedData.item || !correctedData.amount) {
+                throw new Error('必須項目が入力されていません。');
+            }
+            updateStatus('step-validation', 'completed', '修正データを検証済み');
+
+            updateStatus('step-sending', 'active', '修正データをスプレッドシートに送信中...');
+            const response = await fetch(GAS_WEB_APP_URL, {
+                method: 'POST',
+                mode: 'cors', // CORSを有効にする
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams(correctedData).toString() // URLエンコードして送信
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`GASエラー: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.status === 'SUCCESS') {
+                updateStatus('step-sending', 'completed', '修正データをスプレッドシートに送信済み');
+                updateStatus('step-inserting', 'completed', '修正データを挿入済み');
+                updateStatus('step-backup', 'completed', 'バックアップを作成済み');
+                updateStatus('step-complete', 'completed', '修正送信完了！');
+                
+                showNotification(successMessage);
+                // 成功後、sessionStorageをクリアしてmarugo.htmlに戻る
+                sessionStorage.removeItem('correctionData');
+                setTimeout(() => {
+                    window.location.href = '../marugo.html';
+                }, 2000); // 2秒後にリダイレクト
+            } else {
+                throw new Error(result.message || 'GASからの予期せぬエラーが発生しました。');
+            }
+
+        } catch (error) {
+            console.error('修正データの送信エラー:', error);
+            updateStatus('step-complete', 'error', '修正送信失敗');
+            showNotification(errorMessage);
+            errorMessage.textContent = `❌ 送信に失敗しました: ${error.message}`;
+
+        } finally {
+            // ボタンの状態を元に戻す
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('loading');
+            submitBtn.querySelector('.btn-text').textContent = '✏️ 修正データを送信';
+        }
+    });
+
+    // 通知メッセージ表示関数
+    function showNotification(messageElement) {
+        messageElement.classList.add('show');
+        setTimeout(() => {
+            messageElement.classList.remove('show');
+        }, 3000); // 3秒後に非表示
+    }
+
+    // ページロード時にデータを読み込む
+    loadCorrectionData();
+});
