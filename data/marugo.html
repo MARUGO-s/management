@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>店舗別貸借分析システム</title>
     <style>
-        /* CSSスタイルは変更なし */
+        /* CSSスタイルは基本的に変更なし */
         * {
             margin: 0;
             padding: 0;
@@ -29,32 +29,23 @@
             backdrop-filter: blur(10px);
         }
 
-        /* ログイン画面の要素名を自動ログインに合わせて変更 */
-        /* 以前の auto-login-screen を login-screen に変更して再利用 */
-        .login-screen { /* 名前を auto-login-screen から login-screen に変更 */
-            display: block; /* 初期表示はログイン画面 */
+        /* パスワード認証画面のスタイル */
+        .password-screen {
+            display: block;
             text-align: center;
             padding: 50px 30px;
         }
 
-        .main-app {
-            display: none; /* 初期表示は非表示 */
-        }
-
-        /* login-card を auto-login-card から変更 */
-        .login-card {
+        .password-card {
             background: white;
             border-radius: 20px;
             padding: 40px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
             max-width: 400px;
-            width: 100%;
-            text-align: center;
-            backdrop-filter: blur(10px);
+            margin: 0 auto;
         }
 
-        /* login-title を auto-login-title から変更 */
-        .login-title {
+        .password-title {
             font-size: 2rem;
             background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
             -webkit-background-clip: text;
@@ -63,64 +54,110 @@
             margin-bottom: 30px;
         }
 
-        /* 新しい要素：パスワード入力フォームとボタン用 */
-        .login-form {
+        .password-form {
             display: flex;
             flex-direction: column;
             gap: 20px;
         }
 
         .password-input {
-            padding: 15px 20px;
+            padding: 15px;
             border: 2px solid #cccccc;
-            border-radius: 15px;
+            border-radius: 10px;
             font-size: 16px;
             outline: none;
-            transition: all 0.3s ease;
+            transition: border-color 0.3s ease;
+            text-align: center;
         }
 
         .password-input:focus {
             border-color: #5a7c5a;
-            box-shadow: 0 0 15px rgba(90, 124, 90, 0.2);
         }
 
-        .login-btn {
+        .password-btn {
             background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
             color: white;
             border: none;
-            padding: 15px 30px;
-            border-radius: 15px;
+            padding: 15px 20px;
+            border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s ease;
         }
 
-        .login-btn:hover {
+        .password-btn:hover {
             transform: translateY(-2px);
         }
 
-        /* login-error を auto-login-status から変更 */
-        .login-error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 15px;
-            font-weight: 600;
-            display: none; /* 初期は非表示 */
+        .password-btn:disabled {
+            background: linear-gradient(135deg, #cccccc 0%, #999999 100%);
+            cursor: not-allowed;
+            transform: none;
         }
 
-        .security-note {
-            margin-top: 20px;
+        .password-error {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .password-info {
             font-size: 14px;
             color: #666;
-            line-height: 1.5;
+            margin-top: 20px;
         }
-        /* ロードスピナーは今回は使用しないのでCSSを非表示に */
-        .auto-login-spinner {
+
+        /* ログイン画面の要素名を自動ログインに合わせて変更 */
+        .auto-login-screen {
             display: none;
+            text-align: center;
+            padding: 50px 30px;
+        }
+
+        .main-app {
+            display: none;
+        }
+
+        .auto-login-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .auto-login-title {
+            font-size: 2rem;
+            background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+        }
+
+        .auto-login-status {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .auto-login-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #5a7c5a;
+            border-radius: 50%;
+            animation: autoLoginSpin 1s linear infinite;
+            margin: 20px 0;
+        }
+
+        @keyframes autoLoginSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .logout-btn {
@@ -664,40 +701,62 @@
             .correction-search-btn {
                 width: 100%; /* 幅を100%に */
             }
+
+            .password-card {
+                padding: 30px 20px;
+            }
+
+            .auto-login-card {
+                padding: 30px 20px;
+            }
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <div class="login-screen" id="login-screen">
-            <div class="login-card">
-                <h1 class="login-title">🔐 システムログイン</h1>
-                <p style="color: #666; margin-bottom: 30px;">店舗別貸借分析システムにアクセスするにはパスワードを入力してください</p>
-                
-                <form class="login-form" id="login-form">
+        <!-- パスワード認証画面 -->
+        <div class="password-screen" id="password-screen">
+            <div class="password-card">
+                <h1 class="password-title">🔐 システムアクセス</h1>
+                <div class="password-info">
+                    システムにアクセスするにはパスワードが必要です
+                </div>
+                <form class="password-form" id="password-form">
                     <input 
                         type="password" 
                         id="password-input" 
                         class="password-input" 
-                        placeholder="パスワードを入力"
-                        autocomplete="current-password"
+                        placeholder="パスワードを入力してください"
                         required
                     >
-                    <button type="submit" class="login-btn">🚀 ログイン</button>
+                    <button type="submit" class="password-btn" id="password-btn">
+                        🚪 ログイン
+                    </button>
+                    <div class="password-error" id="password-error">
+                        ❌ パスワードが正しくありません
+                    </div>
                 </form>
-                
-                <div class="login-error" id="login-error">
-                    ❌ パスワードが正しくありません
-                </div>
-                
-                <div class="security-note">
-                    🛡️ このシステムは認証されたユーザーのみアクセス可能です<br>
-                    パスワードを忘れた場合は管理者にお問い合わせください
+                <div class="password-info">
+                    🛡️ セキュアな環境でデータを保護しています
                 </div>
             </div>
         </div>
 
+        <!-- 自動ログイン画面 -->
+        <div class="auto-login-screen" id="auto-login-screen">
+            <div class="auto-login-card">
+                <h1 class="auto-login-title">🔐 システム認証</h1>
+                <div class="auto-login-status" id="auto-login-status">
+                    APIキーによる自動認証中...
+                </div>
+                <div class="auto-login-spinner"></div>
+                <div style="margin-top: 20px; font-size: 14px; color: #666;">
+                    🛡️ セキュア接続でデータにアクセス中です
+                </div>
+            </div>
+        </div>
+
+        <!-- メインアプリケーション -->
         <div class="main-app" id="main-app">
             <div class="header" style="position: relative;">
                 <h1>📊 店舗別貸借分析システム</h1>
@@ -786,9 +845,153 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script>
+        // システム設定（実際の運用では別ファイルにして、サーバーサイドで管理することを推奨）
+        const SYSTEM_PASSWORD = 'marugo2025'; // パスワードを設定（実際の運用では変更してください）
+        const PASSWORD_EXPIRY_HOURS = 8; // パスワード認証の有効期限（時間）
+
         // ソート機能用の変数
         let sortDirection = {};
         let currentTableData = [];
+
+        // パスワード認証管理クラス
+        class PasswordAuth {
+            constructor() {
+                this.setupPasswordAuth();
+            }
+
+            setupPasswordAuth() {
+                // 既存の認証状態をチェック
+                if (this.isPasswordAuthenticated()) {
+                    this.showAutoLoginScreen();
+                } else {
+                    this.showPasswordScreen();
+                }
+
+                // パスワードフォームのイベントリスナー
+                const passwordForm = document.getElementById('password-form');
+                if (passwordForm) {
+                    passwordForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.handlePasswordSubmit();
+                    });
+                }
+
+                // Enterキーでログイン
+                const passwordInput = document.getElementById('password-input');
+                if (passwordInput) {
+                    passwordInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            this.handlePasswordSubmit();
+                        }
+                    });
+                }
+            }
+
+            isPasswordAuthenticated() {
+                const authData = sessionStorage.getItem('passwordAuth');
+                if (!authData) return false;
+
+                try {
+                    const auth = JSON.parse(authData);
+                    const now = new Date().getTime();
+                    const authTime = new Date(auth.timestamp).getTime();
+                    const hoursElapsed = (now - authTime) / (1000 * 60 * 60);
+
+                    return auth.authenticated && hoursElapsed < PASSWORD_EXPIRY_HOURS;
+                } catch (error) {
+                    console.error('認証データの解析エラー:', error);
+                    return false;
+                }
+            }
+
+            handlePasswordSubmit() {
+                const passwordInput = document.getElementById('password-input');
+                const passwordBtn = document.getElementById('password-btn');
+                const passwordError = document.getElementById('password-error');
+                const enteredPassword = passwordInput.value;
+
+                // ボタンを無効化
+                passwordBtn.disabled = true;
+                passwordBtn.textContent = '🔄 認証中...';
+
+                // パスワードチェック（少し遅延を入れてセキュリティらしく見せる）
+                setTimeout(() => {
+                    if (enteredPassword === SYSTEM_PASSWORD) {
+                        // 認証成功
+                        this.setPasswordAuthentication();
+                        passwordError.style.display = 'none';
+                        this.showAutoLoginScreen();
+                    } else {
+                        // 認証失敗
+                        passwordError.style.display = 'block';
+                        passwordInput.value = '';
+                        passwordInput.focus();
+                        
+                        // ボタンを元に戻す
+                        passwordBtn.disabled = false;
+                        passwordBtn.textContent = '🚪 ログイン';
+                        
+                        // エラーメッセージを少し揺らす
+                        passwordError.style.animation = 'shake 0.5s';
+                        setTimeout(() => {
+                            passwordError.style.animation = '';
+                        }, 500);
+                    }
+                }, 1000);
+            }
+
+            setPasswordAuthentication() {
+                const authData = {
+                    authenticated: true,
+                    timestamp: new Date().toISOString()
+                };
+                sessionStorage.setItem('passwordAuth', JSON.stringify(authData));
+                console.log('パスワード認証完了');
+            }
+
+            showPasswordScreen() {
+                document.getElementById('password-screen').style.display = 'block';
+                document.getElementById('auto-login-screen').style.display = 'none';
+                document.getElementById('main-app').style.display = 'none';
+                
+                // パスワード入力欄にフォーカス
+                setTimeout(() => {
+                    const passwordInput = document.getElementById('password-input');
+                    if (passwordInput) {
+                        passwordInput.focus();
+                    }
+                }, 100);
+            }
+
+            showAutoLoginScreen() {
+                document.getElementById('password-screen').style.display = 'none';
+                document.getElementById('auto-login-screen').style.display = 'block';
+                document.getElementById('main-app').style.display = 'none';
+                
+                // 自動ログイン処理を開始
+                if (typeof GoogleSheetsAPIAnalyzer !== 'undefined') {
+                    new GoogleSheetsAPIAnalyzer();
+                }
+            }
+
+            logout() {
+                sessionStorage.removeItem('passwordAuth');
+                sessionStorage.removeItem('apiAuthenticated');
+                window.location.reload();
+            }
+        }
+
+        // CSS animation for shake effect
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                20%, 40%, 60%, 80% { transform: translateX(5px); }
+            }
+        `;
+        document.head.appendChild(style);
 
         // ソート機能
         function sortTable(columnIndex) {
@@ -859,99 +1062,150 @@
                 this.sheetName = '貸借表'; // シート名
                 
                 console.log('基本設定完了');
-                console.log('認証初期化開始');
+                console.log('自動認証開始');
                 
-                // 認証プロセスをセットアップ
-                this.setupAuth();
+                // 自動認証を開始
+                this.initAutoAuth();
                 
                 console.log('=== コンストラクタ完了 ===');
             }
 
-            // 認証プロセスを管理する関数
-            async setupAuth() {
-                const isAuthenticated = sessionStorage.getItem('authenticated') === 'true';
-                const loginScreen = document.getElementById('login-screen');
-                const mainApp = document.getElementById('main-app');
-
+            async initAutoAuth() {
+                console.log('=== 自動認証開始 ===');
+                
+                // ログアウトボタンのイベントリスナーを設定
+                this.setupLogoutListener();
+                
+                // 既にログイン済みかチェック
+                const isAuthenticated = sessionStorage.getItem('apiAuthenticated') === 'true';
+                console.log('既存認証状態:', isAuthenticated);
+                
                 if (isAuthenticated) {
-                    console.log('認証済み - メインアプリを表示');
-                    loginScreen.style.display = 'none';
-                    mainApp.style.display = 'block';
-                    await this.init(); // メインアプリの初期化とデータ読み込み
+                    console.log('既にAPI認証済み - メインアプリを表示');
+                    await this.showMainApp();
                 } else {
-                    console.log('未認証 - ログイン画面を表示');
-                    loginScreen.style.display = 'block';
-                    mainApp.style.display = 'none';
-                    this.setupLoginListeners(); // ログインフォームのイベントリスナー設定
+                    console.log('API認証実行中...');
+                    await this.performAutoAuth();
+                }
+                
+                console.log('=== 自動認証完了 ===');
+            }
+
+            async performAutoAuth() {
+                const autoLoginScreen = document.getElementById('auto-login-screen');
+                const statusElement = document.getElementById('auto-login-status');
+                
+                // ロード画面を表示
+                if (autoLoginScreen) {
+                    autoLoginScreen.style.display = 'block';
+                }
+
+                try {
+                    // 認証ステータス更新
+                    statusElement.textContent = 'Google Sheets API に接続中...';
+                    
+                    // 少し待ってから認証開始（ユーザー体験向上）
+                    await this.delay(1000);
+                    
+                    // APIキーの有効性をテスト
+                    const isValidKey = await this.validateApiKey();
+                    
+                    if (isValidKey) {
+                        statusElement.textContent = '✅ API認証成功 - システムを初期化中...';
+                        await this.delay(500);
+                        
+                        // 認証成功をセッションに保存
+                        sessionStorage.setItem('apiAuthenticated', 'true');
+                        
+                        // メインアプリに移行
+                        await this.showMainApp();
+                        
+                    } else {
+                        throw new Error('APIキーが無効または期限切れです');
+                    }
+                    
+                } catch (error) {
+                    console.error('自動認証エラー:', error);
+                    statusElement.textContent = `❌ 認証失敗: ${error.message}`;
+                    
+                    // エラー時の再試行ボタンを表示
+                    setTimeout(() => {
+                        if (statusElement) {
+                            statusElement.innerHTML = `
+                                ❌ 認証に失敗しました<br>
+                                <button onclick="location.reload()" style="margin-top: 15px; padding: 10px 20px; background: #5a7c5a; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                                    🔄 再試行
+                                </button>
+                            `;
+                        }
+                    }, 2000);
                 }
             }
 
-            // ログインフォームのイベントリスナー設定
-            setupLoginListeners() {
-                const loginForm = document.getElementById('login-form');
-                const passwordInput = document.getElementById('password-input');
-                const errorDiv = document.getElementById('login-error');
-                const loginBtn = document.getElementById('login-btn'); // レート制限用
-
-                let loginAttempts = 0;
-                const MAX_LOGIN_ATTEMPTS = 5;
-                const LOCKOUT_TIME_MS = 60 * 1000; // 1分間ロックアウト
-
-                if (loginForm) {
-                    loginForm.addEventListener('submit', async (e) => {
-                        e.preventDefault();
-                        const enteredPassword = passwordInput.value.trim();
-
-                        // ★★★ ここにあなたが設定したいパスワードのSHA256ハッシュ値を貼り付けてください ★★★
-                        // 例: "mysecretpass" と "random_static_salt" を結合してハッシュ化したもの
-                        const correctPasswordHash = 'YOUR_SHA256_HASH_OF_PASSWORD_HERE'; // <- このハッシュ値を変更してください
-                        const salt = 'random_static_salt'; // 固定ソルト（コードに埋め込まれるため強度は低い）
-
-                        // 入力されたパスワードとソルトを結合してハッシュ化
-                        const hashedEnteredPassword = CryptoJS.SHA256(enteredPassword + salt).toString(); //
-
-                        if (hashedEnteredPassword === correctPasswordHash) {
-                            sessionStorage.setItem('authenticated', 'true');
-                            errorDiv.style.display = 'none';
-                            passwordInput.value = '';
-                            loginAttempts = 0; // 成功したら試行回数をリセット
-                            console.log('✅ パスワード認証成功');
-                            await this.setupAuth(); // 認証成功後、メインアプリを表示するために再呼び出し
-                        } else {
-                            errorDiv.textContent = '❌ パスワードが正しくありません';
-                            errorDiv.style.display = 'block';
-                            passwordInput.value = '';
-                            passwordInput.focus();
-                            console.log('❌ パスワード認証失敗');
-
-                            loginAttempts++;
-                            if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-                                loginBtn.disabled = true;
-                                errorDiv.textContent = `❌ 試行回数を超えました。${LOCKOUT_TIME_MS / 1000}秒後に再試行してください。`;
-                                setTimeout(() => {
-                                    loginBtn.disabled = false;
-                                    loginAttempts = 0; // ロックアウト解除時にリセット
-                                    errorDiv.style.display = 'none';
-                                }, LOCKOUT_TIME_MS);
-                            }
-                        }
-                    });
+            async validateApiKey() {
+                try {
+                    // APIキーの有効性をテスト（簡単なAPI呼び出し）
+                    const testUrl = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?key=${this.apiKey}`;
+                    const response = await fetch(testUrl);
+                    
+                    return response.ok;
+                } catch (error) {
+                    console.error('APIキー検証エラー:', error);
+                    return false;
                 }
+            }
 
-                // ログアウトボタン
+            setupLogoutListener() {
                 const logoutBtn = document.getElementById('logout-btn');
                 if (logoutBtn) {
                     logoutBtn.addEventListener('click', () => {
-                        sessionStorage.removeItem('authenticated'); // セッションクリア
-                        sessionStorage.removeItem('apiAuthenticated'); // API認証セッションもクリア
-                        window.location.reload(); // ページをリロードしてログイン画面に戻る
+                        this.handleLogout();
                     });
+                    console.log('ログアウトリスナー設定完了');
                 }
             }
 
-            // `initAutoAuth`, `performAutoAuth`, `validateApiKey` は
-            // `setupAuth` 関数によって制御されるため、直接呼び出されることはなくなります。
-            // ログアウト時にAPI認証セッションもクリアするようにします。
+            handleLogout() {
+                // パスワード認証とAPI認証の両方をクリア
+                sessionStorage.removeItem('apiAuthenticated');
+                sessionStorage.removeItem('passwordAuth');
+                window.location.reload(); // ページをリロードして初期状態に戻る
+            }
+
+            async showMainApp() {
+                console.log('=== メインアプリ表示開始 ===');
+                
+                const autoLoginScreen = document.getElementById('auto-login-screen');
+                const mainApp = document.getElementById('main-app');
+                
+                console.log('自動ログイン画面要素:', autoLoginScreen);
+                console.log('メインアプリ要素:', mainApp);
+                
+                if (autoLoginScreen && mainApp) {
+                    autoLoginScreen.style.display = 'none';
+                    mainApp.style.display = 'block';
+                    console.log('画面切り替え完了');
+                    
+                    // メインアプリを初期化
+                    try {
+                        await this.init();
+                        console.log('メインアプリ初期化完了');
+                    } catch (error) {
+                        console.error('メインアプリ初期化エラー:', error);
+                    }
+                } else {
+                    console.error('画面要素が見つかりません');
+                    console.error('自動ログイン画面:', autoLoginScreen);
+                    console.error('メインアプリ:', mainApp);
+                }
+                
+                console.log('=== メインアプリ表示完了 ===');
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
             async init() {
                 this.log('システム初期化中...', 'loading');
                 this.setupEventListeners();
@@ -1823,11 +2077,11 @@
             // correction.htmlページにリダイレクト
             redirectToCorrectionPage(selectedData) {
                 try {
-                    // localStorageに選択されたデータを保存
-                    localStorage.setItem('correctionData', JSON.stringify(selectedData));
+                    // sessionStorageに選択されたデータを保存（セキュリティのため）
+                    sessionStorage.setItem('correctionData', JSON.stringify(selectedData));
                     
-                    // correction.htmlページに移動 (marugo.htmlと同じ階層にあると仮定)
-                    window.location.href = 'correction.html'; 
+                    // correction.htmlページに移動
+                    window.location.href = '../correction.html';
                     
                 } catch (error) {
                     console.error('リダイレクトエラー:', error);
@@ -1870,7 +2124,8 @@
 
         // アプリケーション初期化
         document.addEventListener('DOMContentLoaded', () => {
-            new GoogleSheetsAPIAnalyzer();
+            // パスワード認証を最初に実行
+            const passwordAuth = new PasswordAuth();
         });
     </script>
 </body>
