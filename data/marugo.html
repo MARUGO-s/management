@@ -1282,6 +1282,8 @@
 
         class GoogleSheetsAPIAnalyzer {
             constructor() {
+                console.log('=== GoogleSheetsAPIAnalyzer 初期化開始 ===');
+                
                 this.data = []; // スプレッドシートから読み込んだ全データ
                 this.searchResults = []; // 検索結果データ
                 this.statusDiv = document.getElementById('status-info');
@@ -1291,56 +1293,135 @@
                 this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'; // ダミーのID
                 this.sheetName = '貸借表'; // シート名
                 
+                console.log('基本設定完了');
+                console.log('認証初期化開始');
+                
                 this.initAuth();
+                
+                console.log('=== コンストラクタ完了 ===');
             }
 
             async initAuth() {
+                console.log('=== 認証初期化開始 ===');
+                
                 this.setupAuthListeners();
+                
                 // 既にログイン済みかチェック
-                if (sessionStorage.getItem('authenticated') === 'true') {
+                const isAuthenticated = sessionStorage.getItem('authenticated') === 'true';
+                console.log('既存認証状態:', isAuthenticated);
+                
+                if (isAuthenticated) {
+                    console.log('既にログイン済み - メインアプリを表示');
                     this.showMainApp();
+                } else {
+                    console.log('未ログイン - ログイン画面を表示');
                 }
+                
+                console.log('=== 認証初期化完了 ===');
             }
 
             setupAuthListeners() {
                 const loginForm = document.getElementById('login-form');
                 const logoutBtn = document.getElementById('logout-btn');
+                const passwordInput = document.getElementById('password-input');
 
-                loginForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleLogin();
-                });
+                console.log('認証リスナー設定開始');
+                console.log('ログインフォーム:', loginForm);
+                console.log('パスワード入力:', passwordInput);
 
-                logoutBtn.addEventListener('click', () => {
-                    this.handleLogout();
-                });
+                // フォーム送信イベント
+                if (loginForm) {
+                    loginForm.addEventListener('submit', (e) => {
+                        console.log('フォーム送信イベント発生');
+                        e.preventDefault();
+                        this.handleLogin();
+                    });
+                    console.log('フォーム送信リスナー設定完了');
+                } else {
+                    console.error('ログインフォームが見つかりません');
+                }
+
+                // パスワード入力でEnterキー押下時の処理も追加
+                if (passwordInput) {
+                    passwordInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            console.log('Enterキー押下');
+                            e.preventDefault();
+                            this.handleLogin();
+                        }
+                    });
+                    console.log('Enterキーリスナー設定完了');
+                }
+
+                // ログアウトボタン
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', () => {
+                        this.handleLogout();
+                    });
+                    console.log('ログアウトリスナー設定完了');
+                }
             }
 
-            async handleLogin() {
+            handleLogin() {
+                console.log('=== ログイン処理開始 ===');
+                
                 const passwordInput = document.getElementById('password-input');
-                const password = passwordInput.value.trim(); // 前後の空白を除去
                 const errorDiv = document.getElementById('login-error');
-
-                console.log('入力されたパスワード:', `"${password}"`); // デバッグ用
+                
+                console.log('パスワード入力要素:', passwordInput);
+                console.log('エラー表示要素:', errorDiv);
+                
+                if (!passwordInput) {
+                    console.error('パスワード入力欄が見つかりません');
+                    alert('エラー: パスワード入力欄が見つかりません');
+                    return;
+                }
+                
+                const password = passwordInput.value.trim();
+                console.log('入力されたパスワード:', `"${password}"`);
+                console.log('パスワード長:', password.length);
                 
                 // 有効なパスワードリスト
                 const validPasswords = ['hello', 'marugo', 'admin', 'test'];
+                console.log('有効なパスワード:', validPasswords);
                 
-                console.log('有効なパスワード:', validPasswords); // デバッグ用
-                console.log('パスワード一致チェック:', validPasswords.includes(password)); // デバッグ用
+                const isValidPassword = validPasswords.includes(password);
+                console.log('パスワード一致チェック:', isValidPassword);
                 
-                if (validPasswords.includes(password)) {
-                    sessionStorage.setItem('authenticated', 'true');
-                    this.showMainApp();
-                    errorDiv.style.display = 'none';
-                    passwordInput.value = '';
-                    console.log('ログイン成功');
+                if (isValidPassword) {
+                    console.log('✅ パスワード認証成功');
+                    
+                    try {
+                        sessionStorage.setItem('authenticated', 'true');
+                        console.log('sessionStorage設定完了');
+                        
+                        this.showMainApp();
+                        
+                        if (errorDiv) {
+                            errorDiv.style.display = 'none';
+                        }
+                        passwordInput.value = '';
+                        
+                        console.log('✅ ログイン完了');
+                    } catch (error) {
+                        console.error('ログイン処理中エラー:', error);
+                        alert('ログイン処理中にエラーが発生しました: ' + error.message);
+                    }
                 } else {
-                    errorDiv.style.display = 'block';
+                    console.log('❌ パスワード認証失敗');
+                    
+                    if (errorDiv) {
+                        errorDiv.style.display = 'block';
+                        errorDiv.textContent = `❌ パスワードが正しくありません（入力: "${password}"）`;
+                    } else {
+                        alert('パスワードが正しくありません');
+                    }
+                    
                     passwordInput.value = '';
                     passwordInput.focus();
-                    console.log('ログイン失敗 - 入力されたパスワード:', `"${password}"`);
                 }
+                
+                console.log('=== ログイン処理終了 ===');
             }
 
             handleLogout() {
@@ -1352,11 +1433,33 @@
             }
 
             async showMainApp() {
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('main-app').style.display = 'block';
+                console.log('=== メインアプリ表示開始 ===');
                 
-                // メインアプリを初期化
-                await this.init();
+                const loginScreen = document.getElementById('login-screen');
+                const mainApp = document.getElementById('main-app');
+                
+                console.log('ログイン画面要素:', loginScreen);
+                console.log('メインアプリ要素:', mainApp);
+                
+                if (loginScreen && mainApp) {
+                    loginScreen.style.display = 'none';
+                    mainApp.style.display = 'block';
+                    console.log('画面切り替え完了');
+                    
+                    // メインアプリを初期化
+                    try {
+                        await this.init();
+                        console.log('メインアプリ初期化完了');
+                    } catch (error) {
+                        console.error('メインアプリ初期化エラー:', error);
+                    }
+                } else {
+                    console.error('画面要素が見つかりません');
+                    console.error('ログイン画面:', loginScreen);
+                    console.error('メインアプリ:', mainApp);
+                }
+                
+                console.log('=== メインアプリ表示完了 ===');
             }
 
             async init() {
