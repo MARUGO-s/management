@@ -5,6 +5,7 @@
   <title>逆取引修正フォーム</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    /* CSSスタイルは変更なし */
     * {
       margin: 0;
       padding: 0;
@@ -220,6 +221,21 @@
       font-family: inherit;
     }
 
+    /* 無効化された入力フィールドのスタイル */
+    input:disabled, select:disabled {
+      background: #e9e9e9; /* グレーアウト */
+      color: #888;
+      cursor: not-allowed;
+      border-color: #dcdcdc;
+      transform: none; /* ホバー効果などを無効化 */
+      box-shadow: none;
+    }
+    input:disabled:hover, select:disabled:hover {
+        border-color: #dcdcdc;
+        transform: none;
+    }
+
+
     input:focus, select:focus {
       outline: none;
       border-color: #d69e2e;
@@ -252,6 +268,21 @@
       font-weight: 500;
     }
 
+    /* 無効化されたカテゴリーオプションのスタイル */
+    .category-option.disabled {
+        background: #e9e9e9;
+        color: #888;
+        cursor: not-allowed;
+        border-color: #dcdcdc;
+        transform: none;
+    }
+    .category-option.disabled:hover {
+        border-color: #dcdcdc;
+        transform: none;
+        background: #e9e9e9;
+    }
+
+
     .category-option:hover {
       border-color: #d69e2e;
       background: rgba(214, 158, 46, 0.1);
@@ -262,6 +293,13 @@
       border-color: #d69e2e;
       background: linear-gradient(135deg, #d69e2e, #b7791f);
       color: white;
+    }
+
+    /* 選択された無効カテゴリーのスタイル (必要であれば) */
+    .category-option.selected.disabled {
+        background: linear-gradient(135deg, #b7791f, #a67f3f); /* 無効でも選択状態を維持 */
+        color: white;
+        border-color: #d69e2e;
     }
 
     .amount-input {
@@ -485,17 +523,14 @@
       <p class="subtitle">選択されたデータの逆取引を送信します</p>
     </div>
 
-    <!-- 元データ表示セクション -->
     <div class="original-data-section" id="original-data-section">
       <div class="original-data-header">
         📋 元のデータ
       </div>
       <div class="original-data-grid" id="original-data-grid">
-        <!-- 元データがここに表示されます -->
-      </div>
+        </div>
     </div>
 
-    <!-- 修正通知 -->
     <div class="correction-notice">
       <div class="correction-notice-header">🔄 逆取引として送信</div>
       <div class="correction-notice-text">
@@ -507,31 +542,31 @@
     <form id="correctionForm">
       <div class="form-group">
         <label for="date">📅 日付</label>
-        <input type="date" id="date" required>
+        <input type="date" id="date" required disabled>
       </div>
 
       <div class="form-group">
         <label for="name">📋 名前</label>
-        <input type="text" id="name" required placeholder="入力者名を入力" value="システム修正">
+        <input type="text" id="name" required placeholder="入力者名を入力" value="システム修正" disabled>
       </div>
 
       <div class="form-group">
         <label for="lender">📤 貸主</label>
-        <select id="lender" required>
+        <select id="lender" required disabled>
           <option value="">選択してください</option>
         </select>
       </div>
 
       <div class="form-group">
         <label for="borrower">📥 借主</label>
-        <select id="borrower" required>
+        <select id="borrower" required disabled>
           <option value="">選択してください</option>
         </select>
       </div>
 
       <div class="form-group">
         <label>🏷️ カテゴリー</label>
-        <div class="category-grid">
+        <div class="category-grid" id="category-grid-options">
           <div class="category-option" data-value="食材">🍎 食材</div>
           <div class="category-option" data-value="飲料">🥤 飲料</div>
           <div class="category-option" data-value="その他">📦 その他</div>
@@ -541,13 +576,13 @@
 
       <div class="form-group">
         <label for="item">📝 品目</label>
-        <input type="text" id="item" required placeholder="品目を入力">
+        <input type="text" id="item" required placeholder="品目を入力" disabled>
       </div>
 
       <div class="form-group">
         <label for="amount">💵 金額</label>
         <div class="amount-input">
-          <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric" placeholder="金額を入力">
+          <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric" placeholder="金額を入力" disabled>
         </div>
       </div>
 
