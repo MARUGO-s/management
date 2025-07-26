@@ -1,4 +1,5 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec";
+// GAS WebアプリのURL (main.jsで使用しているものと同じURLであることを確認してください)
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec"; 
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -98,12 +99,24 @@ function convertToHalfWidthNumber(value) {
   return converted;
 }
 
-// URLパラメータまたはlocalStorage/sessionStorageから元データを読み込む
+// URLパラメータまたはsessionStorageから元データを読み込む
 function loadOriginalData() {
-  // まずURLパラメータをチェック
+  // marugo.html は sessionStorage を使用しているため、sessionStorageを優先
+  const savedData = sessionStorage.getItem('correctionData');
+  if (savedData) {
+    try {
+      originalData = JSON.parse(savedData);
+      console.log('sessionStorageから元データを読み込み:', originalData);
+      sessionStorage.removeItem('correctionData'); // 使用後は削除
+      return true;
+    } catch (error) {
+      console.error('sessionStorageのデータ解析エラー:', error);
+    }
+  }
+
+  // Fallback: URLパラメータをチェック (古い形式や直接アクセス用)
   const urlParams = new URLSearchParams(window.location.search);
   const dataParam = urlParams.get('data');
-  
   if (dataParam) {
     try {
       originalData = JSON.parse(decodeURIComponent(dataParam));
@@ -111,20 +124,6 @@ function loadOriginalData() {
       return true;
     } catch (error) {
       console.error('URLパラメータのデータ解析エラー:', error);
-    }
-  }
-  
-  // URLパラメータが無効な場合、sessionStorageをチェック（marugo.htmlがsessionStorageを使用しているため）
-  const savedData = sessionStorage.getItem('correctionData'); // ★修正点: localStorage から sessionStorage に変更
-  if (savedData) {
-    try {
-      originalData = JSON.parse(savedData);
-      console.log('sessionStorageから元データを読み込み:', originalData);
-      // 使用後は削除
-      sessionStorage.removeItem('correctionData'); // ★修正点: localStorage から sessionStorage に変更
-      return true;
-    } catch (error) {
-      console.error('sessionStorageのデータ解析エラー:', error);
     }
   }
   
@@ -146,31 +145,31 @@ function displayOriginalData() {
   originalDataGrid.innerHTML = `
     <div class="original-data-item">
       <span class="original-data-label">📅 日付:</span>
-      <span class="original-data-value">${originalData.date || '不明'}</span>
+      <span class="original-data-value">${safeString(originalData.date)}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">👤 入力者:</span>
-      <span class="original-data-value">${originalData.name || '不明'}</span>
+      <span class="original-data-value">${safeString(originalData.name)}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">📤 貸主:</span>
-      <span class="original-data-value">${originalData.lender || '不明'}</span>
+      <span class="original-data-value">${safeString(originalData.lender)}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">📥 借主:</span>
-      <span class="original-data-value">${originalData.borrower || '不明'}</span>
+      <span class="original-data-value">${safeString(originalData.borrower)}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">🏷️ カテゴリー:</span>
-      <span class="original-data-value">${originalData.category || '不明'}</span>
+      <span class="original-data-value">${safeString(originalData.category)}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">📝 品目:</span>
-      <span class="original-data-value">${originalData.item || '不明'}</span>
+      <span class="original-data-value">${safeString(originalData.item)}</span>
     </div>
     <div class="original-data-item" style="grid-column: 1 / -1;">
       <span class="original-data-label">💵 金額:</span>
-      <span class="original-data-value">${formattedAmount}</span>
+      <span class="original-data-value">¥${formattedAmount}</span>
     </div>
   `;
 }
@@ -180,15 +179,15 @@ function autoFillReverseData() {
   if (!originalData) return;
   
   // 日付はそのまま
-  document.getElementById('date').value = originalData.date || '';
+  document.getElementById('date').value = safeString(originalData.date);
   
   // 貸主と借主を入れ替え
-  document.getElementById('lender').value = originalData.borrower || '';
-  document.getElementById('borrower').value = originalData.lender || '';
+  document.getElementById('lender').value = safeString(originalData.borrower);
+  document.getElementById('borrower').value = safeString(originalData.lender);
   
   // その他の項目はそのまま
-  document.getElementById('category').value = originalData.category || '';
-  document.getElementById('item').value = originalData.item || '';
+  document.getElementById('category').value = safeString(originalData.category);
+  document.getElementById('item').value = safeString(originalData.item);
   
   // 金額（数値のみに変換）
   const amountValue = originalData.amount ? 
@@ -201,7 +200,7 @@ function autoFillReverseData() {
   categoryOptions.forEach(option => {
     option.classList.remove('selected');
     option.classList.add('disabled'); // すべてのオプションを無効化
-    if (option.dataset.value === originalData.category) {
+    if (option.dataset.value === safeString(originalData.category)) {
       option.classList.add('selected');
     }
   });
@@ -246,17 +245,17 @@ async function submitCorrectionData() {
 
     // データの取得は originalData から行う (disabledなフィールドの値を確実に取得するため)
     const data = {
-      date: originalData.date,
-      name: document.getElementById("name").value, // 入力者フィールドはdisabledだが、値は設定されているはず
-      lender: originalData.borrower, // 逆取引なので元データのborrower
-      borrower: originalData.lender, // 逆取引なので元データのlender
-      category: originalData.category,
-      item: originalData.item,
-      amount: convertToHalfWidthNumber(originalData.amount),
+      date: safeString(originalData.date),
+      name: safeString(document.getElementById("name").value), // 入力者フィールドはdisabledだが、値は設定されているはず
+      lender: safeString(originalData.borrower), // 逆取引なので元データのborrower
+      borrower: safeString(originalData.lender), // 逆取引なので元データのlender
+      category: safeString(originalData.category),
+      item: safeString(originalData.item),
+      amount: convertToHalfWidthNumber(safeString(originalData.amount)),
       isCorrection: true,
       correctionOnly: true,
       correctionMark: "✏️修正",
-      sendType: "CORRECTION"
+      sendType: "CORRECTION" // GAS側で処理を分岐させるためのタイプ
     };
 
     // 厳密なバリデーション
@@ -276,15 +275,15 @@ async function submitCorrectionData() {
     if (statusDisplay) {
       completeStep('step-validation', '✅ 修正データ検証完了');
 
-      // Step 2: 送信開始
-      await showStep('step-sending', '📤 データを送信中...'); // 文言修正
+      // Step 2: 送信開始 (GAS Webアプリへ)
+      await showStep('step-sending', '📤 データをGASへ送信中...'); // 文言修正
       await delay(400);
     }
 
-    // Google Apps Scriptにデータを送信
+    // ★修正点: Google Sheets APIへの直接送信からGAS_URLへのPOSTに変更
     const response = await fetch(GAS_URL, {
       method: "POST",
-      mode: "no-cors",
+      mode: "no-cors", // GASへのPOSTでは通常no-corsモードを使用
       headers: {
         "Content-Type": "application/json"
       },
@@ -292,7 +291,7 @@ async function submitCorrectionData() {
     });
 
     if (statusDisplay) {
-      completeStep('step-sending', '✅ データ送信完了'); // 文言修正
+      completeStep('step-sending', '✅ GASへの送信完了'); // 文言修正
 
       // Step 3: データ挿入（GAS側で実行されるためシミュレート）
       await showStep('step-inserting', '💾 スプレッドシートに書き込み中...'); // 文言修正
@@ -340,7 +339,7 @@ async function submitCorrectionData() {
       // 3秒後に元のページに戻る
       setTimeout(() => {
         // marugo.html へのパスを調整（correction.htmlがmarugo.htmlの親ディレクトリにある場合）
-        window.location.href = 'data/marugo.html'; // ★修正点: パスを調整
+        window.location.href = '../marugo.html'; // ★修正点: パスを調整 (親ディレクトリのmarugo.htmlへ)
       }, 3000);
     }, statusDisplay ? 500 : 1000);
 
@@ -376,27 +375,44 @@ async function submitCorrectionData() {
   }
 }
 
+// 安全な文字列変換関数 (originalDataの安全な利用のため追加)
+function safeString(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return String(value);
+}
+
+// 安全な数値変換関数 (originalDataの安全な利用のため追加)
+function safeNumber(value) {
+    if (value === null || value === undefined || value === '') {
+        return 0;
+    }
+    const stringValue = safeString(value);
+    const cleaned = stringValue.replace(/[,\s]/g, '');
+    const number = parseFloat(cleaned);
+    return isNaN(number) ? 0 : number;
+}
+
+
 // DOM要素の初期化
 function initializeElements() {
-  // カテゴリー選択の処理（無効化版）
+  // カテゴリー選択の処理
   const categoryOptions = document.querySelectorAll('.category-option');
   const categoryInput = document.getElementById('category');
 
   categoryOptions.forEach(option => {
-    // クリックイベントリスナーをここで設定
     option.addEventListener('click', (e) => {
       // disabled状態の場合はクリックを無効化
       if (option.classList.contains('disabled')) {
-        e.preventDefault(); // クリックイベントのデフォルト動作を停止
-        return; // 何もせず終了
+        e.preventDefault();
+        return;
       }
       
       categoryOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
       categoryInput.value = option.dataset.value;
     });
-    // autoFillReverseData で disabled が設定されるため、ここでは削除
-    // option.classList.add('disabled'); 
   });
 
   // 金額入力の自動フォーマット（半角・全角対応）
@@ -445,16 +461,9 @@ function initialize() {
     autoFillReverseData();
   } else {
     // 元データが無い場合はエラー表示
-    alert('修正対象のデータが見つかりません。データ一覧ページから再度選択してください。');
-    // 元のページに戻る（marugo.htmlへのパスを調整）
-    if (document.referrer) {
-      // リファラがあれば、リファラを頼りに戻る
-      history.back(); 
-    } else {
-      // 直接アクセスされたなどリファラがない場合は、marugo.htmlへの相対パスを指定
-      // correction.htmlがmarugo.htmlの親ディレクトリにある想定
-      window.location.href = 'data/marugo.html'; 
-    }
+    // メインフォームを非表示にして、データなしメッセージを表示
+    document.getElementById('main-form').style.display = 'none';
+    document.getElementById('no-data-message').style.display = 'block';
   }
 }
 
