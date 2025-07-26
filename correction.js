@@ -98,7 +98,7 @@ function convertToHalfWidthNumber(value) {
   return converted;
 }
 
-// URLパラメータまたはlocalStorageから元データを読み込む
+// URLパラメータまたはlocalStorage/sessionStorageから元データを読み込む
 function loadOriginalData() {
   // まずURLパラメータをチェック
   const urlParams = new URLSearchParams(window.location.search);
@@ -114,17 +114,17 @@ function loadOriginalData() {
     }
   }
   
-  // URLパラメータが無効な場合、localStorageをチェック
-  const savedData = localStorage.getItem('correctionData');
+  // URLパラメータが無効な場合、sessionStorageをチェック（marugo.htmlがsessionStorageを使用しているため）
+  const savedData = sessionStorage.getItem('correctionData'); // ★修正点: localStorage から sessionStorage に変更
   if (savedData) {
     try {
       originalData = JSON.parse(savedData);
-      console.log('localStorageから元データを読み込み:', originalData);
+      console.log('sessionStorageから元データを読み込み:', originalData);
       // 使用後は削除
-      localStorage.removeItem('correctionData');
+      sessionStorage.removeItem('correctionData'); // ★修正点: localStorage から sessionStorage に変更
       return true;
     } catch (error) {
-      console.error('localStorageのデータ解析エラー:', error);
+      console.error('sessionStorageのデータ解析エラー:', error);
     }
   }
   
@@ -214,16 +214,16 @@ async function submitCorrectionData() {
   const statusDisplay = document.getElementById('status-display');
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn)');
   const btnText = submitBtn.querySelector('.btn-text');
-  const originalText = btnText.textContent;
+  const originalBtnText = '✏️ 修正データを送信'; // ボタンの初期テキスト
 
   // 初期化
   hideMessages();
   resetSteps();
 
-  // バリデーション
-  const categoryInput = document.getElementById('category');
-  if (!categoryInput.value) {
-    alert('カテゴリーを選択してください');
+  // フォームから直接取得するデータ（disabledなので基本的にはoriginalDataから値を取得すべきだが、念のため）
+  const currentCategoryValue = document.getElementById('category').value;
+  if (!currentCategoryValue) {
+    alert('カテゴリーが設定されていません。元のデータに問題がある可能性があります。');
     return;
   }
 
@@ -244,30 +244,31 @@ async function submitCorrectionData() {
       await delay(600);
     }
 
+    // データの取得は originalData から行う (disabledなフィールドの値を確実に取得するため)
     const data = {
-      date: document.getElementById("date").value,
-      name: document.getElementById("name").value,
-      lender: document.getElementById("lender").value,
-      borrower: document.getElementById("borrower").value,
-      category: document.getElementById("category").value,
-      item: document.getElementById("item").value,
-      amount: convertToHalfWidthNumber(document.getElementById("amount").value),
+      date: originalData.date,
+      name: document.getElementById("name").value, // 入力者フィールドはdisabledだが、値は設定されているはず
+      lender: originalData.borrower, // 逆取引なので元データのborrower
+      borrower: originalData.lender, // 逆取引なので元データのlender
+      category: originalData.category,
+      item: originalData.item,
+      amount: convertToHalfWidthNumber(originalData.amount),
       isCorrection: true,
       correctionOnly: true,
       correctionMark: "✏️修正",
       sendType: "CORRECTION"
     };
 
-    // バリデーション
+    // 厳密なバリデーション
     if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.amount) {
-      throw new Error('すべての必須項目を入力してください。');
+      throw new Error('必須データが不足しています。');
     }
     if (data.lender === data.borrower) {
-      throw new Error('貸主と借主は異なる店舗を選択してください。');
+      throw new Error('貸主と借主は異なる店舗である必要があります。');
     }
     const amountNumber = parseInt(data.amount);
     if (isNaN(amountNumber) || amountNumber <= 0) {
-      throw new Error('正しい金額を入力してください。');
+      throw new Error('金額が正しくありません。');
     }
 
     console.log('修正データ送信:', data);
@@ -276,7 +277,7 @@ async function submitCorrectionData() {
       completeStep('step-validation', '✅ 修正データ検証完了');
 
       // Step 2: 送信開始
-      await showStep('step-sending', '📤 修正データをスプレッドシートに送信中...');
+      await showStep('step-sending', '📤 データを送信中...'); // 文言修正
       await delay(400);
     }
 
@@ -291,17 +292,17 @@ async function submitCorrectionData() {
     });
 
     if (statusDisplay) {
-      completeStep('step-sending', '✅ 修正データ送信完了');
+      completeStep('step-sending', '✅ データ送信完了'); // 文言修正
 
       // Step 3: データ挿入（GAS側で実行されるためシミュレート）
-      await showStep('step-inserting', '💾 修正データを挿入中...');
+      await showStep('step-inserting', '💾 スプレッドシートに書き込み中...'); // 文言修正
       await delay(800);
-      completeStep('step-inserting', '✅ 修正データ挿入完了');
+      completeStep('step-inserting', '✅ 書き込み完了'); // 文言修正
 
       // Step 4: バックアップ作成（GAS側で実行されるためシミュレート）
-      await showStep('step-backup', '🔄 バックアップを作成中...');
+      await showStep('step-backup', '🔄 バックアップ処理中...'); // 文言修正
       await delay(1000);
-      completeStep('step-backup', '✅ バックアップ作成完了');
+      completeStep('step-backup', '✅ バックアップ完了'); // 文言修正
 
       // Step 5: 完了
       await showStep('step-complete', '🎉 修正送信が完了しました！');
@@ -315,7 +316,7 @@ async function submitCorrectionData() {
     setTimeout(() => {
       // ローディング状態終了
       submitBtn.classList.remove('loading');
-      btnText.textContent = originalText;
+      btnText.textContent = originalBtnText; // 元のテキストに戻す
       submitBtn.disabled = false;
 
       // 成功メッセージ表示
@@ -338,11 +339,8 @@ async function submitCorrectionData() {
       
       // 3秒後に元のページに戻る
       setTimeout(() => {
-        if (document.referrer) {
-          history.back();
-        } else {
-          window.location.href = 'data/marugo.html';
-        }
+        // marugo.html へのパスを調整（correction.htmlがmarugo.htmlの親ディレクトリにある場合）
+        window.location.href = 'data/marugo.html'; // ★修正点: パスを調整
       }, 3000);
     }, statusDisplay ? 500 : 1000);
 
@@ -355,13 +353,13 @@ async function submitCorrectionData() {
       if (activeStep) {
         activeStep.classList.remove('active');
         activeStep.classList.add('error');
-        activeStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
+        activeStep.querySelector('span:last-child').textContent = `❌ エラー: ${error.message.substring(0, 50)}...`; // エラーメッセージを短縮
       }
     }
 
     // エラー処理
     submitBtn.classList.remove('loading');
-    btnText.textContent = originalText;
+    btnText.textContent = originalBtnText; // 元のテキストに戻す
     submitBtn.disabled = false;
 
     // エラーメッセージ表示
@@ -385,17 +383,20 @@ function initializeElements() {
   const categoryInput = document.getElementById('category');
 
   categoryOptions.forEach(option => {
+    // クリックイベントリスナーをここで設定
     option.addEventListener('click', (e) => {
       // disabled状態の場合はクリックを無効化
       if (option.classList.contains('disabled')) {
-        e.preventDefault();
-        return;
+        e.preventDefault(); // クリックイベントのデフォルト動作を停止
+        return; // 何もせず終了
       }
       
       categoryOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
       categoryInput.value = option.dataset.value;
     });
+    // autoFillReverseData で disabled が設定されるため、ここでは削除
+    // option.classList.add('disabled'); 
   });
 
   // 金額入力の自動フォーマット（半角・全角対応）
@@ -429,6 +430,9 @@ function initializeElements() {
 
 // 初期化処理
 function initialize() {
+  // メッセージを非表示
+  hideMessages();
+  
   // 店舗プルダウンを設定
   populateShops();
   
@@ -442,11 +446,14 @@ function initialize() {
   } else {
     // 元データが無い場合はエラー表示
     alert('修正対象のデータが見つかりません。データ一覧ページから再度選択してください。');
-    // 元のページに戻る
+    // 元のページに戻る（marugo.htmlへのパスを調整）
     if (document.referrer) {
-      history.back();
+      // リファラがあれば、リファラを頼りに戻る
+      history.back(); 
     } else {
-      window.location.href = 'data/marugo.html';
+      // 直接アクセスされたなどリファラがない場合は、marugo.htmlへの相対パスを指定
+      // correction.htmlがmarugo.htmlの親ディレクトリにある想定
+      window.location.href = 'data/marugo.html'; 
     }
   }
 }
