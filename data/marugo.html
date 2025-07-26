@@ -727,6 +727,11 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script>
+        // ページの読み込み時に認証チェック
+        if (sessionStorage.getItem('authenticated') !== 'true') {
+            window.location.href = 'login.html'; // ログインページへリダイレクト
+        }
+
         // ソート機能用の変数
         let sortDirection = {};
         let currentTableData = [];
@@ -814,16 +819,23 @@
                 // ログアウトボタンのイベントリスナーを設定
                 this.setupLogoutListener();
                 
-                // 既にログイン済みかチェック
-                const isAuthenticated = sessionStorage.getItem('apiAuthenticated') === 'true';
-                console.log('既存認証状態:', isAuthenticated);
-                
-                if (isAuthenticated) {
-                    console.log('既にAPI認証済み - メインアプリを表示');
+                // ログインページからの認証済みセッションをチェック
+                const isAuthenticatedFromLogin = sessionStorage.getItem('authenticated') === 'true';
+                const isApiAuthenticated = sessionStorage.getItem('apiAuthenticated') === 'true';
+                console.log('ログインページからの認証状態:', isAuthenticatedFromLogin);
+                console.log('API認証済み状態:', isApiAuthenticated);
+
+                // ログインページで認証済みであり、かつAPI認証がまだの場合のみAPI認証を実行
+                if (isAuthenticatedFromLogin && !isApiAuthenticated) {
+                    console.log('ログイン済みでAPI未認証 - API認証実行中...');
+                    await this.performAutoAuth();
+                } else if (isAuthenticatedFromLogin && isApiAuthenticated) {
+                    console.log('既にログイン済みかつAPI認証済み - メインアプリを表示');
                     await this.showMainApp();
                 } else {
-                    console.log('API認証実行中...');
-                    await this.performAutoAuth();
+                    // ログインページからの認証がない場合は、ログインページへリダイレクト（ページ冒頭のチェックで対応）
+                    console.log('未認証または直接アクセス - ログインページへリダイレクト');
+                    // このelseブロックは基本的に実行されない（ページ冒頭のリダイレクトで処理されるため）
                 }
                 
                 console.log('=== 自動認証完了 ===');
@@ -904,8 +916,9 @@
             }
 
             handleLogout() {
-                sessionStorage.removeItem('apiAuthenticated');
-                window.location.reload(); // ページをリロードして初期状態に戻る
+                sessionStorage.removeItem('authenticated'); // ログインページのセッションをクリア
+                sessionStorage.removeItem('apiAuthenticated'); // API認証セッションもクリア
+                window.location.href = 'login.html'; // ログインページへリダイレクト
             }
 
             async showMainApp() {
@@ -1816,8 +1829,8 @@
                     // localStorageに選択されたデータを保存
                     localStorage.setItem('correctionData', JSON.stringify(selectedData));
                     
-                    // correction.htmlページに移動
-                    window.location.href = '../correction.html';
+                    // correction.htmlページに移動 (marugo.htmlと同じ階層にdataフォルダ、その中にcorrection.htmlがあると仮定)
+                    window.location.href = 'correction.html'; 
                     
                 } catch (error) {
                     console.error('リダイレクトエラー:', error);
