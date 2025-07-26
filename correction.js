@@ -164,7 +164,7 @@ function autoFillReverseData() {
 async function submitCorrectionData() {
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn)');
   const btnText = submitBtn.querySelector('.btn-text');
-  const originalText = btnText.textContent; // 元のテキストを保持
+  const originalText = btnText.textContent;
 
   // バリデーション (disabledなフィールドは値が取れない場合があるため、originalDataから取得)
   const data = {
@@ -196,10 +196,10 @@ async function submitCorrectionData() {
     return;
   }
 
-  // ボタンを無効化し、「データ送信中...」に表示を更新
+  // ボタンを無効化
   submitBtn.disabled = true;
   submitBtn.classList.add('loading');
-  btnText.textContent = 'データ送信中...'; // 1段階目の表示
+  btnText.textContent = '送信中...'; // ここは送信中のまま（段階的な表示はなし）
 
   try {
     console.log('修正データ送信:', data);
@@ -214,12 +214,8 @@ async function submitCorrectionData() {
       body: JSON.stringify(data)
     });
 
-    // ここでGASが書き込みを行っていると想定し、表示を「書き込み中...」に更新
-    btnText.textContent = '書き込み中...'; // 2段階目の表示
-    await delay(1000); // 書き込み処理を待つための遅延（実際のGASの処理時間に合わせて調整）
-
     // 送信完了処理（no-corsのためレスポンス確認は不可）
-    // await delay(1000); // すでに上記のdelayがあるので重複を避けるか調整
+    await delay(1000);
 
     // 成功メッセージ表示
     const successMessage = document.getElementById('successMessage');
@@ -231,7 +227,7 @@ async function submitCorrectionData() {
     }, 3000);
 
     // フォームリセット (入力不可になったので実質的には表示をクリアしない)
-
+    
     // 3秒後に元のページに戻る
     setTimeout(() => {
       if (document.referrer) {
@@ -256,7 +252,7 @@ async function submitCorrectionData() {
     // ボタン状態を復元
     submitBtn.disabled = false;
     submitBtn.classList.remove('loading');
-    btnText.textContent = originalText; // 元のテキストに戻す
+    btnText.textContent = originalText;
   }
 }
 
