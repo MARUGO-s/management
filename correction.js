@@ -1,345 +1,710 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec";
-const shops = [
-  "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
-  "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
-  "マルゴ新橋", "MARUGO YOTSUYA", "371BAR", "三三五五",
-  "BAR PELOTA", "Claudia2", "BISTRO CAVACAVA", "eric'S",
-  "MITAN", "焼肉マルゴ", "SOBA‑JU", "Bar Violet",
-  "X&C", "トラットリア ブリッコラ"
-];
-
-// 元データを格納する変数
-let originalData = null;
-
-// 店舗データでプルダウンのオプションを設定
-function populateShops() {
-  const lenderSelect = document.getElementById("lender");
-  const borrowerSelect = document.getElementById("borrower");
-
-  shops.forEach(shop => {
-    const option1 = document.createElement("option");
-    option1.value = shop;
-    option1.textContent = shop;
-    lenderSelect.appendChild(option1);
-
-    const option2 = document.createElement("option");
-    option2.value = shop;
-    option2.textContent = shop;
-    borrowerSelect.appendChild(option2);
-  });
-}
-
-// ヘルパー関数
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// 金額を半角数字に変換する関数
-function convertToHalfWidthNumber(value) {
-  if (!value) return '';
-  
-  // 全角数字を半角数字に変換
-  let converted = value.replace(/[０-９]/g, function(s) {
-    return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-  });
-  
-  // カンマと数字以外を除去
-  converted = converted.replace(/[^0-9]/g, '');
-  
-  return converted;
-}
-
-// URLパラメータまたはlocalStorageから元データを読み込む
-function loadOriginalData() {
-  // まずURLパラメータをチェック
-  const urlParams = new URLSearchParams(window.location.search);
-  const dataParam = urlParams.get('data');
-  
-  if (dataParam) {
-    try {
-      originalData = JSON.parse(decodeURIComponent(dataParam));
-      console.log('URLパラメータから元データを読み込み:', originalData);
-      return true;
-    } catch (error) {
-      console.error('URLパラメータのデータ解析エラー:', error);
-    }
-  }
-  
-  // URLパラメータが無効な場合、localStorageをチェック
-  const savedData = localStorage.getItem('correctionData');
-  if (savedData) {
-    try {
-      originalData = JSON.parse(savedData);
-      console.log('localStorageから元データを読み込み:', originalData);
-      // 使用後は削除
-      localStorage.removeItem('correctionData');
-      return true;
-    } catch (error) {
-      console.error('localStorageのデータ解析エラー:', error);
-    }
-  }
-  
-  console.error('元データが見つかりません');
-  return false;
-}
-
-// 元データを表示する
-function displayOriginalData() {
-  if (!originalData) return;
-  
-  const originalDataGrid = document.getElementById('original-data-grid');
-  
-  // 金額のフォーマット
-  const formattedAmount = originalData.amount ? 
-    `¥${parseInt(originalData.amount).toLocaleString('ja-JP')}` : 
-    originalData.originalAmount || '不明';
-  
-  originalDataGrid.innerHTML = `
-    <div class="original-data-item">
-      <span class="original-data-label">📅 日付:</span>
-      <span class="original-data-value">${originalData.date || '不明'}</span>
-    </div>
-    <div class="original-data-item">
-      <span class="original-data-label">👤 入力者:</span>
-      <span class="original-data-value">${originalData.name || '不明'}</span>
-    </div>
-    <div class="original-data-item">
-      <span class="original-data-label">📤 貸主:</span>
-      <span class="original-data-value">${originalData.lender || '不明'}</span>
-    </div>
-    <div class="original-data-item">
-      <span class="original-data-label">📥 借主:</span>
-      <span class="original-data-value">${originalData.borrower || '不明'}</span>
-    </div>
-    <div class="original-data-item">
-      <span class="original-data-label">🏷️ カテゴリー:</span>
-      <span class="original-data-value">${originalData.category || '不明'}</span>
-    </div>
-    <div class="original-data-item">
-      <span class="original-data-label">📝 品目:</span>
-      <span class="original-data-value">${originalData.item || '不明'}</span>
-    </div>
-    <div class="original-data-item" style="grid-column: 1 / -1;">
-      <span class="original-data-label">💵 金額:</span>
-      <span class="original-data-value">${formattedAmount}</span>
-    </div>
-  `;
-}
-
-// フォームに逆取引データを自動入力
-function autoFillReverseData() {
-  if (!originalData) return;
-  
-  // 日付はそのまま
-  document.getElementById('date').value = originalData.date || '';
-  
-  // 貸主と借主を入れ替え
-  document.getElementById('lender').value = originalData.borrower || '';
-  document.getElementById('borrower').value = originalData.lender || '';
-  
-  // その他の項目はそのまま
-  document.getElementById('category').value = originalData.category || '';
-  document.getElementById('item').value = originalData.item || '';
-  
-  // 金額（数値のみに変換）
-  const amountValue = originalData.amount ? 
-    parseInt(originalData.amount).toLocaleString('ja-JP') : 
-    '';
-  document.getElementById('amount').value = amountValue;
-  
-  // カテゴリー選択状態を更新
-  const categoryOptions = document.querySelectorAll('.category-option');
-  categoryOptions.forEach(option => {
-    option.classList.remove('selected');
-    if (option.dataset.value === originalData.category) {
-      option.classList.add('selected');
-    }
-  });
-  
-  console.log('逆取引データを自動入力完了');
-}
-
-// 修正データを送信
-async function submitCorrectionData() {
-  const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn)');
-  const btnText = submitBtn.querySelector('.btn-text');
-  const originalText = btnText.textContent;
-
-  // バリデーション
-  const categoryInput = document.getElementById('category');
-  if (!categoryInput.value) {
-    alert('カテゴリーを選択してください');
-    return;
-  }
-
-  // ボタンを無効化
-  submitBtn.disabled = true;
-  submitBtn.classList.add('loading');
-  btnText.textContent = '送信中...';
-
-  try {
-    const data = {
-      date: document.getElementById("date").value,
-      name: document.getElementById("name").value,
-      lender: document.getElementById("lender").value,
-      borrower: document.getElementById("borrower").value,
-      category: document.getElementById("category").value,
-      item: document.getElementById("item").value,
-      amount: convertToHalfWidthNumber(document.getElementById("amount").value),
-      isCorrection: true,
-      correctionOnly: true,
-      correctionMark: "✏️修正",
-      sendType: "CORRECTION"
-    };
-
-    // バリデーション
-    if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.amount) {
-      throw new Error('すべての必須項目を入力してください。');
-    }
-    if (data.lender === data.borrower) {
-      throw new Error('貸主と借主は異なる店舗を選択してください。');
-    }
-    const amountNumber = parseInt(data.amount);
-    if (isNaN(amountNumber) || amountNumber <= 0) {
-      throw new Error('正しい金額を入力してください。');
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>逆取引修正フォーム</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
 
-    console.log('修正データ送信:', data);
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
 
-    // Google Apps Scriptにデータを送信
-    const response = await fetch(GAS_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(data)
-    });
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="75" cy="75" r="0.3" fill="rgba(255,255,255,0.03)"/><circle cx="50" cy="10" r="0.4" fill="rgba(255,255,255,0.04)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+      pointer-events: none;
+      z-index: 0;
+    }
 
-    // 送信完了処理（no-corsのためレスポンス確認は不可）
-    await delay(1000);
+    .floating-shapes {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
 
-    // 成功メッセージ表示
-    const successMessage = document.getElementById('successMessage');
-    successMessage.textContent = '✅ 修正データの送信が完了しました！';
-    successMessage.classList.add('show');
-    
-    setTimeout(() => {
-      successMessage.classList.remove('show');
-    }, 3000);
+    .shape {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      animation: float 6s ease-in-out infinite;
+    }
 
-    // フォームリセット
-    document.getElementById('correctionForm').reset();
-    const categoryOptions = document.querySelectorAll('.category-option');
-    categoryOptions.forEach(opt => opt.classList.remove('selected'));
-    
-    // 3秒後に元のページに戻る
-    setTimeout(() => {
-      if (document.referrer) {
-        history.back();
-      } else {
-        window.location.href = 'data/marugo.html';
+    .shape:nth-child(1) {
+      width: 80px;
+      height: 80px;
+      top: 10%;
+      left: 10%;
+      animation-delay: -1s;
+    }
+
+    .shape:nth-child(2) {
+      width: 60px;
+      height: 60px;
+      top: 20%;
+      right: 20%;
+      animation-delay: -2s;
+    }
+
+    .shape:nth-child(3) {
+      width: 40px;
+      height: 40px;
+      bottom: 30%;
+      left: 30%;
+      animation-delay: -3s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(180deg); }
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+      max-width: 500px;
+      width: 100%;
+      position: relative;
+      z-index: 2;
+      transform: translateY(20px);
+      opacity: 0;
+      animation: slideIn 0.8s ease-out forwards;
+    }
+
+    @keyframes slideIn {
+      to {
+        transform: translateY(0);
+        opacity: 1;
       }
-    }, 3000);
-
-  } catch (error) {
-    console.error('送信エラー:', error);
-    
-    // エラーメッセージ表示
-    const errorMessage = document.getElementById('errorMessage');
-    errorMessage.textContent = `❌ 送信エラー: ${error.message}`;
-    errorMessage.classList.add('show');
-    
-    setTimeout(() => {
-      errorMessage.classList.remove('show');
-    }, 5000);
-  } finally {
-    // ボタン状態を復元
-    submitBtn.disabled = false;
-    submitBtn.classList.remove('loading');
-    btnText.textContent = originalText;
-  }
-}
-
-// DOM要素の初期化
-function initializeElements() {
-  // カテゴリー選択の処理
-  const categoryOptions = document.querySelectorAll('.category-option');
-  const categoryInput = document.getElementById('category');
-
-  categoryOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      categoryOptions.forEach(opt => opt.classList.remove('selected'));
-      option.classList.add('selected');
-      categoryInput.value = option.dataset.value;
-    });
-  });
-
-  // 金額入力の自動フォーマット（半角・全角対応）
-  const amountInput = document.getElementById('amount');
-  amountInput.addEventListener('input', (e) => {
-    let value = e.target.value;
-    
-    // 全角数字を半角数字に変換
-    value = value.replace(/[０-９]/g, function(s) {
-      return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-    });
-    
-    // 数字以外を除去
-    value = value.replace(/[^0-9]/g, '');
-    
-    // カンマ区切りでフォーマット
-    if (value) {
-      value = parseInt(value).toLocaleString('ja-JP');
     }
-    
-    e.target.value = value;
-  });
 
-  // フォーム送信処理
-  const form = document.getElementById('correctionForm');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    await submitCorrectionData();
-  });
-}
-
-// メッセージ非表示処理
-function hideMessages() {
-  document.getElementById('successMessage').classList.remove('show');
-  document.getElementById('errorMessage').classList.remove('show');
-}
-
-// 初期化処理
-function initialize() {
-  // メッセージを非表示
-  hideMessages();
-  
-  // 店舗プルダウンを設定
-  populateShops();
-  
-  // DOM要素を初期化
-  initializeElements();
-  
-  // 元データを読み込み
-  if (loadOriginalData()) {
-    displayOriginalData();
-    autoFillReverseData();
-  } else {
-    // 元データが無い場合はエラー表示
-    alert('修正対象のデータが見つかりません。データ一覧ページから再度選択してください。');
-    // 元のページに戻る
-    if (document.referrer) {
-      history.back();
-    } else {
-      window.location.href = 'data/marugo.html';
+    .header-section {
+      text-align: center;
+      margin-bottom: 30px;
+      position: relative;
     }
-  }
-}
 
-// ページが完全に読み込まれた後に実行
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initialize);
-} else {
-  initialize();
-}
+    .back-btn {
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: transform 0.2s ease;
+    }
+
+    .back-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    h2 {
+      color: #2d3748;
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #d69e2e, #b7791f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: #4a5568;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+
+    .original-data-section {
+      background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+      border: 2px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .original-data-header {
+      color: #2d3748;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .original-data-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .original-data-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .original-data-label {
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    .original-data-value {
+      color: #2d3748;
+      font-family: 'Courier New', monospace;
+    }
+
+    .form-group {
+      margin-bottom: 25px;
+      position: relative;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 16px 20px;
+      font-size: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.8);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: inherit;
+    }
+
+    /* 無効化された入力フィールドのスタイル */
+    input:disabled, select:disabled {
+      background: #e9e9e9;
+      color: #888;
+      cursor: not-allowed;
+      border-color: #dcdcdc;
+      transform: none;
+      box-shadow: none;
+    }
+    input:disabled:hover, select:disabled:hover {
+        border-color: #dcdcdc;
+        transform: none;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #d69e2e;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 3px rgba(214, 158, 46, 0.1);
+      transform: translateY(-2px);
+    }
+
+    input:hover, select:hover {
+      border-color: #cbd5e0;
+      transform: translateY(-1px);
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .category-option {
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.8);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    /* 無効化されたカテゴリーオプションのスタイル */
+    .category-option.disabled {
+        background: #e9e9e9;
+        color: #888;
+        cursor: not-allowed;
+        border-color: #dcdcdc;
+        transform: none;
+    }
+    .category-option.disabled:hover {
+        border-color: #dcdcdc;
+        transform: none;
+        background: #e9e9e9;
+    }
+
+    .category-option:hover {
+      border-color: #d69e2e;
+      background: rgba(214, 158, 46, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .category-option.selected {
+      border-color: #d69e2e;
+      background: linear-gradient(135deg, #d69e2e, #b7791f);
+      color: white;
+    }
+
+    /* 選択された無効カテゴリーのスタイル */
+    .category-option.selected.disabled {
+        background: linear-gradient(135deg, #b7791f, #a67f3f);
+        color: white;
+        border-color: #d69e2e;
+    }
+
+    .amount-input {
+      position: relative;
+    }
+
+    .amount-input::before {
+      content: '¥';
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #4a5568;
+      font-weight: 600;
+      font-size: 1.2rem;
+      z-index: 1;
+    }
+
+    .amount-input input {
+      padding-left: 40px;
+    }
+
+    .correction-notice {
+      background: linear-gradient(135deg, #fff5cd 0%, #ffeaa7 100%);
+      border: 2px solid #d69e2e;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 25px 0;
+      text-align: center;
+    }
+
+    .correction-notice-header {
+      color: #b7791f;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .correction-notice-text {
+      color: #8a6914;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .status-display {
+      margin: 20px 0;
+      padding: 20px;
+      border-radius: 16px;
+      background: rgba(214, 158, 46, 0.05);
+      border: 2px solid rgba(214, 158, 46, 0.1);
+      display: none;
+      text-align: center;
+    }
+
+    .status-display.show {
+      display: block;
+      animation: statusSlideIn 0.4s ease-out;
+    }
+
+    @keyframes statusSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .status-step {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 12px 0;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0.3;
+      transition: all 0.4s ease;
+      color: #b7791f;
+    }
+
+    .status-step.active {
+      opacity: 1;
+      color: #b7791f;
+      transform: scale(1.05);
+    }
+
+    .status-step.completed {
+      opacity: 1;
+      color: #38a169;
+    }
+
+    .status-step.error {
+      opacity: 1;
+      color: #e53e3e;
+    }
+
+    .status-icon {
+      margin-right: 8px;
+      font-size: 16px;
+    }
+
+    .mini-loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(214, 158, 46, 0.2);
+      border-top: 2px solid #d69e2e;
+      border-radius: 50%;
+      animation: miniSpin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes miniSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 18px 24px;
+      background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(214, 158, 46, 0.4);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .submit-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .submit-btn:hover::before {
+      left: 100%;
+    }
+
+    .cancel-btn {
+      background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
+    }
+
+    .cancel-btn:hover:not(:disabled) {
+      box-shadow: 0 10px 25px rgba(138, 138, 138, 0.4);
+    }
+
+    .success-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #68d391, #4fd1c7);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(104, 211, 145, 0.3);
+      transform: translateX(400px);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      font-weight: 600;
+    }
+
+    .success-message.show {
+      transform: translateX(0);
+    }
+
+    .error-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #f56565, #e53e3e);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(245, 101, 101, 0.3);
+      transform: translateX(400px);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      font-weight: 600;
+    }
+
+    .error-message.show {
+      transform: translateX(0);
+    }
+
+    .loading {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .submit-btn.loading .loading {
+      display: inline-block;
+    }
+
+    .submit-btn.loading::before {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 30px 20px;
+        margin: 10px;
+        border-radius: 16px;
+      }
+
+      h2 {
+        font-size: 1.8rem;
+      }
+
+      .category-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .original-data-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .success-message, .error-message {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+        left: 20px;
+        transform: translateY(100px);
+      }
+
+      .success-message.show, .error-message.show {
+        transform: translateY(0);
+      }
+    }
+  </style>
+
+<link rel="icon" href="favicon-v2.ico" type="image/x-icon">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180x180-v2.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512x512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16x16.png">  
+<link rel="manifest" href="site-v2.webmanifest">
+  
+</head>
+<body>
+  <div class="floating-shapes">
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+  </div>
+
+  <div class="container">
+    <div class="header-section">
+      <a href="data/marugo.html" class="back-btn">
+        ← 戻る
+      </a>
+      <h2>✏️ 逆取引修正</h2>
+      <p class="subtitle">選択されたデータの逆取引を送信します</p>
+    </div>
+
+    <!-- 元データ表示セクション -->
+    <div class="original-data-section" id="original-data-section">
+      <div class="original-data-header">
+        📋 元のデータ
+      </div>
+      <div class="original-data-grid" id="original-data-grid">
+        <!-- 元データがここに表示されます -->
+      </div>
+    </div>
+
+    <!-- 修正通知 -->
+    <div class="correction-notice">
+      <div class="correction-notice-header">🔄 逆取引として送信</div>
+      <div class="correction-notice-text">
+        貸主と借主を入れ替えて修正データとして送信します。<br>
+        自動的に「✏️修正」マークが付与されます。
+      </div>
+    </div>
+
+    <form id="correctionForm">
+      <div class="form-group">
+        <label for="date">📅 日付</label>
+        <input type="date" id="date" required disabled>
+      </div>
+
+      <div class="form-group">
+        <label for="name">📋 名前</label>
+        <input type="text" id="name" required placeholder="入力者名を入力" value="システム修正" disabled>
+      </div>
+
+      <div class="form-group">
+        <label for="lender">📤 貸主</label>
+        <select id="lender" required disabled>
+          <option value="">選択してください</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="borrower">📥 借主</label>
+        <select id="borrower" required disabled>
+          <option value="">選択してください</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>🏷️ カテゴリー</label>
+        <div class="category-grid">
+          <div class="category-option" data-value="食材">🍎 食材</div>
+          <div class="category-option" data-value="飲料">🥤 飲料</div>
+          <div class="category-option" data-value="その他">📦 その他</div>
+        </div>
+        <input type="hidden" id="category" required>
+      </div>
+
+      <div class="form-group">
+        <label for="item">📝 品目</label>
+        <input type="text" id="item" required placeholder="品目を入力" disabled>
+      </div>
+
+      <div class="form-group">
+        <label for="amount">💵 金額</label>
+        <div class="amount-input">
+          <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric" placeholder="金額を入力" disabled>
+        </div>
+      </div>
+
+      <!-- 状態表示エリア -->
+      <div class="status-display" id="status-display">
+        <div class="status-step" id="step-validation">
+          <span class="status-icon">📋</span>
+          <span>修正データを検証中...</span>
+        </div>
+        <div class="status-step" id="step-sending">
+          <span class="status-icon">📤</span>
+          <span>修正データをスプレッドシートに送信中...</span>
+        </div>
+        <div class="status-step" id="step-inserting">
+          <span class="status-icon">💾</span>
+          <span>修正データを挿入中...</span>
+        </div>
+        <div class="status-step" id="step-backup">
+          <span class="status-icon">🔄</span>
+          <span>バックアップを作成中...</span>
+        </div>
+        <div class="status-step" id="step-complete">
+          <span class="status-icon">✅</span>
+          <span>修正送信完了！</span>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button type="submit" class="submit-btn">
+          <span class="loading"></span>
+          <span class="btn-text">✏️ 修正データを送信</span>
+        </button>
+        <button type="button" class="submit-btn cancel-btn" onclick="history.back()">
+          <span class="btn-text">❌ キャンセル</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="success-message" id="successMessage">
+    ✅ 修正データの送信が完了しました！
+  </div>
+
+  <div class="error-message" id="errorMessage">
+    ❌ 送信に失敗しました
+  </div>
+
+  <script src="correction.js"></script>
+</body>
+</html>
