@@ -1,5 +1,8 @@
-// GAS WebアプリのURL (main.jsで使用しているものと同じURLであることを確認してください)
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec"; 
+// GAS WebアプリのURL (main.js/index.htmlで使用しているものと同じURLであることを確認してください)
+// 例: "https://script.google.com/macros/s/AKfycbzzhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec"
+// ここに正しいGAS WebアプリのURLを記述してください。
+const GAS_URL = "ここにindex.htmlが送信しているGASのURLを貼り付けてください"; 
+
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -252,10 +255,11 @@ async function submitCorrectionData() {
       category: safeString(originalData.category),
       item: safeString(originalData.item),
       amount: convertToHalfWidthNumber(safeString(originalData.amount)),
+      // GAS側で処理を分岐させるための追加情報
       isCorrection: true,
-      correctionOnly: true,
-      correctionMark: "✏️修正",
-      sendType: "CORRECTION" // GAS側で処理を分岐させるためのタイプ
+      correctionOnly: true, // これはcorrection.htmlからの送信であることを明確にする
+      correctionMark: "✏️修正", // GAS側でスプレッドシートに書き込む修正マーク
+      sendType: "CORRECTION_FORM_SUBMIT" // GAS側で送信元を識別するための新しいタイプ
     };
 
     // 厳密なバリデーション
@@ -276,7 +280,7 @@ async function submitCorrectionData() {
       completeStep('step-validation', '✅ 修正データ検証完了');
 
       // Step 2: 送信開始 (GAS Webアプリへ)
-      await showStep('step-sending', '📤 データをGASへ送信中...'); // 文言修正
+      await showStep('step-sending', '📤 データをGASへ送信中...');
       await delay(400);
     }
 
@@ -291,17 +295,17 @@ async function submitCorrectionData() {
     });
 
     if (statusDisplay) {
-      completeStep('step-sending', '✅ GASへの送信完了'); // 文言修正
+      completeStep('step-sending', '✅ GASへの送信完了');
 
       // Step 3: データ挿入（GAS側で実行されるためシミュレート）
-      await showStep('step-inserting', '💾 スプレッドシートに書き込み中...'); // 文言修正
+      await showStep('step-inserting', '💾 スプレッドシートに書き込み中...');
       await delay(800);
-      completeStep('step-inserting', '✅ 書き込み完了'); // 文言修正
+      completeStep('step-inserting', '✅ 書き込み完了');
 
       // Step 4: バックアップ作成（GAS側で実行されるためシミュレート）
-      await showStep('step-backup', '🔄 バックアップ処理中...'); // 文言修正
+      await showStep('step-backup', '🔄 バックアップ処理中...');
       await delay(1000);
-      completeStep('step-backup', '✅ バックアップ完了'); // 文言修正
+      completeStep('step-backup', '✅ バックアップ完了');
 
       // Step 5: 完了
       await showStep('step-complete', '🎉 修正送信が完了しました！');
@@ -339,7 +343,10 @@ async function submitCorrectionData() {
       // 3秒後に元のページに戻る
       setTimeout(() => {
         // marugo.html へのパスを調整（correction.htmlがmarugo.htmlの親ディレクトリにある場合）
-        window.location.href = '../marugo.html'; // ★修正点: パスを調整 (親ディレクトリのmarugo.htmlへ)
+        // 例: index.html と marugo.html が同じディレクトリの場合、correction.html はその一つ上の階層にいることになる
+        // marugo.htmlへの相対パスを正しく指定してください。
+        // current path: /management/data/correction.html -> target: /management/data/marugo.html
+        window.location.href = './marugo.html'; // ★修正点: パスを調整
       }, 3000);
     }, statusDisplay ? 500 : 1000);
 
