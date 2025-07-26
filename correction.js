@@ -16,6 +16,10 @@ function populateShops() {
   const lenderSelect = document.getElementById("lender");
   const borrowerSelect = document.getElementById("borrower");
 
+  // オプションをクリア (disabledにすると値が送信されないため、一旦disabledを解除してオプションを追加し、再度disabledにする)
+  // または、selectedOptionを保持してdisabledに設定する
+  // 今回は無効化するだけなので、最初に disabled に設定された要素に直接値を入れます
+
   shops.forEach(shop => {
     const option1 = document.createElement("option");
     option1.value = shop;
@@ -147,10 +151,11 @@ function autoFillReverseData() {
     '';
   document.getElementById('amount').value = amountValue;
   
-  // カテゴリー選択状態を更新
+  // カテゴリー選択状態を更新し、無効化
   const categoryOptions = document.querySelectorAll('.category-option');
   categoryOptions.forEach(option => {
     option.classList.remove('selected');
+    option.classList.add('disabled'); // 無効化
     if (option.dataset.value === originalData.category) {
       option.classList.add('selected');
     }
@@ -165,10 +170,33 @@ async function submitCorrectionData() {
   const btnText = submitBtn.querySelector('.btn-text');
   const originalText = btnText.textContent;
 
-  // バリデーション
-  const categoryInput = document.getElementById('category');
-  if (!categoryInput.value) {
-    alert('カテゴリーを選択してください');
+  // バリデーション (disabledなフィールドは値が取れない場合があるため、originalDataから取得)
+  const data = {
+    date: originalData.date, // originalDataから取得
+    name: document.getElementById("name").value, // 入力者フィールドは変更可能なのでDOMから
+    lender: originalData.borrower, // originalDataから取得 (逆取引のため)
+    borrower: originalData.lender, // originalDataから取得 (逆取引のため)
+    category: originalData.category, // originalDataから取得
+    item: originalData.item, // originalDataから取得
+    amount: convertToHalfWidthNumber(originalData.amount), // originalDataから取得
+    isCorrection: true,
+    correctionOnly: true,
+    correctionMark: "✏️修正",
+    sendType: "CORRECTION"
+  };
+
+  // フォーム上の必須項目のチェックはDOM要素のdisabledによって無効化されるが、念のためデータ自体のバリデーションは残す
+  if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.amount) {
+    alert('データが不完全です。元のデータが正しく読み込まれているか確認してください。');
+    return;
+  }
+  if (data.lender === data.borrower) {
+    alert('貸主と借主は異なる店舗である必要があります。'); // これは逆取引なので、通常は発生しないはずですが念のため
+    return;
+  }
+  const amountNumber = parseInt(data.amount);
+  if (isNaN(amountNumber) || amountNumber <= 0) {
+    alert('正しい金額が設定されていません。');
     return;
   }
 
@@ -178,32 +206,6 @@ async function submitCorrectionData() {
   btnText.textContent = '送信中...';
 
   try {
-    const data = {
-      date: document.getElementById("date").value,
-      name: document.getElementById("name").value,
-      lender: document.getElementById("lender").value,
-      borrower: document.getElementById("borrower").value,
-      category: document.getElementById("category").value,
-      item: document.getElementById("item").value,
-      amount: convertToHalfWidthNumber(document.getElementById("amount").value),
-      isCorrection: true,
-      correctionOnly: true,
-      correctionMark: "✏️修正",
-      sendType: "CORRECTION"
-    };
-
-    // バリデーション
-    if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.amount) {
-      throw new Error('すべての必須項目を入力してください。');
-    }
-    if (data.lender === data.borrower) {
-      throw new Error('貸主と借主は異なる店舗を選択してください。');
-    }
-    const amountNumber = parseInt(data.amount);
-    if (isNaN(amountNumber) || amountNumber <= 0) {
-      throw new Error('正しい金額を入力してください。');
-    }
-
     console.log('修正データ送信:', data);
 
     // Google Apps Scriptにデータを送信
@@ -228,11 +230,11 @@ async function submitCorrectionData() {
       successMessage.classList.remove('show');
     }, 3000);
 
-    // フォームリセット
-    document.getElementById('correctionForm').reset();
-    const categoryOptions = document.querySelectorAll('.category-option');
-    categoryOptions.forEach(opt => opt.classList.remove('selected'));
-    
+    // フォームリセット (入力不可になったので実質的には表示をクリアしない)
+    // document.getElementById('correctionForm').reset();
+    // const categoryOptions = document.querySelectorAll('.category-option');
+    // categoryOptions.forEach(opt => opt.classList.remove('selected', 'disabled')); // disabledも削除して再利用可能にすることも可能だが、今回はそのまま
+
     // 3秒後に元のページに戻る
     setTimeout(() => {
       if (document.referrer) {
@@ -263,20 +265,15 @@ async function submitCorrectionData() {
 
 // DOM要素の初期化
 function initializeElements() {
-  // カテゴリー選択の処理
+  // カテゴリー選択の処理は無効化するため、イベントリスナーは設定しない
   const categoryOptions = document.querySelectorAll('.category-option');
-  const categoryInput = document.getElementById('category');
-
   categoryOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      categoryOptions.forEach(opt => opt.classList.remove('selected'));
-      option.classList.add('selected');
-      categoryInput.value = option.dataset.value;
-    });
+    option.classList.add('disabled'); // すべてのカテゴリーオプションを無効化
   });
 
   // 金額入力の自動フォーマット（半角・全角対応）
   const amountInput = document.getElementById('amount');
+  // disabledにするため、このイベントリスナーは不要だが、コードで値を設定した際に整形されるように残しておく
   amountInput.addEventListener('input', (e) => {
     let value = e.target.value;
     
@@ -315,25 +312,32 @@ function initialize() {
   // メッセージを非表示
   hideMessages();
   
-  // 店舗プルダウンを設定
+  // 店舗プルダウンを設定（optionsを生成するが、select自体はdisabledになる）
   populateShops();
   
-  // DOM要素を初期化
+  // DOM要素を初期化（inputをdisabledにする）
   initializeElements();
   
   // 元データを読み込み
   if (loadOriginalData()) {
     displayOriginalData();
-    autoFillReverseData();
+    autoFillReverseData(); // 逆取引データをフォームにセットし、選択状態を更新
   } else {
     // 元データが無い場合はエラー表示
     alert('修正対象のデータが見つかりません。データ一覧ページから再度選択してください。');
     // 元のページに戻る
-    if (document.referrer) {
-      history.back();
-    } else {
-      window.location.href = 'data/marugo.html';
-    }
+    // document.referrer が存在しない場合のフォールバックも追加
+    setTimeout(() => { // アラートが表示されるのを待ってから遷移
+        if (document.referrer) {
+            history.back();
+        } else {
+            // marugo.html への相対パスが正しいか確認してください
+            // 例: window.location.href = '/data/marugo.html'; (ルートからのパスの場合)
+            // 例: window.location.href = '../marugo.html'; (correction.htmlと同じ階層にmarugo.htmlがある場合)
+            // 現在のパス構成を考慮し、'../marugo.html' が適切と判断しました。
+            window.location.href = 'data/marugo.html'; 
+        }
+    }, 100); // 少し遅延させてアラートが先に表示されるようにする
   }
 }
 
