@@ -1,8 +1,4 @@
-// GAS WebアプリのURL (main.js/index.htmlで使用しているものと同じURLであることを確認してください)
-// 例: "https://script.google.com/macros/s/AKfycbzzhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec"
-// ここに正しいGAS WebアプリのURLを記述してください。
-const GAS_URL = "ここにindex.htmlが送信しているGASのURLを貼り付けてください"; 
-
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec";
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -38,55 +34,6 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// 状態表示関数
-async function showStep(stepId, message) {
-  const step = document.getElementById(stepId);
-  const activeSteps = document.querySelectorAll('.status-step.active');
-  
-  // 前のステップを完了状態にする
-  activeSteps.forEach(s => {
-    s.classList.remove('active');
-    s.classList.add('completed');
-  });
-  
-  // 現在のステップをアクティブにする
-  step.classList.add('active');
-  step.querySelector('span:last-child').textContent = message;
-  
-  // ローディングスピナーを追加
-  const icon = step.querySelector('.status-icon');
-  const originalIcon = icon.textContent;
-  icon.innerHTML = '<span class="mini-loading-spinner"></span>';
-  
-  // 元のアイコンを保存
-  step.dataset.originalIcon = originalIcon;
-}
-
-function completeStep(stepId, message) {
-  const step = document.getElementById(stepId);
-  step.classList.remove('active');
-  step.classList.add('completed');
-  step.querySelector('span:last-child').textContent = message;
-  
-  // アイコンを元に戻す
-  const icon = step.querySelector('.status-icon');
-  if (step.dataset.originalIcon) {
-    icon.textContent = step.dataset.originalIcon;
-  }
-}
-
-function resetSteps() {
-  const steps = document.querySelectorAll('.status-step');
-  steps.forEach(step => {
-    step.classList.remove('active', 'completed', 'error');
-  });
-}
-
-function hideMessages() {
-  document.getElementById('successMessage').classList.remove('show');
-  document.getElementById('errorMessage').classList.remove('show');
-}
-
 // 金額を半角数字に変換する関数
 function convertToHalfWidthNumber(value) {
   if (!value) return '';
@@ -102,24 +49,12 @@ function convertToHalfWidthNumber(value) {
   return converted;
 }
 
-// URLパラメータまたはsessionStorageから元データを読み込む
+// URLパラメータまたはlocalStorageから元データを読み込む
 function loadOriginalData() {
-  // marugo.html は sessionStorage を使用しているため、sessionStorageを優先
-  const savedData = sessionStorage.getItem('correctionData');
-  if (savedData) {
-    try {
-      originalData = JSON.parse(savedData);
-      console.log('sessionStorageから元データを読み込み:', originalData);
-      sessionStorage.removeItem('correctionData'); // 使用後は削除
-      return true;
-    } catch (error) {
-      console.error('sessionStorageのデータ解析エラー:', error);
-    }
-  }
-
-  // Fallback: URLパラメータをチェック (古い形式や直接アクセス用)
+  // まずURLパラメータをチェック
   const urlParams = new URLSearchParams(window.location.search);
   const dataParam = urlParams.get('data');
+  
   if (dataParam) {
     try {
       originalData = JSON.parse(decodeURIComponent(dataParam));
@@ -127,6 +62,20 @@ function loadOriginalData() {
       return true;
     } catch (error) {
       console.error('URLパラメータのデータ解析エラー:', error);
+    }
+  }
+  
+  // URLパラメータが無効な場合、localStorageをチェック
+  const savedData = localStorage.getItem('correctionData');
+  if (savedData) {
+    try {
+      originalData = JSON.parse(savedData);
+      console.log('localStorageから元データを読み込み:', originalData);
+      // 使用後は削除
+      localStorage.removeItem('correctionData');
+      return true;
+    } catch (error) {
+      console.error('localStorageのデータ解析エラー:', error);
     }
   }
   
@@ -148,31 +97,31 @@ function displayOriginalData() {
   originalDataGrid.innerHTML = `
     <div class="original-data-item">
       <span class="original-data-label">📅 日付:</span>
-      <span class="original-data-value">${safeString(originalData.date)}</span>
+      <span class="original-data-value">${originalData.date || '不明'}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">👤 入力者:</span>
-      <span class="original-data-value">${safeString(originalData.name)}</span>
+      <span class="original-data-value">${originalData.name || '不明'}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">📤 貸主:</span>
-      <span class="original-data-value">${safeString(originalData.lender)}</span>
+      <span class="original-data-value">${originalData.lender || '不明'}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">📥 借主:</span>
-      <span class="original-data-value">${safeString(originalData.borrower)}</span>
+      <span class="original-data-value">${originalData.borrower || '不明'}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">🏷️ カテゴリー:</span>
-      <span class="original-data-value">${safeString(originalData.category)}</span>
+      <span class="original-data-value">${originalData.category || '不明'}</span>
     </div>
     <div class="original-data-item">
       <span class="original-data-label">📝 品目:</span>
-      <span class="original-data-value">${safeString(originalData.item)}</span>
+      <span class="original-data-value">${originalData.item || '不明'}</span>
     </div>
     <div class="original-data-item" style="grid-column: 1 / -1;">
       <span class="original-data-label">💵 金額:</span>
-      <span class="original-data-value">¥${formattedAmount}</span>
+      <span class="original-data-value">${formattedAmount}</span>
     </div>
   `;
 }
@@ -182,15 +131,15 @@ function autoFillReverseData() {
   if (!originalData) return;
   
   // 日付はそのまま
-  document.getElementById('date').value = safeString(originalData.date);
+  document.getElementById('date').value = originalData.date || '';
   
   // 貸主と借主を入れ替え
-  document.getElementById('lender').value = safeString(originalData.borrower);
-  document.getElementById('borrower').value = safeString(originalData.lender);
+  document.getElementById('lender').value = originalData.borrower || '';
+  document.getElementById('borrower').value = originalData.lender || '';
   
   // その他の項目はそのまま
-  document.getElementById('category').value = safeString(originalData.category);
-  document.getElementById('item').value = safeString(originalData.item);
+  document.getElementById('category').value = originalData.category || '';
+  document.getElementById('item').value = originalData.item || '';
   
   // 金額（数値のみに変換）
   const amountValue = originalData.amount ? 
@@ -198,12 +147,11 @@ function autoFillReverseData() {
     '';
   document.getElementById('amount').value = amountValue;
   
-  // カテゴリー選択状態を更新とdisabled化
+  // カテゴリー選択状態を更新
   const categoryOptions = document.querySelectorAll('.category-option');
   categoryOptions.forEach(option => {
     option.classList.remove('selected');
-    option.classList.add('disabled'); // すべてのオプションを無効化
-    if (option.dataset.value === safeString(originalData.category)) {
+    if (option.dataset.value === originalData.category) {
       option.classList.add('selected');
     }
   });
@@ -213,194 +161,105 @@ function autoFillReverseData() {
 
 // 修正データを送信
 async function submitCorrectionData() {
-  const statusDisplay = document.getElementById('status-display');
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn)');
   const btnText = submitBtn.querySelector('.btn-text');
-  const originalBtnText = '✏️ 修正データを送信'; // ボタンの初期テキスト
+  const originalText = btnText.textContent;
 
-  // 初期化
-  hideMessages();
-  resetSteps();
-
-  // フォームから直接取得するデータ（disabledなので基本的にはoriginalDataから値を取得すべきだが、念のため）
-  const currentCategoryValue = document.getElementById('category').value;
-  if (!currentCategoryValue) {
-    alert('カテゴリーが設定されていません。元のデータに問題がある可能性があります。');
+  // バリデーション
+  const categoryInput = document.getElementById('category');
+  if (!categoryInput.value) {
+    alert('カテゴリーを選択してください');
     return;
   }
 
   // ボタンを無効化
   submitBtn.disabled = true;
   submitBtn.classList.add('loading');
-  btnText.textContent = '修正送信中...';
-  
-  // 状態表示を開始
-  if (statusDisplay) {
-    statusDisplay.classList.add('show');
-  }
+  btnText.textContent = '送信中...';
 
   try {
-    // Step 1: データ検証
-    if (statusDisplay) {
-      await showStep('step-validation', '📋 修正データを検証中...');
-      await delay(600);
-    }
-
-    // データの取得は originalData から行う (disabledなフィールドの値を確実に取得するため)
     const data = {
-      date: safeString(originalData.date),
-      name: safeString(document.getElementById("name").value), // 入力者フィールドはdisabledだが、値は設定されているはず
-      lender: safeString(originalData.borrower), // 逆取引なので元データのborrower
-      borrower: safeString(originalData.lender), // 逆取引なので元データのlender
-      category: safeString(originalData.category),
-      item: safeString(originalData.item),
-      amount: convertToHalfWidthNumber(safeString(originalData.amount)),
-      // GAS側で処理を分岐させるための追加情報
+      date: document.getElementById("date").value,
+      name: document.getElementById("name").value,
+      lender: document.getElementById("lender").value,
+      borrower: document.getElementById("borrower").value,
+      category: document.getElementById("category").value,
+      item: document.getElementById("item").value,
+      amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: true,
-      correctionOnly: true, // これはcorrection.htmlからの送信であることを明確にする
-      correctionMark: "✏️修正", // GAS側でスプレッドシートに書き込む修正マーク
-      sendType: "CORRECTION_FORM_SUBMIT" // GAS側で送信元を識別するための新しいタイプ
+      correctionOnly: true,
+      correctionMark: "✏️修正",
+      sendType: "CORRECTION"
     };
 
-    // 厳密なバリデーション
+    // バリデーション
     if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.amount) {
-      throw new Error('必須データが不足しています。');
+      throw new Error('すべての必須項目を入力してください。');
     }
     if (data.lender === data.borrower) {
-      throw new Error('貸主と借主は異なる店舗である必要があります。');
+      throw new Error('貸主と借主は異なる店舗を選択してください。');
     }
     const amountNumber = parseInt(data.amount);
     if (isNaN(amountNumber) || amountNumber <= 0) {
-      throw new Error('金額が正しくありません。');
+      throw new Error('正しい金額を入力してください。');
     }
 
     console.log('修正データ送信:', data);
 
-    if (statusDisplay) {
-      completeStep('step-validation', '✅ 修正データ検証完了');
-
-      // Step 2: 送信開始 (GAS Webアプリへ)
-      await showStep('step-sending', '📤 データをGASへ送信中...');
-      await delay(400);
-    }
-
-    // ★修正点: Google Sheets APIへの直接送信からGAS_URLへのPOSTに変更
+    // Google Apps Scriptにデータを送信
     const response = await fetch(GAS_URL, {
       method: "POST",
-      mode: "no-cors", // GASへのPOSTでは通常no-corsモードを使用
+      mode: "no-cors",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify(data)
     });
 
-    if (statusDisplay) {
-      completeStep('step-sending', '✅ GASへの送信完了');
-
-      // Step 3: データ挿入（GAS側で実行されるためシミュレート）
-      await showStep('step-inserting', '💾 スプレッドシートに書き込み中...');
-      await delay(800);
-      completeStep('step-inserting', '✅ 書き込み完了');
-
-      // Step 4: バックアップ作成（GAS側で実行されるためシミュレート）
-      await showStep('step-backup', '🔄 バックアップ処理中...');
-      await delay(1000);
-      completeStep('step-backup', '✅ バックアップ完了');
-
-      // Step 5: 完了
-      await showStep('step-complete', '🎉 修正送信が完了しました！');
-      completeStep('step-complete', '🎉 修正送信完了！');
-    }
-
     // 送信完了処理（no-corsのためレスポンス確認は不可）
-    await delay(statusDisplay ? 500 : 1000);
+    await delay(1000);
 
-    // 成功処理
+    // 成功メッセージ表示
+    const successMessage = document.getElementById('successMessage');
+    successMessage.textContent = '✅ 修正データの送信が完了しました！';
+    successMessage.classList.add('show');
+    
     setTimeout(() => {
-      // ローディング状態終了
-      submitBtn.classList.remove('loading');
-      btnText.textContent = originalBtnText; // 元のテキストに戻す
-      submitBtn.disabled = false;
+      successMessage.classList.remove('show');
+    }, 3000);
 
-      // 成功メッセージ表示
-      const successMessage = document.getElementById('successMessage');
-      successMessage.textContent = '✅ 修正データの送信が完了しました！';
-      successMessage.classList.add('show');
-      
-      setTimeout(() => {
-        successMessage.classList.remove('show');
-      }, 3000);
-
-      // フォームリセット
-      document.getElementById('correctionForm').reset();
-      const categoryOptions = document.querySelectorAll('.category-option');
-      categoryOptions.forEach(opt => opt.classList.remove('selected'));
-      
-      if (statusDisplay) {
-        statusDisplay.classList.remove('show');
+    // フォームリセット
+    document.getElementById('correctionForm').reset();
+    const categoryOptions = document.querySelectorAll('.category-option');
+    categoryOptions.forEach(opt => opt.classList.remove('selected'));
+    
+    // 3秒後に元のページに戻る
+    setTimeout(() => {
+      if (document.referrer) {
+        history.back();
+      } else {
+        window.location.href = 'data/marugo.html';
       }
-      
-      // 3秒後に元のページに戻る
-      setTimeout(() => {
-        // marugo.html へのパスを調整（correction.htmlがmarugo.htmlの親ディレクトリにある場合）
-        // 例: index.html と marugo.html が同じディレクトリの場合、correction.html はその一つ上の階層にいることになる
-        // marugo.htmlへの相対パスを正しく指定してください。
-        // current path: /management/data/correction.html -> target: /management/data/marugo.html
-        window.location.href = './marugo.html'; // ★修正点: パスを調整
-      }, 3000);
-    }, statusDisplay ? 500 : 1000);
+    }, 3000);
 
   } catch (error) {
     console.error('送信エラー:', error);
     
-    // エラー状態を表示
-    if (statusDisplay) {
-      const activeStep = document.querySelector('.status-step.active');
-      if (activeStep) {
-        activeStep.classList.remove('active');
-        activeStep.classList.add('error');
-        activeStep.querySelector('span:last-child').textContent = `❌ エラー: ${error.message.substring(0, 50)}...`; // エラーメッセージを短縮
-      }
-    }
-
-    // エラー処理
-    submitBtn.classList.remove('loading');
-    btnText.textContent = originalBtnText; // 元のテキストに戻す
-    submitBtn.disabled = false;
-
     // エラーメッセージ表示
     const errorMessage = document.getElementById('errorMessage');
-    errorMessage.textContent = `❌ 修正送信エラー: ${error.message}`;
+    errorMessage.textContent = `❌ 送信エラー: ${error.message}`;
     errorMessage.classList.add('show');
     
     setTimeout(() => {
       errorMessage.classList.remove('show');
-      if (statusDisplay) {
-        statusDisplay.classList.remove('show');
-      }
     }, 5000);
+  } finally {
+    // ボタン状態を復元
+    submitBtn.disabled = false;
+    submitBtn.classList.remove('loading');
+    btnText.textContent = originalText;
   }
 }
-
-// 安全な文字列変換関数 (originalDataの安全な利用のため追加)
-function safeString(value) {
-    if (value === null || value === undefined) {
-        return '';
-    }
-    return String(value);
-}
-
-// 安全な数値変換関数 (originalDataの安全な利用のため追加)
-function safeNumber(value) {
-    if (value === null || value === undefined || value === '') {
-        return 0;
-    }
-    const stringValue = safeString(value);
-    const cleaned = stringValue.replace(/[,\s]/g, '');
-    const number = parseFloat(cleaned);
-    return isNaN(number) ? 0 : number;
-}
-
 
 // DOM要素の初期化
 function initializeElements() {
@@ -409,13 +268,7 @@ function initializeElements() {
   const categoryInput = document.getElementById('category');
 
   categoryOptions.forEach(option => {
-    option.addEventListener('click', (e) => {
-      // disabled状態の場合はクリックを無効化
-      if (option.classList.contains('disabled')) {
-        e.preventDefault();
-        return;
-      }
-      
+    option.addEventListener('click', () => {
       categoryOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
       categoryInput.value = option.dataset.value;
@@ -451,6 +304,12 @@ function initializeElements() {
   });
 }
 
+// メッセージ非表示処理
+function hideMessages() {
+  document.getElementById('successMessage').classList.remove('show');
+  document.getElementById('errorMessage').classList.remove('show');
+}
+
 // 初期化処理
 function initialize() {
   // メッセージを非表示
@@ -468,9 +327,13 @@ function initialize() {
     autoFillReverseData();
   } else {
     // 元データが無い場合はエラー表示
-    // メインフォームを非表示にして、データなしメッセージを表示
-    document.getElementById('main-form').style.display = 'none';
-    document.getElementById('no-data-message').style.display = 'block';
+    alert('修正対象のデータが見つかりません。データ一覧ページから再度選択してください。');
+    // 元のページに戻る
+    if (document.referrer) {
+      history.back();
+    } else {
+      window.location.href = 'data/marugo.html';
+    }
   }
 }
 
