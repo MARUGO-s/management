@@ -492,21 +492,6 @@
             background: rgba(90, 124, 90, 0.05);
         }
 
-        .data-row {
-            transition: all 0.2s ease;
-            cursor: pointer;
-        }
-
-        .data-row:hover {
-            background: rgba(214, 158, 46, 0.1) !important;
-            transform: scale(1.01);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .data-row:active {
-            transform: scale(0.99);
-        }
-
         .amount {
             text-align: right;
             font-weight: 600;
@@ -834,85 +819,75 @@
 
         class GoogleSheetsAPIAnalyzer {
             constructor() {
-                console.log('=== GoogleSheetsAPIAnalyzer 初期化開始 ===');
-                
                 this.data = []; // スプレッドシートから読み込んだ全データ
                 this.searchResults = []; // 検索結果データ
                 this.statusDiv = document.getElementById('status-info');
                 this.stores = new Set();
                 // ここにあなたのAPIキーを貼り付けてください
                 this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE'; // ダミーのキー
-                this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoC7Fz4iY'; // ダミーのID
+                this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'; // ダミーのID
                 this.sheetName = '貸借表'; // シート名
                 
-                console.log('基本設定完了');
-                console.log('認証初期化開始');
+                // パスワード設定（実際の運用では環境変数やサーバーサイドで管理）
+                this.correctPasswords = [
+                    'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', // "hello"のSHA-256ハッシュ
+                    'e258d248fda94c63753607f7c4494ee0fcbe92f1a76bfdac795c9d84101eb317', // "marugo"のSHA-256ハッシュ
+                    
+                ];
                 
                 this.initAuth();
-                
-                console.log('=== コンストラクタ完了 ===');
             }
 
             async initAuth() {
-                console.log('=== 認証初期化開始 ===');
-                
                 this.setupAuthListeners();
-                
-                // 常に認証済みとして扱う
-                sessionStorage.setItem('authenticated', 'true'); //
-                console.log('認証状態を常に「認証済み」に設定');
-                
-                this.showMainApp(); //
-                
-                console.log('=== 認証初期化完了 ===');
+                // 既にログイン済みかチェック
+                if (sessionStorage.getItem('authenticated') === 'true') {
+                    this.showMainApp();
+                }
             }
 
             setupAuthListeners() {
                 const loginForm = document.getElementById('login-form');
                 const logoutBtn = document.getElementById('logout-btn');
-                const passwordInput = document.getElementById('password-input');
 
-                console.log('認証リスナー設定開始');
-                console.log('ログインフォーム:', loginForm);
-                console.log('パスワード入力:', passwordInput);
+                loginForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleLogin();
+                });
 
-                // フォーム送信イベント (実際には使用されないが、残しておく)
-                if (loginForm) {
-                    loginForm.addEventListener('submit', (e) => {
-                        console.log('フォーム送信イベント発生（このモードでは無視されます）');
-                        e.preventDefault();
-                        // this.handleLogin(); // ログイン処理は自動で行われるため呼び出さない
-                    });
-                    console.log('フォーム送信リスナー設定完了');
-                } else {
-                    console.error('ログインフォームが見つかりません');
-                }
-
-                // パスワード入力でEnterキー押下時の処理 (実際には使用されないが、残しておく)
-                if (passwordInput) {
-                    passwordInput.addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter') {
-                            console.log('Enterキー押下（このモードでは無視されます）');
-                            e.preventDefault();
-                            // this.handleLogin(); // ログイン処理は自動で行われるため呼び出さない
-                        }
-                    });
-                    console.log('Enterキーリスナー設定完了');
-                }
-
-                // ログアウトボタン
-                if (logoutBtn) {
-                    logoutBtn.addEventListener('click', () => {
-                        this.handleLogout();
-                    });
-                    console.log('ログアウトリスナー設定完了');
-                }
+                logoutBtn.addEventListener('click', () => {
+                    this.handleLogout();
+                });
             }
 
-            // handleLogin関数はもはや認証ロジックを実行しない。initAuthで直接ログイン状態にする。
-            handleLogin() {
-                console.log('handleLogin関数は、このバージョンでは認証ロジックを実行しません。');
-                console.log('システムは自動的にログイン状態になります。');
+            async handleLogin() {
+                const passwordInput = document.getElementById('password-input');
+                const password = passwordInput.value;
+                const errorDiv = document.getElementById('login-error');
+
+                // デバッグ用：入力されたパスワードとハッシュをコンソールに表示
+                console.log('入力パスワード:', password);
+                
+                // パスワードをSHA-256でハッシュ化
+                const passwordHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
+                    .then(hashBuffer => Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join(''));
+                console.log('パスワードハッシュ:', passwordHash);
+                console.log('設定済みハッシュ:', this.correctPasswords);
+
+                // 簡単なテスト用：平文パスワードもチェック（本番では推奨されません）
+                const validPasswords = ['hello', 'marugo', 'admin'];
+                
+                if (this.correctPasswords.includes(passwordHash) || validPasswords.includes(password)) {
+                    sessionStorage.setItem('authenticated', 'true');
+                    this.showMainApp();
+                    errorDiv.style.display = 'none';
+                    console.log('ログイン成功');
+                } else {
+                    errorDiv.style.display = 'block';
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                    console.log('ログイン失敗');
+                }
             }
 
             handleLogout() {
@@ -924,33 +899,20 @@
             }
 
             async showMainApp() {
-                console.log('=== メインアプリ表示開始 ===');
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('main-app').style.display = 'block';
                 
-                const loginScreen = document.getElementById('login-screen');
-                const mainApp = document.getElementById('main-app');
-                
-                console.log('ログイン画面要素:', loginScreen);
-                console.log('メインアプリ要素:', mainApp);
-                
-                if (loginScreen && mainApp) {
-                    loginScreen.style.display = 'none';
-                    mainApp.style.display = 'block';
-                    console.log('画面切り替え完了');
-                    
-                    // メインアプリを初期化
-                    try {
-                        await this.init();
-                        console.log('メインアプリ初期化完了');
-                    } catch (error) {
-                        console.error('メインアプリ初期化エラー:', error);
-                    }
-                } else {
-                    console.error('画面要素が見つかりません');
-                    console.error('ログイン画面:', loginScreen);
-                    console.error('メインアプリ:', mainApp);
-                }
-                
-                console.log('=== メインアプリ表示完了 ===');
+                // メインアプリを初期化
+                await this.init();
+            }
+
+            async hashPassword(password) { // 冗長な定義を削除
+                const encoder = new TextEncoder();
+                const data = encoder.encode(password);
+                const hash = await crypto.subtle.digest('SHA-256', data);
+                return Array.from(new Uint8Array(hash))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
             }
 
             async init() {
@@ -1046,7 +1008,7 @@
                     this.debugLog('対象シートが見つかりました', targetSheetName);
                     
                     // Google Sheets API v4 を使用してデータを取得
-                    const range = `${targetSheetName}!A:I`; // A列からI列までを取得
+                    const range = `${targetSheetName}!A:J`; // A列からJ列までを取得
                     const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${range}?key=${this.apiKey}`;
                     
                     this.debugLog('API リクエスト URL', url);
@@ -1127,11 +1089,12 @@
                 const itemIndex = getColumnIndex(['品目', 'item']); // F列
                 const amountIndex = getColumnIndex(['金額', 'amount']); // G列
                 const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']); // H列
-                const correctionIndex = getColumnIndex(['修正', 'correction']); // I列
+                const userAgentIndex = getColumnIndex(['DEVICE', 'device']); // I列 
+                const correctionIndex = getColumnIndex(['修正', 'correction']); // J列
 
                 this.debugLog('フィールドインデックス', {
                     dateIndex, nameIndex, lenderIndex, borrowerIndex, 
-                    categoryIndex, itemIndex, amountIndex, inputDateIndex, correctionIndex
+                    categoryIndex, itemIndex, amountIndex, inputDateIndex, userAgentIndex, correctionIndex
                 });
 
                 // データ行を処理（ヘッダーをスキップ）
@@ -1155,6 +1118,7 @@
                         amount: this.parseAmount(getValue(amountIndex)),
                         originalAmount: getValue(amountIndex),
                         inputDate: getValue(inputDateIndex),
+                        userAgent: getValue(userAgentIndex), // userAgentも取得
                         correction: getValue(correctionIndex) // 修正フラグを追加
                     };
 
@@ -1712,13 +1676,13 @@
                     return;
                 }
 
-                detailsTable.innerHTML = this.searchResults.map((row, index) => {
+                detailsTable.innerHTML = this.searchResults.map(row => {
                     const correctionDisplay = row.correction || ''; 
 
                     if (isAllData) {
                         // 全データ表示時: 貸主→借主の形で表示
                         return `
-                            <tr class="data-row" data-index="${index}" style="cursor: pointer;" title="クリックして逆取引修正">
+                            <tr>
                                 <td>${row.date}</td>
                                 <td><span class="type-tag type-貸借">貸借</span></td>
                                 <td>${row.lender} → ${row.borrower}</td>
@@ -1738,7 +1702,7 @@
                         const amountClass = isLender ? 'positive' : 'negative';
 
                         return `
-                            <tr class="data-row" data-index="${index}" style="cursor: pointer;" title="クリックして逆取引修正">
+                            <tr>
                                 <td>${row.date}</td>
                                 <td><span class="type-tag type-${transactionType}">${transactionType}</span></td>
                                 <td>${counterpart}</td>
@@ -1754,86 +1718,6 @@
 
                 // テーブルデータを保存（ソート用）
                 currentTableData = this.searchResults;
-                
-                // 行クリックイベントを追加
-                this.addRowClickEvents();
-            }
-
-            // 行クリックイベントを追加
-            addRowClickEvents() {
-                const dataRows = document.querySelectorAll('.data-row');
-                
-                dataRows.forEach(row => {
-                    row.addEventListener('click', (e) => {
-                        // イベントバブリングを防止
-                        e.stopPropagation();
-                        
-                        const rowIndex = parseInt(row.dataset.index);
-                        const selectedData = this.searchResults[rowIndex];
-                        
-                        if (!selectedData) {
-                            console.error('選択されたデータが見つかりません');
-                            return;
-                        }
-                        
-                        this.showDeleteConfirmDialog(selectedData);
-                    });
-                    
-                    // ホバー効果を強化
-                    row.addEventListener('mouseenter', () => {
-                        row.style.backgroundColor = 'rgba(214, 158, 46, 0.1)';
-                        row.style.transform = 'scale(1.02)';
-                        row.style.transition = 'all 0.2s ease';
-                    });
-                    
-                    row.addEventListener('mouseleave', () => {
-                        row.style.backgroundColor = '';
-                        row.style.transform = '';
-                    });
-                });
-            }
-
-            // 削除確認ダイアログを表示
-            showDeleteConfirmDialog(selectedData) {
-                const formattedAmount = selectedData.amount ? 
-                    `¥${parseInt(selectedData.amount).toLocaleString('ja-JP')}` : 
-                    '不明';
-                
-                const confirmMessage = `🗑️ 以下のデータを逆取引として修正送信しますか？
-
-📅 日付: ${selectedData.date || '不明'}
-👤 入力者: ${selectedData.name || '不明'}
-📤 貸主: ${selectedData.lender || '不明'}
-📥 借主: ${selectedData.borrower || '不明'}
-🏷️ カテゴリー: ${selectedData.category || '不明'}
-📝 品目: ${selectedData.item || '不明'}
-💵 金額: ${formattedAmount}
-
-⚠️ この操作により：
-• 貸主と借主が入れ替わった逆取引データが作成されます
-• 自動的に「✏️修正」マークが付与されます
-• 修正用ページに移動します
-
-続行しますか？`;
-
-                if (confirm(confirmMessage)) {
-                    this.redirectToCorrectionPage(selectedData);
-                }
-            }
-
-            // correction.htmlページにリダイレクト
-            redirectToCorrectionPage(selectedData) {
-                try {
-                    // localStorageに選択されたデータを保存
-                    localStorage.setItem('correctionData', JSON.stringify(selectedData));
-                    
-                    // correction.htmlページに移動
-                    window.location.href = '../correction.html';
-                    
-                } catch (error) {
-                    console.error('リダイレクトエラー:', error);
-                    alert('修正ページへの移動中にエラーが発生しました。');
-                }
             }
 
             exportResults() {
@@ -1842,7 +1726,7 @@
                     return;
                 }
 
-                // CSV出力用のマッピング (device情報を除く)
+                // userAgentも含むマッピング (スプレッドシートから読み取ったままの形式)
                 const csvData = Papa.unparse(this.searchResults.map(row => ({
                     日付: row.date,
                     取引名: row.name,
@@ -1852,6 +1736,7 @@
                     品目: row.item,
                     金額: row.amount,
                     入力日時: row.inputDate,
+                    DEVICE: row.userAgent, // userAgentを含める
                     修正: row.correction || ''
                 })));
 
