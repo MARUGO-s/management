@@ -124,7 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
             item: originalData.item,
             amount: parseFloat(originalData.amount), // 数値に戻す
             correction: "✏️修正", // 修正フラグを追加
-            originalRowIndex: originalData.originalRowIndex // 元の行のインデックス (GAS側で必要に応じて使用)
+            originalRowIndex: originalData.originalRowIndex, // 元の行のインデックス (GAS側で必要に応じて使用)
+            isCorrection: true, // GASで修正処理をトリガーするためのフラグ
+            correctionOnly: true // 修正専用のパスをGASで通るためのフラグ
         };
 
         // ステータス表示の更新ヘルパー関数
@@ -175,9 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 mode: 'cors', // CORSを有効にする
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/json', // ★ここを 'application/json' に変更
                 },
-                body: new URLSearchParams(correctedData).toString() // URLエンコードして送信
+                body: JSON.stringify(correctedData) // ★ここを JSON.stringify に変更
             });
 
             if (!response.ok) {
