@@ -11,6 +11,39 @@ const shops = [
 // 元データを格納する変数
 let originalData = null;
 
+// デバッグログを保存する配列
+let debugLogs = [];
+
+// デバッグログ追加関数
+function addDebugLog(message, data = null) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    message,
+    data: data ? JSON.stringify(data, null, 2) : null
+  };
+  debugLogs.push(logEntry);
+  console.log(`[${timestamp}] ${message}`, data);
+  
+  // デバッグ表示エリアに追加
+  updateDebugDisplay();
+}
+
+// デバッグ表示を更新
+function updateDebugDisplay() {
+  const debugContent = document.getElementById('debug-content');
+  if (debugContent) {
+    debugContent.innerHTML = debugLogs.slice(-10).map(log => 
+      `<div style="margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #333;">
+        <strong>${log.timestamp.split('T')[1].split('.')[0]}</strong><br>
+        ${log.message}<br>
+        ${log.data ? `<pre style="font-size: 10px; margin: 5px 0;">${log.data}</pre>` : ''}
+      </div>`
+    ).join('');
+    debugContent.scrollTop = debugContent.scrollHeight;
+  }
+}
+
 // 店舗データでプルダウンのオプションを設定
 function populateShops() {
   const lenderSelect = document.getElementById("lender");
@@ -51,85 +84,138 @@ function convertToHalfWidthNumber(value) {
 
 // URLパラメータまたはstorageから元データを読み込む（修正版）
 function loadOriginalData() {
-  console.log('=== データ読み込み開始 ===');
+  addDebugLog('=== データ読み込み開始 ===');
   
   // まずURLパラメータをチェック
   const urlParams = new URLSearchParams(window.location.search);
   const dataParam = urlParams.get('data');
   
-  console.log('URLパラメータ確認:', dataParam ? '有り' : '無し');
+  addDebugLog('URLパラメータ確認', { hasData: !!dataParam });
   
   if (dataParam) {
     try {
       originalData = JSON.parse(decodeURIComponent(dataParam));
-      console.log('URLパラメータから元データを読み込み:', originalData);
+      addDebugLog('URLパラメータから元データを読み込み', originalData);
       return true;
     } catch (error) {
-      console.error('URLパラメータのデータ解析エラー:', error);
+      addDebugLog('URLパラメータのデータ解析エラー', error);
     }
   }
   
-  // sessionStorageをチェック（修正：最優先でsessionStorageを確認）
-  console.log('sessionStorage確認中...');
+  // localStorageを最初にチェック（実際にデータがここにある可能性が高い）
+  const localData = localStorage.getItem('correctionData');
+  addDebugLog('localStorage確認', { 
+    hasData: !!localData, 
+    dataLength: localData ? localData.length : 0,
+    dataPreview: localData ? localData.substring(0, 100) + '...' : null
+  });
+  
+  if (localData) {
+    try {
+      // データがURLエンコードされている可能性があるため、デコードを試行
+      let decodedData = localData;
+      
+      // %で始まる場合はURLエンコードされている
+      if (localData.startsWith('%')) {
+        try {
+          decodedData = decodeURIComponent(localData);
+          addDebugLog('localStorageデータをURLデコード成功', {
+            original: localData.substring(0, 50),
+            decoded: decodedData.substring(0, 50)
+          });
+        } catch (decodeError) {
+          addDebugLog('URLデコードエラー、元データをそのまま使用', decodeError);
+          decodedData = localData;
+        }
+      }
+      
+      originalData = JSON.parse(decodedData);
+      addDebugLog('localStorageから元データを読み込み成功', originalData);
+      
+      // 使用後は削除
+      localStorage.removeItem('correctionData');
+      addDebugLog('localStorageからcorrectionDataを削除');
+      
+      return true;
+    } catch (error) {
+      addDebugLog('localStorageのデータ解析エラー', {
+        error: error.message,
+        rawData: localData.substring(0, 200),
+        stack: error.stack
+      });
+      
+      // パースエラーの場合、直接のJSONを試行
+      try {
+        originalData = JSON.parse(localData);
+        addDebugLog('localStorageから直接JSON解析成功', originalData);
+        localStorage.removeItem('correctionData');
+        return true;
+      } catch (directError) {
+        addDebugLog('直接JSON解析も失敗', directError);
+      }
+    }
+  }
+  
+  // 次にsessionStorageをチェック
   const savedData = sessionStorage.getItem('correctionData');
-  console.log('sessionStorageデータ:', savedData ? '有り' : '無し');
+  addDebugLog('sessionStorage確認', { hasData: !!savedData });
   
   if (savedData) {
     try {
       originalData = JSON.parse(savedData);
-      console.log('sessionStorageから元データを読み込み:', originalData);
-      // 使用後は削除
+      addDebugLog('sessionStorageから元データを読み込み', originalData);
       sessionStorage.removeItem('correctionData');
       return true;
     } catch (error) {
-      console.error('sessionStorageのデータ解析エラー:', error);
+      addDebugLog('sessionStorageのデータ解析エラー', error);
     }
   }
   
-  // localStorageもチェック（フォールバック）
-  console.log('localStorage確認中...');
-  const localData = localStorage.getItem('correctionData');
-  console.log('localStorageデータ:', localData ? '有り' : '無し');
+  // 詳細なデバッグ情報を出力
+  addDebugLog('全てのストレージチェック完了 - データなし', {
+    sessionKeys: Object.keys(sessionStorage),
+    localKeys: Object.keys(localStorage),
+    allLocalData: (() => {
+      const result = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
+        result[key] = {
+          length: value.length,
+          preview: value.substring(0, 50) + (value.length > 50 ? '...' : ''),
+          startsWithPercent: value.startsWith('%')
+        };
+      }
+      return result;
+    })(),
+    allSessionData: (() => {
+      const result = {};
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        const value = sessionStorage.getItem(key);
+        result[key] = {
+          length: value.length,
+          preview: value.substring(0, 50) + (value.length > 50 ? '...' : '')
+        };
+      }
+      return result;
+    })()
+  });
   
-  if (localData) {
-    try {
-      originalData = JSON.parse(localData);
-      console.log('localStorageから元データを読み込み:', originalData);
-      // 使用後は削除
-      localStorage.removeItem('correctionData');
-      return true;
-    } catch (error) {
-      console.error('localStorageのデータ解析エラー:', error);
-    }
-  }
-  
-  // デバッグ: 利用可能なstorageキーを表示
-  console.log('利用可能なsessionStorageキー:', Object.keys(sessionStorage));
-  console.log('利用可能なlocalStorageキー:', Object.keys(localStorage));
-  
-  // 詳細なデバッグ情報
-  console.log('sessionStorage全内容:');
-  for (let i = 0; i < sessionStorage.length; i++) {
-    const key = sessionStorage.key(i);
-    console.log(`  ${key}: ${sessionStorage.getItem(key)?.substring(0, 100)}...`);
-  }
-  
-  console.error('元データが見つかりません');
   return false;
 }
 
 // 元データを表示する
 function displayOriginalData() {
   if (!originalData) {
-    console.error('表示する元データがありません');
+    addDebugLog('表示する元データがありません');
     return;
   }
   
-  console.log('元データ表示中:', originalData);
+  addDebugLog('元データ表示中', originalData);
   
   const originalDataGrid = document.getElementById('original-data-grid');
   
-  // 金額のフォーマット
   const formattedAmount = originalData.amount ? 
     `¥${parseInt(originalData.amount).toLocaleString('ja-JP')}` : 
     originalData.originalAmount || '不明';
@@ -169,30 +255,22 @@ function displayOriginalData() {
 // フォームに逆取引データを自動入力
 function autoFillReverseData() {
   if (!originalData) {
-    console.error('自動入力する元データがありません');
+    addDebugLog('自動入力する元データがありません');
     return;
   }
   
-  console.log('逆取引データを自動入力中:', originalData);
+  addDebugLog('逆取引データを自動入力中', originalData);
   
-  // 日付はそのまま
   document.getElementById('date').value = originalData.date || '';
-  
-  // 貸主と借主を入れ替え
   document.getElementById('lender').value = originalData.borrower || '';
   document.getElementById('borrower').value = originalData.lender || '';
-  
-  // その他の項目はそのまま
   document.getElementById('category').value = originalData.category || '';
   document.getElementById('item').value = originalData.item || '';
   
-  // 金額（数値のみに変換）
   const amountValue = originalData.amount ? 
-    parseInt(originalData.amount).toLocaleString('ja-JP') : 
-    '';
+    parseInt(originalData.amount).toLocaleString('ja-JP') : '';
   document.getElementById('amount').value = amountValue;
   
-  // カテゴリー選択状態を更新
   const categoryOptions = document.querySelectorAll('.category-option');
   categoryOptions.forEach(option => {
     option.classList.remove('selected');
@@ -201,18 +279,23 @@ function autoFillReverseData() {
     }
   });
   
-  console.log('逆取引データを自動入力完了');
+  addDebugLog('逆取引データを自動入力完了', {
+    date: document.getElementById('date').value,
+    lender: document.getElementById('lender').value,
+    borrower: document.getElementById('borrower').value,
+    category: document.getElementById('category').value,
+    item: document.getElementById('item').value,
+    amount: document.getElementById('amount').value
+  });
 }
 
 // プログレス表示機能
 function showProgressStep(stepId) {
-  // 全てのステップをリセット
   const steps = document.querySelectorAll('.status-step');
   steps.forEach(step => {
     step.classList.remove('active', 'completed', 'error');
   });
   
-  // 指定されたステップまでを完了状態にし、現在のステップをアクティブに
   const stepOrder = ['step-validation', 'step-sending', 'step-inserting', 'step-backup', 'step-complete'];
   const currentIndex = stepOrder.indexOf(stepId);
   
@@ -225,7 +308,6 @@ function showProgressStep(stepId) {
     }
   });
   
-  // プログレス表示を表示
   const statusDisplay = document.getElementById('status-display');
   statusDisplay.classList.add('show');
 }
@@ -241,15 +323,89 @@ function showProgressError(stepId) {
   step.classList.add('error');
 }
 
-// 修正データを送信
+// GAS接続テスト関数
+async function testGASConnection() {
+  addDebugLog('=== GAS接続テスト開始 ===');
+  
+  try {
+    // テスト用のシンプルなデータを送信
+    const testData = {
+      test: true,
+      timestamp: new Date().toISOString(),
+      message: "テスト送信 from correction.html"
+    };
+    
+    addDebugLog('テストデータ送信中', testData);
+    
+    // 通常のfetchでテスト（CORSエラーが発生する可能性があるが、それで正常）
+    const response = await fetch(GAS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(testData)
+    });
+    
+    addDebugLog('GASレスポンス情報', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      type: response.type
+    });
+    
+    // レスポンス本文を読み取り試行
+    try {
+      const responseText = await response.text();
+      addDebugLog('GASレスポンス内容', responseText);
+      
+      // JSON解析試行
+      try {
+        const responseJson = JSON.parse(responseText);
+        addDebugLog('GASレスポンスJSON', responseJson);
+        
+        if (responseJson.success) {
+          alert('✅ GAS接続テスト成功！\n\n' + 
+                'レスポンス: ' + responseJson.message + '\n' +
+                'タイムスタンプ: ' + responseJson.timestamp);
+        } else {
+          alert('⚠️ GAS接続はできたが処理エラー\n\n' + 
+                'エラー: ' + responseJson.message + '\n' +
+                'デバッグ情報: ' + JSON.stringify(responseJson.debug, null, 2));
+        }
+      } catch (jsonError) {
+        addDebugLog('JSON解析エラー', jsonError);
+        alert('⚠️ GAS接続はできたがJSON解析エラー\n\n' + 
+              'レスポンステキスト: ' + responseText.substring(0, 200));
+      }
+    } catch (textError) {
+      addDebugLog('レスポンス本文読み取りエラー', textError);
+      alert('⚠️ レスポンス本文読み取りエラー\n\n' + textError.message);
+    }
+    
+  } catch (error) {
+    addDebugLog('GAS接続テストエラー', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    alert('❌ GAS接続テストエラー\n\n' + 
+          'エラー: ' + error.message + '\n' +
+          'GAS URLを確認してください。');
+  }
+}
+
+// 修正データを送信（デバッグ強化版）
 async function submitCorrectionData() {
-  const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn)');
+  const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn):not([onclick])');
   const btnText = submitBtn.querySelector('.btn-text');
   const originalText = btnText.textContent;
+
+  addDebugLog('=== 修正データ送信開始 ===');
 
   // バリデーション
   const categoryInput = document.getElementById('category');
   if (!categoryInput.value) {
+    addDebugLog('バリデーションエラー: カテゴリーが未選択');
     alert('カテゴリーを選択してください');
     return;
   }
@@ -278,33 +434,104 @@ async function submitCorrectionData() {
       sendType: "CORRECTION"
     };
 
+    addDebugLog('送信データ準備完了', data);
+
     // バリデーション
-    if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.amount) {
-      throw new Error('すべての必須項目を入力してください。');
+    const validationErrors = [];
+    if (!data.date) validationErrors.push('日付');
+    if (!data.name) validationErrors.push('名前');
+    if (!data.lender) validationErrors.push('貸主');
+    if (!data.borrower) validationErrors.push('借主');
+    if (!data.category) validationErrors.push('カテゴリー');
+    if (!data.item) validationErrors.push('品目');
+    if (!data.amount) validationErrors.push('金額');
+
+    if (validationErrors.length > 0) {
+      throw new Error(`以下の項目が入力されていません: ${validationErrors.join(', ')}`);
     }
+
     if (data.lender === data.borrower) {
       throw new Error('貸主と借主は異なる店舗を選択してください。');
     }
+
     const amountNumber = parseInt(data.amount);
     if (isNaN(amountNumber) || amountNumber <= 0) {
       throw new Error('正しい金額を入力してください。');
     }
 
-    console.log('修正データ送信:', data);
+    addDebugLog('バリデーション完了', { valid: true });
 
     // ステップ2: データ送信
     showProgressStep('step-sending');
     await delay(500);
 
-    // Google Apps Scriptにデータを送信
-    const response = await fetch(GAS_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(data)
+    addDebugLog('GAS送信開始', {
+      url: GAS_URL,
+      method: 'POST',
+      data: data
     });
+
+    // まず通常のfetchでテスト
+    let sendResult = null;
+    try {
+      const testResponse = await fetch(GAS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      addDebugLog('通常fetch結果', {
+        status: testResponse.status,
+        statusText: testResponse.statusText,
+        ok: testResponse.ok,
+        type: testResponse.type
+      });
+
+      // レスポンステキストを取得試行
+      try {
+        const responseText = await testResponse.text();
+        addDebugLog('レスポンステキスト', responseText);
+        
+        // JSON解析試行
+        try {
+          const responseJson = JSON.parse(responseText);
+          sendResult = responseJson;
+          addDebugLog('レスポンスJSON解析成功', responseJson);
+        } catch (jsonError) {
+          addDebugLog('JSON解析エラー', jsonError);
+        }
+        
+      } catch (textError) {
+        addDebugLog('レスポンステキスト取得エラー', textError);
+      }
+
+    } catch (fetchError) {
+      addDebugLog('通常fetch エラー', fetchError);
+    }
+
+    // no-corsでも送信（フォールバック）
+    try {
+      const corsResponse = await fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      addDebugLog('no-cors fetch結果', {
+        status: corsResponse.status,
+        statusText: corsResponse.statusText,
+        ok: corsResponse.ok,
+        type: corsResponse.type
+      });
+
+    } catch (corsError) {
+      addDebugLog('no-cors fetch エラー', corsError);
+    }
 
     // ステップ3: データ挿入
     showProgressStep('step-inserting');
@@ -318,14 +545,26 @@ async function submitCorrectionData() {
     showProgressStep('step-complete');
     await delay(500);
 
+    addDebugLog('送信処理完了', sendResult);
+
+    // 送信結果に基づいてメッセージを調整
+    let successMessage = '✅ 修正データの送信が完了しました！';
+    if (sendResult && sendResult.success === false) {
+      throw new Error('GAS処理エラー: ' + (sendResult.message || '不明なエラー'));
+    } else if (sendResult && sendResult.success === true) {
+      successMessage += '\n✓ GASで正常に処理されました';
+    } else {
+      successMessage += '\n※ 送信は完了しましたが、レスポンス確認はできませんでした';
+    }
+
     // 成功メッセージ表示
-    const successMessage = document.getElementById('successMessage');
-    successMessage.textContent = '✅ 修正データの送信が完了しました！';
-    successMessage.classList.add('show');
+    const successMsg = document.getElementById('successMessage');
+    successMsg.textContent = successMessage;
+    successMsg.classList.add('show');
     
     setTimeout(() => {
-      successMessage.classList.remove('show');
-    }, 3000);
+      successMsg.classList.remove('show');
+    }, 5000);
 
     // フォームリセット
     document.getElementById('correctionForm').reset();
@@ -337,23 +576,30 @@ async function submitCorrectionData() {
       hideProgress();
     }, 2000);
     
-    // 3秒後に元のページに戻る
+    addDebugLog('送信完了処理終了');
+    
+    // 戻るボタンを表示（自動リダイレクトの代わり）
     setTimeout(() => {
-      if (document.referrer) {
-        history.back();
-      } else {
-        // パスを動的に決定
-        const currentPath = window.location.pathname;
-        if (currentPath.includes('/data/')) {
-          window.location.href = '../data/marugo.html';
+      if (confirm('修正データの送信が完了しました。元のページに戻りますか？')) {
+        if (document.referrer) {
+          history.back();
         } else {
-          window.location.href = 'data/marugo.html';
+          const currentPath = window.location.pathname;
+          if (currentPath.includes('/data/')) {
+            window.location.href = '../data/marugo.html';
+          } else {
+            window.location.href = 'data/marugo.html';
+          }
         }
       }
     }, 3000);
 
   } catch (error) {
-    console.error('送信エラー:', error);
+    addDebugLog('送信エラー', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
     
     // エラーが発生したステップを表示
     const activeStep = document.querySelector('.status-step.active');
@@ -386,7 +632,6 @@ function initializeElements() {
 
   categoryOptions.forEach(option => {
     option.addEventListener('click', () => {
-      // 無効化されたオプションはクリックできない
       if (option.classList.contains('disabled')) {
         return;
       }
@@ -394,23 +639,22 @@ function initializeElements() {
       categoryOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
       categoryInput.value = option.dataset.value;
+      
+      addDebugLog('カテゴリー選択', { category: option.dataset.value });
     });
   });
 
-  // 金額入力の自動フォーマット（半角・全角対応）
+  // 金額入力の自動フォーマット
   const amountInput = document.getElementById('amount');
   amountInput.addEventListener('input', (e) => {
     let value = e.target.value;
     
-    // 全角数字を半角数字に変換
     value = value.replace(/[０-９]/g, function(s) {
       return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
     });
     
-    // 数字以外を除去
     value = value.replace(/[^0-9]/g, '');
     
-    // カンマ区切りでフォーマット
     if (value) {
       value = parseInt(value).toLocaleString('ja-JP');
     }
@@ -437,96 +681,65 @@ function fixBackButtonPath() {
   const backBtn = document.getElementById('back-btn');
   if (backBtn) {
     const currentPath = window.location.pathname;
-    console.log('現在のパス:', currentPath);
+    addDebugLog('パス修正', { currentPath });
     
-    // パスに応じて戻るボタンのリンクを調整
     if (currentPath.includes('/data/')) {
-      // correction.htmlがdataフォルダと同じ階層にある場合
       backBtn.href = 'data/marugo.html';
     } else if (currentPath.includes('data/')) {
-      // correction.htmlがdataフォルダ内にある場合
       backBtn.href = 'marugo.html';
     } else {
-      // correction.htmlがルートディレクトリにある場合
       backBtn.href = 'data/marugo.html';
     }
     
-    console.log('戻るボタンのリンク:', backBtn.href);
+    addDebugLog('戻るボタンのリンク設定', { href: backBtn.href });
   }
 }
 
 // 初期化処理
 function initialize() {
-  console.log('=== correction.html 初期化開始 ===');
+  addDebugLog('=== correction.html 初期化開始 ===');
   
-  // メッセージを非表示
   hideMessages();
-  
-  // 戻るボタンのパスを修正
   fixBackButtonPath();
-  
-  // 店舗プルダウンを設定
   populateShops();
-  
-  // DOM要素を初期化
   initializeElements();
   
-  // 元データを読み込み
   if (loadOriginalData()) {
-    console.log('データ読み込み成功 - 表示処理開始');
+    addDebugLog('データ読み込み成功 - 表示処理開始');
     displayOriginalData();
     autoFillReverseData();
     
-    // エラー通知を非表示
     const errorNotice = document.getElementById('error-notice');
     if (errorNotice) {
       errorNotice.style.display = 'none';
     }
   } else {
-    // 元データが無い場合はエラー表示
-    console.error('データ読み込み失敗');
+    addDebugLog('データ読み込み失敗');
     
     const errorNotice = document.getElementById('error-notice');
     if (errorNotice) {
       errorNotice.classList.add('show');
     }
     
-    // フォームを非表示
     const form = document.getElementById('correctionForm');
     const originalDataSection = document.getElementById('original-data-section');
     if (form) form.style.display = 'none';
     if (originalDataSection) originalDataSection.style.display = 'none';
     
-    // デバッグ情報をコンソールに出力
-    console.log('デバッグ情報:');
-    console.log('- 現在のURL:', window.location.href);
-    console.log('- Referrer:', document.referrer);
-    console.log('- sessionStorage keys:', Object.keys(sessionStorage));
-    console.log('- localStorage keys:', Object.keys(localStorage));
-    
-    // 3秒後に元のページに戻る
     setTimeout(() => {
       if (document.referrer) {
-        console.log('Referrerから戻る:', document.referrer);
+        addDebugLog('Referrerから戻る', { referrer: document.referrer });
         history.back();
       } else {
-        // フォールバックパス
         const currentPath = window.location.pathname;
-        let redirectPath;
-        
-        if (currentPath.includes('/data/')) {
-          redirectPath = 'data/marugo.html';
-        } else {
-          redirectPath = 'data/marugo.html';
-        }
-        
-        console.log('フォールバックリダイレクト:', redirectPath);
+        let redirectPath = currentPath.includes('/data/') ? 'data/marugo.html' : 'data/marugo.html';
+        addDebugLog('フォールバックリダイレクト', { redirectPath });
         window.location.href = redirectPath;
       }
     }, 3000);
   }
   
-  console.log('=== correction.html 初期化完了 ===');
+  addDebugLog('=== correction.html 初期化完了 ===');
 }
 
 // ページが完全に読み込まれた後に実行
