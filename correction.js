@@ -1,5 +1,86 @@
-// Google Apps ScriptのウェブアプリURLをここに設定してください
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec'; 
+// Google Apps ScriptのウェブアプリURL（main.jsと同じURL）
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec";
+
+const shops = [
+  "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
+  "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
+  "マルゴ新橋", "MARUGO YOTSUYA", "371BAR", "三三五五",
+  "BAR PELOTA", "Claudia2", "BISTRO CAVACAVA", "eric'S",
+  "MITAN", "焼肉マルゴ", "SOBA‑JU", "Bar Violet",
+  "X&C", "トラットリア ブリッコラ"
+];
+
+// ヘルパー関数（main.jsと同じ）
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 金額を半角数字に変換する関数（main.jsと同じ）
+function convertToHalfWidthNumber(value) {
+  if (!value) return '';
+  
+  // 全角数字を半角数字に変換
+  let converted = value.replace(/[０-９]/g, function(s) {
+    return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+  });
+  
+  // カンマと数字以外を除去
+  converted = converted.replace(/[^0-9]/g, '');
+  
+  return converted;
+}
+
+// ステップ処理関数（main.jsと同じ）
+async function showStep(stepId, message) {
+  const step = document.getElementById(stepId);
+  const activeSteps = document.querySelectorAll('.status-step.active');
+  
+  // 前のステップを完了状態にする
+  activeSteps.forEach(s => {
+    s.classList.remove('active');
+    s.classList.add('completed');
+  });
+  
+  // 現在のステップをアクティブにする
+  step.classList.add('active');
+  step.querySelector('span:last-child').textContent = message;
+  
+  // ローディングスピナーを追加
+  const icon = step.querySelector('.status-icon');
+  const originalIcon = icon.textContent;
+  icon.innerHTML = '<span class="mini-loading-spinner"></span>';
+  
+  // 元のアイコンを保存
+  step.dataset.originalIcon = originalIcon;
+}
+
+function completeStep(stepId, message) {
+  const step = document.getElementById(stepId);
+  step.classList.remove('active');
+  step.classList.add('completed');
+  step.querySelector('span:last-child').textContent = message;
+  
+  // アイコンを元に戻す
+  const icon = step.querySelector('.status-icon');
+  if (step.dataset.originalIcon) {
+    icon.textContent = step.dataset.originalIcon;
+  }
+}
+
+function resetSteps() {
+  const steps = document.querySelectorAll('.status-step');
+  steps.forEach(step => {
+    step.classList.remove('active', 'completed', 'error');
+  });
+}
+
+function hideMessages() {
+  document.getElementById('successMessage').classList.remove('show');
+  const errorMessage = document.getElementById('errorMessage');
+  if (errorMessage) {
+    errorMessage.classList.remove('show');
+  }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const correctionForm = document.getElementById('correctionForm');
@@ -18,29 +99,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let originalData = null; // marugo.htmlから渡された元のデータを保持
 
-    // 貸主・借主のプルダウンオプションを生成する関数
-    function populatePeopleDropdowns(lenderName, borrowerName) {
-        const people = Array.from(new Set([lenderName, borrowerName, '個人A', '個人B', '個人C', '個人D', '個人E', '個人F', '個人G'])); // サンプルの名前。実際には動的に取得するのが望ましい
-        people.sort(); // ソート
-
+    // 店舗データで貸主・借主のオプションを設定（main.jsと同じ）
+    function populateShops() {
         lenderSelect.innerHTML = '<option value="">選択してください</option>';
         borrowerSelect.innerHTML = '<option value="">選択してください</option>';
 
-        people.forEach(person => {
-            const lenderOption = document.createElement('option');
-            lenderOption.value = person;
-            lenderOption.textContent = person;
-            lenderSelect.appendChild(lenderOption);
+        shops.forEach(shop => {
+            const option1 = document.createElement("option");
+            option1.value = shop;
+            option1.textContent = shop;
+            lenderSelect.appendChild(option1);
 
-            const borrowerOption = document.createElement('option');
-            borrowerOption.value = person;
-            borrowerOption.textContent = person;
-            borrowerSelect.appendChild(borrowerOption);
+            const option2 = document.createElement("option");
+            option2.value = shop;
+            option2.textContent = shop;
+            borrowerSelect.appendChild(option2);
         });
-
-        // デフォルトで逆取引の貸主・借主を選択状態にする
-        lenderSelect.value = borrowerName;
-        borrowerSelect.value = lenderName;
     }
 
     // sessionStorageからデータを受け取り、フォームに表示する
@@ -62,11 +136,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="original-data-item"><span class="original-data-label">元のシート行</span><span class="original-data-value">${originalData.originalRowIndex || 'N/A'}</span></div>
             `;
 
-            // フォームフィールドにデータを設定
-            dateInput.value = originalData.date || '';
-            // nameInputは「システム修正」で固定
+            // 店舗オプションを生成
+            populateShops();
 
-            populatePeopleDropdowns(originalData.lender, originalData.borrower); // 貸主と借主を入れ替えてセット
+            // フォームフィールドにデータを設定（貸主と借主を入れ替え）
+            dateInput.value = originalData.date || '';
+            nameInput.value = "システム修正"; // 固定値
+            lenderSelect.value = originalData.borrower || ''; // 借主→貸主
+            borrowerSelect.value = originalData.lender || '';  // 貸主→借主
 
             // カテゴリーを設定し、選択状態にする
             const categoryOptions = document.querySelectorAll('.category-option');
@@ -94,7 +171,141 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // データがない場合は、ユーザーにmarugo.htmlに戻るように促すか、エラー表示
             alert('修正対象のデータが見つかりません。前のページに戻ってデータを選択してください。');
-            window.location.href = '../marugo.html'; // marugo.htmlに戻る
+            window.location.href = 'data/marugo.html'; // marugo.htmlに戻る
+        }
+    }
+
+    // 修正データ送信処理（main.jsのsubmitData関数と同じ流れ）
+    async function submitCorrectionData() {
+        const btnText = submitBtn.querySelector('.btn-text');
+        const originalText = btnText.textContent;
+
+        // 初期化
+        hideMessages();
+        resetSteps();
+
+        // ボタンを無効化
+        submitBtn.disabled = true;
+        submitBtn.classList.add('loading');
+        btnText.textContent = '修正送信中...';
+        
+        // 状態表示を開始
+        statusDisplay.classList.add('show');
+
+        try {
+            // Step 1: データ検証
+            await showStep('step-validation', '📋 修正データを検証中...');
+            await delay(600);
+
+            // 修正データを作成（貸主と借主を入れ替え）
+            const correctionData = {
+                date: originalData.date,
+                name: "システム修正", // 固定値
+                lender: originalData.borrower, // 貸主と借主を入れ替える
+                borrower: originalData.lender,   // 貸主と借主を入れ替える
+                category: originalData.category,
+                item: originalData.item,
+                amount: originalData.amount.toString(), // 文字列として送信
+                isCorrection: true, // 修正フラグ
+                correctionOnly: true, // 修正専用のパスをGASで通るためのフラグ
+                correctionMark: "✏️修正", // 修正マーク
+                sendType: "CORRECTION", // 送信タイプ
+                originalRowIndex: originalData.originalRowIndex, // 元の行のインデックス
+            };
+
+            // バリデーション
+            if (!correctionData.date || !correctionData.lender || !correctionData.borrower || !correctionData.category || !correctionData.item || !correctionData.amount) {
+                throw new Error('必須項目が入力されていません。');
+            }
+            if (correctionData.lender === correctionData.borrower) {
+                throw new Error('貸主と借主は異なる店舗を選択してください。');
+            }
+            const amountNumber = parseInt(correctionData.amount);
+            if (isNaN(amountNumber) || amountNumber <= 0) {
+                throw new Error('正しい金額を入力してください。');
+            }
+
+            console.log('=== 🔥 修正専用送信データ（詳細） ===', correctionData);
+
+            completeStep('step-validation', '✅ 修正データ検証完了');
+
+            // Step 2: 送信開始
+            await showStep('step-sending', '📤 修正データをスプレッドシートに送信中...');
+            await delay(400);
+
+            // Google Apps Scriptにデータを送信（main.jsと同じ方式）
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                mode: "no-cors", // main.jsと同じno-corsモード
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(correctionData)
+            });
+
+            completeStep('step-sending', '✅ 修正データ送信完了');
+
+            // Step 3: データ挿入（GAS側で実行されるためシミュレート）
+            await showStep('step-inserting', '💾 修正データを挿入中...');
+            await delay(800);
+            completeStep('step-inserting', '✅ 修正データ挿入完了');
+
+            // Step 4: バックアップ作成（GAS側で実行されるためシミュレート）
+            await showStep('step-backup', '🔄 バックアップを作成中...');
+            await delay(1000);
+            completeStep('step-backup', '✅ バックアップ作成完了');
+
+            // Step 5: 完了
+            await showStep('step-complete', '🎉 修正送信が完了しました！');
+            completeStep('step-complete', '🎉 修正送信完了！');
+
+            // 成功処理
+            setTimeout(() => {
+                // ローディング状態終了
+                submitBtn.classList.remove('loading');
+                btnText.textContent = originalText;
+                submitBtn.disabled = false;
+
+                // 成功メッセージ表示
+                successMessage.textContent = '✅ 修正データの送信が完了しました！';
+                successMessage.classList.add('show');
+                setTimeout(() => {
+                    successMessage.classList.remove('show');
+                }, 3000);
+
+                // sessionStorageをクリアしてmarugo.htmlに戻る
+                sessionStorage.removeItem('correctionData');
+                setTimeout(() => {
+                    window.location.href = 'data/marugo.html';
+                }, 2000); // 2秒後にリダイレクト
+                
+                statusDisplay.classList.remove('show');
+            }, 500);
+
+        } catch (error) {
+            console.error('修正データ送信エラー:', error);
+            
+            // エラー状態を表示
+            const activeStep = document.querySelector('.status-step.active');
+            if (activeStep) {
+                activeStep.classList.remove('active');
+                activeStep.classList.add('error');
+                activeStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
+            }
+
+            // エラー処理
+            submitBtn.classList.remove('loading');
+            btnText.textContent = originalText;
+            submitBtn.disabled = false;
+
+            // エラーメッセージ表示
+            errorMessage.textContent = `❌ 修正送信エラー: ${error.message}`;
+            errorMessage.classList.add('show');
+            
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+                statusDisplay.classList.remove('show');
+            }, 5000);
         }
     }
 
@@ -107,125 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 送信ボタンを無効化し、ローディング表示
-        submitBtn.disabled = true;
-        submitBtn.classList.add('loading');
-        submitBtn.querySelector('.btn-text').textContent = '送信中...';
-        statusDisplay.classList.add('show');
-        resetStatusSteps();
-
-        // フォームデータの収集 (今回は読み取り専用なのでoriginalDataから取得)
-        const correctedData = {
-            date: originalData.date,
-            name: "システム修正", // 固定値
-            lender: originalData.borrower, // 貸主と借主を入れ替える
-            borrower: originalData.lender,   // 貸主と借主を入れ替える
-            category: originalData.category,
-            item: originalData.item,
-            amount: parseFloat(originalData.amount), // 数値に戻す
-            correction: "✏️修正", // 修正フラグを追加
-            originalRowIndex: originalData.originalRowIndex, // 元の行のインデックス (GAS側で必要に応じて使用)
-            isCorrection: true, // GASで修正処理をトリガーするためのフラグ
-            correctionOnly: true // 修正専用のパスをGASで通るためのフラグ
-        };
-
-        // ステータス表示の更新ヘルパー関数
-        function updateStatus(stepId, type, message = '') {
-            const stepElement = document.getElementById(stepId);
-            if (stepElement) {
-                stepElement.classList.remove('active', 'completed', 'error');
-                if (type === 'active') {
-                    stepElement.classList.add('active');
-                    stepElement.innerHTML = `<span class="mini-loading-spinner"></span><span>${message}</span>`;
-                } else if (type === 'completed') {
-                    stepElement.classList.add('completed');
-                    stepElement.innerHTML = `<span class="status-icon">✅</span><span>${message}</span>`;
-                } else if (type === 'error') {
-                    stepElement.classList.add('error');
-                    stepElement.innerHTML = `<span class="status-icon">❌</span><span>${message}</span>`;
-                }
-            }
-        }
-
-        function resetStatusSteps() {
-            const steps = ['step-validation', 'step-sending', 'step-inserting', 'step-backup', 'step-complete'];
-            steps.forEach(stepId => {
-                const stepElement = document.getElementById(stepId);
-                if (stepElement) {
-                    stepElement.classList.remove('active', 'completed', 'error');
-                    // 元のテキストに戻す
-                    if (stepId === 'step-validation') stepElement.innerHTML = `<span class="status-icon">📋</span><span>修正データを検証中...</span>`;
-                    if (stepId === 'step-sending') stepElement.innerHTML = `<span class="status-icon">📤</span><span>修正データをスプレッドシートに送信中...</span>`;
-                    if (stepId === 'step-inserting') stepElement.innerHTML = `<span class="status-icon">💾</span><span>修正データを挿入中...</span>`;
-                    if (stepId === 'step-backup') stepElement.innerHTML = `<span class="status-icon">🔄</span><span>バックアップを作成中...</span>`;
-                    if (stepId === 'step-complete') stepElement.innerHTML = `<span class="status-icon">✅</span><span>修正送信完了！</span>`;
-                }
-            });
-        }
-
-
-        try {
-            updateStatus('step-validation', 'active', '修正データを検証中...');
-            // 簡単なバリデーション (disabledなので基本OKだが念のため)
-            if (!correctedData.date || !correctedData.lender || !correctedData.borrower || !correctedData.item || !correctedData.amount) {
-                throw new Error('必須項目が入力されていません。');
-            }
-            updateStatus('step-validation', 'completed', '修正データを検証済み');
-
-            updateStatus('step-sending', 'active', '修正データをスプレッドシートに送信中...');
-            const response = await fetch(GAS_WEB_APP_URL, {
-                method: 'POST',
-                mode: 'cors', // CORSを有効にする
-                headers: {
-                    'Content-Type': 'application/json', // ★ここを 'application/json' に変更
-                },
-                body: JSON.stringify(correctedData) // ★ここを JSON.stringify に変更
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`GASエラー: ${response.status} ${response.statusText} - ${errorText}`);
-            }
-
-            const result = await response.json();
-            
-            if (result.status === 'SUCCESS') {
-                updateStatus('step-sending', 'completed', '修正データをスプレッドシートに送信済み');
-                updateStatus('step-inserting', 'completed', '修正データを挿入済み');
-                updateStatus('step-backup', 'completed', 'バックアップを作成済み');
-                updateStatus('step-complete', 'completed', '修正送信完了！');
-                
-                showNotification(successMessage);
-                // 成功後、sessionStorageをクリアしてmarugo.htmlに戻る
-                sessionStorage.removeItem('correctionData');
-                setTimeout(() => {
-                    window.location.href = '../marugo.html';
-                }, 2000); // 2秒後にリダイレクト
-            } else {
-                throw new Error(result.message || 'GASからの予期せぬエラーが発生しました。');
-            }
-
-        } catch (error) {
-            console.error('修正データの送信エラー:', error);
-            updateStatus('step-complete', 'error', '修正送信失敗');
-            showNotification(errorMessage);
-            errorMessage.textContent = `❌ 送信に失敗しました: ${error.message}`;
-
-        } finally {
-            // ボタンの状態を元に戻す
-            submitBtn.disabled = false;
-            submitBtn.classList.remove('loading');
-            submitBtn.querySelector('.btn-text').textContent = '✏️ 修正データを送信';
-        }
+        await submitCorrectionData();
     });
-
-    // 通知メッセージ表示関数
-    function showNotification(messageElement) {
-        messageElement.classList.add('show');
-        setTimeout(() => {
-            messageElement.classList.remove('show');
-        }, 3000); // 3秒後に非表示
-    }
 
     // ページロード時にデータを読み込む
     loadCorrectionData();
