@@ -363,7 +363,7 @@ async function testGASConnection() {
         const responseJson = JSON.parse(responseText);
         addDebugLog('GASレスポンスJSON', responseJson);
         
-        if (responseJson.success) {
+        if (responseJson.status === 'SUCCESS') {
           alert('✅ GAS接続テスト成功！\n\n' + 
                 'レスポンス: ' + responseJson.message + '\n' +
                 'タイムスタンプ: ' + responseJson.timestamp);
@@ -394,7 +394,7 @@ async function testGASConnection() {
   }
 }
 
-// 修正データを送信（デバッグ強化版）
+// 修正データを送信（完全修正版）
 async function submitCorrectionData() {
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn):not([onclick])');
   const btnText = submitBtn.querySelector('.btn-text');
@@ -420,21 +420,22 @@ async function submitCorrectionData() {
     showProgressStep('step-validation');
     await delay(500);
 
+    // 🔥 修正: 通常送信として送信し、GAS側で修正マークを付ける
     const data = {
       date: document.getElementById("date").value,
-      name: document.getElementById("name").value,
+      name: document.getElementById("name").value + " (修正)", // 名前に修正表示を追加
       lender: document.getElementById("lender").value,
       borrower: document.getElementById("borrower").value,
       category: document.getElementById("category").value,
       item: document.getElementById("item").value,
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
-      isCorrection: true,
-      correctionOnly: true,
-      correctionMark: "✏️修正",
-      sendType: "CORRECTION"
+      isCorrection: true,          // 修正データであることを示す
+      correctionOnly: false,       // 🔥 通常送信に変更（originalRowIndexが不要）
+      correctionMark: "✏️修正",    // 修正マークを明示的に指定
+      sendType: "CORRECTION"       // 修正タイプであることを示す
     };
 
-    addDebugLog('送信データ準備完了', data);
+    addDebugLog('送信データ準備完了（修正版）', data);
 
     // バリデーション
     const validationErrors = [];
@@ -549,9 +550,9 @@ async function submitCorrectionData() {
 
     // 送信結果に基づいてメッセージを調整
     let successMessage = '✅ 修正データの送信が完了しました！';
-    if (sendResult && sendResult.success === false) {
+    if (sendResult && sendResult.status === 'ERROR') {
       throw new Error('GAS処理エラー: ' + (sendResult.message || '不明なエラー'));
-    } else if (sendResult && sendResult.success === true) {
+    } else if (sendResult && sendResult.status === 'SUCCESS') {
       successMessage += '\n✓ GASで正常に処理されました';
     } else {
       successMessage += '\n※ 送信は完了しましたが、レスポンス確認はできませんでした';
