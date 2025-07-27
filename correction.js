@@ -422,7 +422,7 @@ async function submitCorrectionData() {
 
     const data = {
       date: document.getElementById("date").value,
-      name: document.getElementById("name").value + " (修正)",
+      name: document.getElementById("name").value,
       lender: document.getElementById("lender").value,
       borrower: document.getElementById("borrower").value,
       category: document.getElementById("category").value,
@@ -585,17 +585,8 @@ async function submitCorrectionData() {
     if (sendSuccess) {
       addDebugLog('✅ 全体処理成功', responseData);
       
-      let successMessage = '✅ 修正データの送信が完了しました！';
-      
-      if (responseData && responseData.status === 'SUCCESS') {
-        successMessage += '\n✓ サーバーで正常に処理されました';
-      } else {
-        successMessage += '\n✓ データ送信が完了しました';
-      }
-      
-      if (responseData && responseData.note) {
-        successMessage += '\n' + responseData.note;
-      }
+      // シンプルな成功メッセージ
+      const successMessage = '✅ 修正データの送信が完了しました。';
 
       // 成功メッセージ表示
       const successMsg = document.getElementById('successMessage');
