@@ -422,7 +422,7 @@ async function submitCorrectionData() {
 
     const data = {
       date: document.getElementById("date").value,
-      name: document.getElementById("name").value + " (修正)",
+      name: document.getElementById("name").value,
       lender: document.getElementById("lender").value,
       borrower: document.getElementById("borrower").value,
       category: document.getElementById("category").value,
