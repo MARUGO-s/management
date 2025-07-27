@@ -1,14 +1,4 @@
-// Google Apps ScriptのウェブアプリURLをここに設定してください
-// デプロイし直した新しいURLを必ず貼り付けてください
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec"; 
-const shops = [ 
-  "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
-  "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
-  "マルゴ新橋", "MARUGO YOTSUYA", "371BAR", "三三五五",
-  "BAR PELOTA", "Claudia2", "BISTRO CAVACAVA", "eric'S",
-  "MITAN", "焼肉マルゴ", "SOBA‑JU", "Bar Violet",
-  "X&C", "トラットリア ブリッコラ"
-];
+// GAS_WEB_APP_URL と SHOPS_LIST は script.js から読み込まれます
 
 // 店舗データで貸主・借主のオプションを設定
 function populateShops() { 
@@ -19,7 +9,7 @@ function populateShops() {
   lenderSelect.innerHTML = '<option value="">選択してください</option>';
   borrowerSelect.innerHTML = '<option value="">選択してください</option>';
 
-  shops.forEach(shop => { 
+  SHOPS_LIST.forEach(shop => { 
     const option1 = document.createElement("option"); 
     option1.value = shop; 
     option1.textContent = shop; 
@@ -166,11 +156,11 @@ async function searchReverseTransaction() {
     console.log('検索データ:', reverseData); 
 
     // GASに検索リクエストを送信
-    const response = await fetch(GAS_URL, { 
+    const response = await fetch(GAS_WEB_APP_URL, { // GAS_WEB_APP_URL を使用
       method: "POST", 
       mode: "cors", // CORSを有効にする
       headers: { 
-        "Content-Type": "application/json" 
+        "Content-Type": "application/json" // JSON形式で送信
       },
       body: JSON.stringify(reverseData) 
     });
@@ -446,11 +436,11 @@ async function submitData(options = {}) {
     }
 
     // Google Apps Scriptにデータを送信
-    const response = await fetch(GAS_URL, { 
+    const response = await fetch(GAS_WEB_APP_URL, { 
       method: "POST", 
       mode: "cors", // CORSを有効にする
       headers: { 
-        "Content-Type": "application/json" 
+        "Content-Type": "application/json" // JSON形式で送信
       },
       body: JSON.stringify(data) 
     });
