@@ -422,7 +422,7 @@ async function submitCorrectionData() {
 
     const data = {
       date: document.getElementById("date").value,
-      name: document.getElementById("name").value,
+      name: document.getElementById("name").value + " (修正)",
       lender: document.getElementById("lender").value,
       borrower: document.getElementById("borrower").value,
       category: document.getElementById("category").value,
@@ -612,16 +612,21 @@ async function submitCorrectionData() {
       // 戻る確認
       setTimeout(() => {
         if (confirm('修正データの送信が完了しました。元のページに戻りますか？')) {
-          if (document.referrer) {
-            history.back();
+          // 🔥 修正: marugo.htmlページを強制リロードして戻る
+          const currentPath = window.location.pathname;
+          let marugoUrl;
+          
+          if (currentPath.includes('/data/')) {
+            marugoUrl = '../data/marugo.html';
           } else {
-            const currentPath = window.location.pathname;
-            if (currentPath.includes('/data/')) {
-              window.location.href = '../data/marugo.html';
-            } else {
-              window.location.href = 'data/marugo.html';
-            }
+            marugoUrl = 'data/marugo.html';
           }
+          
+          addDebugLog('marugo.htmlにリロードして戻る', { url: marugoUrl });
+          
+          // 強制リロードのため、タイムスタンプを追加
+          const timestamp = new Date().getTime();
+          window.location.href = `${marugoUrl}?refresh=${timestamp}`;
         }
       }, 3000);
 
