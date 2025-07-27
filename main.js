@@ -106,6 +106,32 @@ function hideMessages() {
   }
 }
 
+/**
+ * 貸主と借主が同じ店舗名でないことをチェックし、エラーメッセージを表示/非表示します。
+ * @returns {boolean} バリデーションが成功した場合は true、失敗した場合は false。
+ */
+function checkLenderBorrowerMatch() {
+  const lenderSelect = document.getElementById("lender");
+  const borrowerSelect = document.getElementById("borrower");
+  const errorMessageDiv = document.getElementById("lender-borrower-error"); // エラーメッセージ表示用のdiv
+
+  if (!lenderSelect || !borrowerSelect || !errorMessageDiv) {
+    console.error("Lender/borrower select or error div not found for real-time validation.");
+    return true; // 要素が見つからない場合はエラーを出さずに続行
+  }
+
+  // 両方の選択肢が選択されており、かつ同じ値である場合
+  if (lenderSelect.value && borrowerSelect.value && lenderSelect.value === borrowerSelect.value) {
+    errorMessageDiv.textContent = '❌ 貸主と借主は異なる店舗を選択してください。';
+    errorMessageDiv.style.display = 'block';
+    return false;
+  } else {
+    errorMessageDiv.style.display = 'none';
+    errorMessageDiv.textContent = '';
+    return true;
+  }
+}
+
 // 逆取引検索機能
 async function searchReverseTransaction() {
   const searchBtn = document.getElementById('search-btn');
@@ -430,8 +456,9 @@ async function submitData(options = {}) {
     if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.amount) {
       throw new Error('すべての必須項目を入力してください。');
     }
-    // 🔥 貸主と借主が同じ名称でないことを確認するバリデーション
+    // 貸主と借主が同じ名称でないことを確認するバリデーション
     if (data.lender === data.borrower) {
+      // リアルタイムバリデーションで表示されているはずだが、念のためここでもエラーを発生させる
       throw new Error('貸主と借主は異なる店舗を選択してください。');
     }
     const amountNumber = parseInt(data.amount);
@@ -574,7 +601,7 @@ function initializeElements() {
     e.target.value = value; // 入力値をそのまま反映（カンマなし）
   });
 
-  // 🔥 金額入力フィールドがフォーカスを失った時にカンマ区切りで表示
+  // 金額入力フィールドがフォーカスを失った時にカンマ区切りで表示
   amountInput.addEventListener('blur', (e) => {
     let value = e.target.value;
     if (value) {
@@ -584,7 +611,7 @@ function initializeElements() {
     e.target.value = value;
   });
 
-  // 🔥 金額入力フィールドがフォーカスを得た時にカンマを削除（編集しやすくするため）
+  // 金額入力フィールドがフォーカスを得た時にカンマを削除（編集しやすくするため）
   amountInput.addEventListener('focus', (e) => {
     let value = e.target.value;
     if (value) {
@@ -594,10 +621,46 @@ function initializeElements() {
     e.target.value = value;
   });
 
+  // 貸主と借主の選択要素
+  const lenderSelect = document.getElementById("lender");
+  const borrowerSelect = document.getElementById("borrower");
+
+  // エラーメッセージ表示用のdivを動的に作成し、借主のform-groupに追加
+  let lenderBorrowerErrorDiv = document.getElementById("lender-borrower-error");
+  if (!lenderBorrowerErrorDiv) {
+    lenderBorrowerErrorDiv = document.createElement('div');
+    lenderBorrowerErrorDiv.id = 'lender-borrower-error';
+    lenderBorrowerErrorDiv.style.color = '#e53e3e'; // 赤色
+    lenderBorrowerErrorDiv.style.fontSize = '0.875rem';
+    lenderBorrowerErrorDiv.style.marginTop = '8px';
+    lenderBorrowerErrorDiv.style.display = 'none'; // デフォルトで非表示
+    // 借主のform-groupを探して追加
+    const borrowerFormGroup = borrowerSelect.closest('.form-group');
+    if (borrowerFormGroup) {
+      borrowerFormGroup.appendChild(lenderBorrowerErrorDiv);
+    }
+  }
+
+  // 貸主と借主のselect要素にchangeイベントリスナーを追加
+  if (lenderSelect) {
+    lenderSelect.addEventListener('change', checkLenderBorrowerMatch);
+  }
+  if (borrowerSelect) {
+    borrowerSelect.addEventListener('change', checkLenderBorrowerMatch);
+  }
+  // 初期ロード時にもチェックを実行
+  checkLenderBorrowerMatch();
+
+
   // フォーム送信処理 (通常の送信)
   const form = document.getElementById('loanForm');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    // フォーム送信前にリアルタイムバリデーションを再度実行し、失敗した場合は送信を中断
+    if (!checkLenderBorrowerMatch()) {
+      // エラーメッセージは既に表示されているため、追加のアラートは不要
+      return; 
+    }
     await submitData({ isCorrection: false, correctionOnly: false }); // 統合された関数を呼び出す
   });
 
