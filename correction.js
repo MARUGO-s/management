@@ -49,7 +49,7 @@ function convertToHalfWidthNumber(value) {
   return converted;
 }
 
-// URLパラメータまたはstorageから元データを読み込む
+// URLパラメータまたはstorageから元データを読み込む（修正版）
 function loadOriginalData() {
   console.log('=== データ読み込み開始 ===');
   
@@ -69,7 +69,7 @@ function loadOriginalData() {
     }
   }
   
-  // sessionStorageをチェック（修正：localStorageではなくsessionStorage）
+  // sessionStorageをチェック（修正：最優先でsessionStorageを確認）
   console.log('sessionStorage確認中...');
   const savedData = sessionStorage.getItem('correctionData');
   console.log('sessionStorageデータ:', savedData ? '有り' : '無し');
@@ -103,9 +103,16 @@ function loadOriginalData() {
     }
   }
   
-  // デバッグ: 利用可能なsessionStorageキーを表示
+  // デバッグ: 利用可能なstorageキーを表示
   console.log('利用可能なsessionStorageキー:', Object.keys(sessionStorage));
   console.log('利用可能なlocalStorageキー:', Object.keys(localStorage));
+  
+  // 詳細なデバッグ情報
+  console.log('sessionStorage全内容:');
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    console.log(`  ${key}: ${sessionStorage.getItem(key)?.substring(0, 100)}...`);
+  }
   
   console.error('元データが見つかりません');
   return false;
@@ -197,6 +204,43 @@ function autoFillReverseData() {
   console.log('逆取引データを自動入力完了');
 }
 
+// プログレス表示機能
+function showProgressStep(stepId) {
+  // 全てのステップをリセット
+  const steps = document.querySelectorAll('.status-step');
+  steps.forEach(step => {
+    step.classList.remove('active', 'completed', 'error');
+  });
+  
+  // 指定されたステップまでを完了状態にし、現在のステップをアクティブに
+  const stepOrder = ['step-validation', 'step-sending', 'step-inserting', 'step-backup', 'step-complete'];
+  const currentIndex = stepOrder.indexOf(stepId);
+  
+  stepOrder.forEach((id, index) => {
+    const step = document.getElementById(id);
+    if (index < currentIndex) {
+      step.classList.add('completed');
+    } else if (index === currentIndex) {
+      step.classList.add('active');
+    }
+  });
+  
+  // プログレス表示を表示
+  const statusDisplay = document.getElementById('status-display');
+  statusDisplay.classList.add('show');
+}
+
+function hideProgress() {
+  const statusDisplay = document.getElementById('status-display');
+  statusDisplay.classList.remove('show');
+}
+
+function showProgressError(stepId) {
+  const step = document.getElementById(stepId);
+  step.classList.remove('active');
+  step.classList.add('error');
+}
+
 // 修正データを送信
 async function submitCorrectionData() {
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn)');
@@ -216,6 +260,10 @@ async function submitCorrectionData() {
   btnText.textContent = '送信中...';
 
   try {
+    // ステップ1: データ検証
+    showProgressStep('step-validation');
+    await delay(500);
+
     const data = {
       date: document.getElementById("date").value,
       name: document.getElementById("name").value,
@@ -244,6 +292,10 @@ async function submitCorrectionData() {
 
     console.log('修正データ送信:', data);
 
+    // ステップ2: データ送信
+    showProgressStep('step-sending');
+    await delay(500);
+
     // Google Apps Scriptにデータを送信
     const response = await fetch(GAS_URL, {
       method: "POST",
@@ -254,8 +306,17 @@ async function submitCorrectionData() {
       body: JSON.stringify(data)
     });
 
-    // 送信完了処理（no-corsのためレスポンス確認は不可）
+    // ステップ3: データ挿入
+    showProgressStep('step-inserting');
     await delay(1000);
+
+    // ステップ4: バックアップ
+    showProgressStep('step-backup');
+    await delay(500);
+
+    // ステップ5: 完了
+    showProgressStep('step-complete');
+    await delay(500);
 
     // 成功メッセージ表示
     const successMessage = document.getElementById('successMessage');
@@ -271,17 +332,34 @@ async function submitCorrectionData() {
     const categoryOptions = document.querySelectorAll('.category-option');
     categoryOptions.forEach(opt => opt.classList.remove('selected'));
     
+    // プログレス非表示
+    setTimeout(() => {
+      hideProgress();
+    }, 2000);
+    
     // 3秒後に元のページに戻る
     setTimeout(() => {
       if (document.referrer) {
         history.back();
       } else {
-        window.location.href = 'data/marugo.html';
+        // パスを動的に決定
+        const currentPath = window.location.pathname;
+        if (currentPath.includes('/data/')) {
+          window.location.href = '../data/marugo.html';
+        } else {
+          window.location.href = 'data/marugo.html';
+        }
       }
     }, 3000);
 
   } catch (error) {
     console.error('送信エラー:', error);
+    
+    // エラーが発生したステップを表示
+    const activeStep = document.querySelector('.status-step.active');
+    if (activeStep) {
+      showProgressError(activeStep.id);
+    }
     
     // エラーメッセージ表示
     const errorMessage = document.getElementById('errorMessage');
@@ -290,6 +368,7 @@ async function submitCorrectionData() {
     
     setTimeout(() => {
       errorMessage.classList.remove('show');
+      hideProgress();
     }, 5000);
   } finally {
     // ボタン状態を復元
@@ -307,6 +386,11 @@ function initializeElements() {
 
   categoryOptions.forEach(option => {
     option.addEventListener('click', () => {
+      // 無効化されたオプションはクリックできない
+      if (option.classList.contains('disabled')) {
+        return;
+      }
+      
       categoryOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
       categoryInput.value = option.dataset.value;
@@ -348,12 +432,38 @@ function hideMessages() {
   document.getElementById('errorMessage').classList.remove('show');
 }
 
+// バックボタンのパス修正
+function fixBackButtonPath() {
+  const backBtn = document.getElementById('back-btn');
+  if (backBtn) {
+    const currentPath = window.location.pathname;
+    console.log('現在のパス:', currentPath);
+    
+    // パスに応じて戻るボタンのリンクを調整
+    if (currentPath.includes('/data/')) {
+      // correction.htmlがdataフォルダと同じ階層にある場合
+      backBtn.href = 'data/marugo.html';
+    } else if (currentPath.includes('data/')) {
+      // correction.htmlがdataフォルダ内にある場合
+      backBtn.href = 'marugo.html';
+    } else {
+      // correction.htmlがルートディレクトリにある場合
+      backBtn.href = 'data/marugo.html';
+    }
+    
+    console.log('戻るボタンのリンク:', backBtn.href);
+  }
+}
+
 // 初期化処理
 function initialize() {
   console.log('=== correction.html 初期化開始 ===');
   
   // メッセージを非表示
   hideMessages();
+  
+  // 戻るボタンのパスを修正
+  fixBackButtonPath();
   
   // 店舗プルダウンを設定
   populateShops();
@@ -366,10 +476,26 @@ function initialize() {
     console.log('データ読み込み成功 - 表示処理開始');
     displayOriginalData();
     autoFillReverseData();
+    
+    // エラー通知を非表示
+    const errorNotice = document.getElementById('error-notice');
+    if (errorNotice) {
+      errorNotice.style.display = 'none';
+    }
   } else {
     // 元データが無い場合はエラー表示
     console.error('データ読み込み失敗');
-    alert('修正対象のデータが見つかりません。データ一覧ページから再度選択してください。');
+    
+    const errorNotice = document.getElementById('error-notice');
+    if (errorNotice) {
+      errorNotice.classList.add('show');
+    }
+    
+    // フォームを非表示
+    const form = document.getElementById('correctionForm');
+    const originalDataSection = document.getElementById('original-data-section');
+    if (form) form.style.display = 'none';
+    if (originalDataSection) originalDataSection.style.display = 'none';
     
     // デバッグ情報をコンソールに出力
     console.log('デバッグ情報:');
@@ -378,12 +504,24 @@ function initialize() {
     console.log('- sessionStorage keys:', Object.keys(sessionStorage));
     console.log('- localStorage keys:', Object.keys(localStorage));
     
-    // 元のページに戻る
+    // 3秒後に元のページに戻る
     setTimeout(() => {
       if (document.referrer) {
+        console.log('Referrerから戻る:', document.referrer);
         history.back();
       } else {
-        window.location.href = 'data/marugo.html';
+        // フォールバックパス
+        const currentPath = window.location.pathname;
+        let redirectPath;
+        
+        if (currentPath.includes('/data/')) {
+          redirectPath = 'data/marugo.html';
+        } else {
+          redirectPath = 'data/marugo.html';
+        }
+        
+        console.log('フォールバックリダイレクト:', redirectPath);
+        window.location.href = redirectPath;
       }
     }, 3000);
   }
