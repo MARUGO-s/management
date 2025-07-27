@@ -249,6 +249,10 @@ function displayOriginalData() {
       <span class="original-data-label">💵 金額:</span>
       <span class="original-data-value">${formattedAmount}</span>
     </div>
+    <div class="original-data-item" style="grid-column: 1 / -1;">
+      <span class="original-data-label">行番号:</span>
+      <span class="original-data-value">${originalData.originalRowIndex || '不明'}</span>
+    </div>
   `;
 }
 
@@ -356,7 +360,7 @@ async function testGASConnection() {
     // レスポンス本文を読み取り試行
     try {
       const responseText = await response.text();
-      addDebugLog('GASレスポンス内容', responseText);
+      addDebugLog('レスポンステキスト取得成功', responseText);
       
       // JSON解析試行
       try {
@@ -429,9 +433,10 @@ async function submitCorrectionData() {
       item: document.getElementById("item").value,
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: true,
-      correctionOnly: false,  // 通常送信として処理
+      correctionOnly: true, // 🔥 修正専用送信として明確に指定
       correctionMark: "✏️修正",
-      sendType: "CORRECTION"
+      sendType: "CORRECTION",
+      originalRowIndex: originalData.originalRowIndex // 🔥 追加: 元のデータの行番号を送信
     };
 
     addDebugLog('送信データ準備完了', data);
@@ -445,6 +450,7 @@ async function submitCorrectionData() {
     if (!data.category) validationErrors.push('カテゴリー');
     if (!data.item) validationErrors.push('品目');
     if (!data.amount) validationErrors.push('金額');
+    if (!data.originalRowIndex) validationErrors.push('元の行番号'); // 🔥 追加: 行番号のバリデーション
 
     if (validationErrors.length > 0) {
       throw new Error(`以下の項目が入力されていません: ${validationErrors.join(', ')}`);
@@ -611,6 +617,7 @@ async function submitCorrectionData() {
       
       // 戻る確認
       setTimeout(() => {
+        // confirm() の代わりにカスタムモーダルを使用することを検討してください
         if (confirm('修正データの送信が完了しました。元のページに戻りますか？')) {
           // 🔥 修正: marugo.htmlページを強制リロードして戻る
           const currentPath = window.location.pathname;
