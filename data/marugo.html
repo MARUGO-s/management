@@ -1292,7 +1292,7 @@
                     const targetSheet = metadata.sheets.find(sheet => sheet.properties.title === this.sheetName);
                     
                     if (!targetSheet) {
-                        throw new Error(`「${this.sheetName}」シートが見つかりません`);
+                        throw new Error(`「${this.sheetName}」シートが見つかりません。`);
                     }
                     
                     this.debugLog('対象シートが見つかりました', targetSheetName);
@@ -1407,7 +1407,8 @@
                         amount: this.parseAmount(getValue(amountIndex)),
                         originalAmount: getValue(amountIndex),
                         inputDate: getValue(inputDateIndex),
-                        correction: getValue(correctionIndex) // 修正フラグを追加
+                        correction: getValue(correctionIndex), // 修正フラグを追加
+                        originalRowIndex: index + 2 // 🔥 追加: スプレッドシートの実際の行番号
                     };
 
                     // 店舗名を収集
@@ -1969,7 +1970,7 @@
                     if (isAllData) {
                         // 全データ表示時: 貸主→借主の形で表示
                         return `
-                            <tr class="data-row" data-index="${index}" style="cursor: pointer;" title="クリックして逆取引修正">
+                            <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;" title="クリックして逆取引修正">
                                 <td>${row.date}</td>
                                 <td><span class="type-tag type-貸借">貸借</span></td>
                                 <td>${row.lender} → ${row.borrower}</td>
@@ -1989,7 +1990,7 @@
                         const amountClass = isLender ? 'positive' : 'negative';
 
                         return `
-                            <tr class="data-row" data-index="${index}" style="cursor: pointer;" title="クリックして逆取引修正">
+                            <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;" title="クリックして逆取引修正">
                                 <td>${row.date}</td>
                                 <td><span class="type-tag type-${transactionType}">${transactionType}</span></td>
                                 <td>${counterpart}</td>
@@ -2014,17 +2015,20 @@
             addRowClickEvents() {
                 const dataRows = document.querySelectorAll('.data-row');
                 
-                dataRows.forEach(row => {
-                    row.addEventListener('click', (e) => {
+                dataRows.forEach(rowElement => { // 変数名を 'row' から 'rowElement' に変更
+                    rowElement.addEventListener('click', (e) => {
                         // イベントバブリングを防止
                         e.stopPropagation();
                         
-                        const rowIndex = parseInt(row.dataset.index);
-                        const selectedData = this.searchResults[rowIndex];
+                        // data-original-row-index から直接スプレッドシートの行番号を取得
+                        const originalRowIndex = parseInt(rowElement.dataset.originalRowIndex);
                         
+                        // this.searchResults から対応するデータを検索
+                        const selectedData = this.searchResults.find(data => data.originalRowIndex === originalRowIndex);
+
                         if (!selectedData) {
                             console.error('選択されたデータが見つかりません', {
-                                rowIndex: rowIndex,
+                                originalRowIndex: originalRowIndex,
                                 searchResultsLength: this.searchResults.length,
                                 searchResults: this.searchResults
                             });
@@ -2037,16 +2041,16 @@
                     });
                     
                     // ホバー効果を強化
-                    row.addEventListener('mouseenter', () => {
-                        row.style.backgroundColor = 'rgba(214, 158, 46, 0.1)';
-                        row.style.transform = 'scale(1.02)';
-                        row.style.transition = 'all 0.2s ease';
-                        row.style.cursor = 'pointer';
+                    rowElement.addEventListener('mouseenter', () => {
+                        rowElement.style.backgroundColor = 'rgba(214, 158, 46, 0.1)';
+                        rowElement.style.transform = 'scale(1.02)';
+                        rowElement.style.transition = 'all 0.2s ease';
+                        rowElement.style.cursor = 'pointer';
                     });
                     
-                    row.addEventListener('mouseleave', () => {
-                        row.style.backgroundColor = '';
-                        row.style.transform = '';
+                    rowElement.addEventListener('mouseleave', () => {
+                        rowElement.style.backgroundColor = '';
+                        rowElement.style.transform = '';
                     });
                 });
                 
@@ -2077,6 +2081,7 @@
 🏷️ カテゴリー: ${selectedData.category || '不明'}
 📝 品目: ${selectedData.item || '不明'}
 💵 金額: ${formattedAmount}
+スプレッドシート行: ${selectedData.originalRowIndex || '不明'}
 
 ⚠️ この操作により：
 • 貸主と借主が入れ替わった逆取引データが作成されます
@@ -2105,7 +2110,7 @@
                     }
                     
                     // 必要なフィールドの検証
-                    const requiredFields = ['date', 'lender', 'borrower', 'category', 'item', 'amount'];
+                    const requiredFields = ['date', 'lender', 'borrower', 'category', 'item', 'amount', 'originalRowIndex']; // originalRowIndex を追加
                     const missingFields = requiredFields.filter(field => !selectedData[field]);
                     if (missingFields.length > 0) {
                         console.warn('不足しているフィールド:', missingFields);
