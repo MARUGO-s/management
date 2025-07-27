@@ -49,11 +49,15 @@ function convertToHalfWidthNumber(value) {
   return converted;
 }
 
-// URLパラメータまたはlocalStorageから元データを読み込む
+// URLパラメータまたはstorageから元データを読み込む
 function loadOriginalData() {
+  console.log('=== データ読み込み開始 ===');
+  
   // まずURLパラメータをチェック
   const urlParams = new URLSearchParams(window.location.search);
   const dataParam = urlParams.get('data');
+  
+  console.log('URLパラメータ確認:', dataParam ? '有り' : '無し');
   
   if (dataParam) {
     try {
@@ -65,11 +69,31 @@ function loadOriginalData() {
     }
   }
   
-  // URLパラメータが無効な場合、localStorageをチェック
-  const savedData = localStorage.getItem('correctionData');
+  // sessionStorageをチェック（修正：localStorageではなくsessionStorage）
+  console.log('sessionStorage確認中...');
+  const savedData = sessionStorage.getItem('correctionData');
+  console.log('sessionStorageデータ:', savedData ? '有り' : '無し');
+  
   if (savedData) {
     try {
       originalData = JSON.parse(savedData);
+      console.log('sessionStorageから元データを読み込み:', originalData);
+      // 使用後は削除
+      sessionStorage.removeItem('correctionData');
+      return true;
+    } catch (error) {
+      console.error('sessionStorageのデータ解析エラー:', error);
+    }
+  }
+  
+  // localStorageもチェック（フォールバック）
+  console.log('localStorage確認中...');
+  const localData = localStorage.getItem('correctionData');
+  console.log('localStorageデータ:', localData ? '有り' : '無し');
+  
+  if (localData) {
+    try {
+      originalData = JSON.parse(localData);
       console.log('localStorageから元データを読み込み:', originalData);
       // 使用後は削除
       localStorage.removeItem('correctionData');
@@ -79,13 +103,22 @@ function loadOriginalData() {
     }
   }
   
+  // デバッグ: 利用可能なsessionStorageキーを表示
+  console.log('利用可能なsessionStorageキー:', Object.keys(sessionStorage));
+  console.log('利用可能なlocalStorageキー:', Object.keys(localStorage));
+  
   console.error('元データが見つかりません');
   return false;
 }
 
 // 元データを表示する
 function displayOriginalData() {
-  if (!originalData) return;
+  if (!originalData) {
+    console.error('表示する元データがありません');
+    return;
+  }
+  
+  console.log('元データ表示中:', originalData);
   
   const originalDataGrid = document.getElementById('original-data-grid');
   
@@ -128,7 +161,12 @@ function displayOriginalData() {
 
 // フォームに逆取引データを自動入力
 function autoFillReverseData() {
-  if (!originalData) return;
+  if (!originalData) {
+    console.error('自動入力する元データがありません');
+    return;
+  }
+  
+  console.log('逆取引データを自動入力中:', originalData);
   
   // 日付はそのまま
   document.getElementById('date').value = originalData.date || '';
@@ -312,6 +350,8 @@ function hideMessages() {
 
 // 初期化処理
 function initialize() {
+  console.log('=== correction.html 初期化開始 ===');
+  
   // メッセージを非表示
   hideMessages();
   
@@ -323,18 +363,32 @@ function initialize() {
   
   // 元データを読み込み
   if (loadOriginalData()) {
+    console.log('データ読み込み成功 - 表示処理開始');
     displayOriginalData();
     autoFillReverseData();
   } else {
     // 元データが無い場合はエラー表示
+    console.error('データ読み込み失敗');
     alert('修正対象のデータが見つかりません。データ一覧ページから再度選択してください。');
+    
+    // デバッグ情報をコンソールに出力
+    console.log('デバッグ情報:');
+    console.log('- 現在のURL:', window.location.href);
+    console.log('- Referrer:', document.referrer);
+    console.log('- sessionStorage keys:', Object.keys(sessionStorage));
+    console.log('- localStorage keys:', Object.keys(localStorage));
+    
     // 元のページに戻る
-    if (document.referrer) {
-      history.back();
-    } else {
-      window.location.href = 'data/marugo.html';
-    }
+    setTimeout(() => {
+      if (document.referrer) {
+        history.back();
+      } else {
+        window.location.href = 'data/marugo.html';
+      }
+    }, 3000);
   }
+  
+  console.log('=== correction.html 初期化完了 ===');
 }
 
 // ページが完全に読み込まれた後に実行
