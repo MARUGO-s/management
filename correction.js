@@ -1,6 +1,4 @@
-// Google Apps ScriptのウェブアプリURLをここに設定してください
-// デプロイし直した新しいURLを必ず貼り付けてください
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxxhL81ThLnXuoDFfid2n9S7gzLMq_V-s5FxH8WqoBIUq2jCtKAa9_ZU-ovGC5r8qBZ/exec'; 
+// GAS_WEB_APP_URL と SHOPS_LIST は script.js から読み込まれます
 
 document.addEventListener('DOMContentLoaded', () => {
     const correctionForm = document.getElementById('correctionForm');
@@ -21,18 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 貸主・借主のプルダウンオプションを生成する関数
     function populatePeopleDropdowns(lenderName, borrowerName) {
-        // main.jsのショップリストと同期させる
-        const shops = [ 
-            "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
-            "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
-            "マルゴ新橋", "MARUGO YOTSUYA", "371BAR", "三三五五",
-            "BAR PELOTA", "Claudia2", "BISTRO CAVACAVA", "eric'S",
-            "MITAN", "焼肉マルゴ", "SOBA‑JU", "Bar Violet",
-            "X&C", "トラットリア ブリッコラ"
-        ];
         
-        // shopsリストと、元のデータの貸主・借主名を結合してユニークなリストを作成
-        const allPeople = new Set(shops);
+        // SHOPS_LIST を使用
+        const allPeople = new Set(SHOPS_LIST);
         if (lenderName) allPeople.add(lenderName);
         if (borrowerName) allPeople.add(borrowerName);
         
