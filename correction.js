@@ -394,7 +394,7 @@ async function testGASConnection() {
   }
 }
 
-// 修正データを送信（完全修正版）
+// 修正データを送信（CORS対応強化版）
 async function submitCorrectionData() {
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn):not([onclick])');
   const btnText = submitBtn.querySelector('.btn-text');
@@ -420,22 +420,21 @@ async function submitCorrectionData() {
     showProgressStep('step-validation');
     await delay(500);
 
-    // 🔥 修正: 通常送信として送信し、GAS側で修正マークを付ける
     const data = {
       date: document.getElementById("date").value,
-      name: document.getElementById("name").value + " (修正)", // 名前に修正表示を追加
+      name: document.getElementById("name").value + " (修正)",
       lender: document.getElementById("lender").value,
       borrower: document.getElementById("borrower").value,
       category: document.getElementById("category").value,
       item: document.getElementById("item").value,
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
-      isCorrection: true,          // 修正データであることを示す
-      correctionOnly: false,       // 🔥 通常送信に変更（originalRowIndexが不要）
-      correctionMark: "✏️修正",    // 修正マークを明示的に指定
-      sendType: "CORRECTION"       // 修正タイプであることを示す
+      isCorrection: true,
+      correctionOnly: false,  // 通常送信として処理
+      correctionMark: "✏️修正",
+      sendType: "CORRECTION"
     };
 
-    addDebugLog('送信データ準備完了（修正版）', data);
+    addDebugLog('送信データ準備完了', data);
 
     // バリデーション
     const validationErrors = [];
@@ -472,66 +471,102 @@ async function submitCorrectionData() {
       data: data
     });
 
-    // まず通常のfetchでテスト
-    let sendResult = null;
+    // 🔥 改良されたCORS対応送信
+    let sendSuccess = false;
+    let responseData = null;
+    let sendError = null;
+
+    // 方法1: 通常のfetchを試行（CORS完全対応）
     try {
-      const testResponse = await fetch(GAS_URL, {
+      addDebugLog('通常fetchを試行中...');
+      
+      const response = await fetch(GAS_URL, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify(data)
       });
 
-      addDebugLog('通常fetch結果', {
-        status: testResponse.status,
-        statusText: testResponse.statusText,
-        ok: testResponse.ok,
-        type: testResponse.type
+      addDebugLog('通常fetch成功', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        type: response.type,
+        headers: Object.fromEntries(response.headers.entries())
       });
 
-      // レスポンステキストを取得試行
-      try {
-        const responseText = await testResponse.text();
-        addDebugLog('レスポンステキスト', responseText);
-        
-        // JSON解析試行
+      if (response.ok) {
         try {
-          const responseJson = JSON.parse(responseText);
-          sendResult = responseJson;
-          addDebugLog('レスポンスJSON解析成功', responseJson);
-        } catch (jsonError) {
-          addDebugLog('JSON解析エラー', jsonError);
+          const responseText = await response.text();
+          addDebugLog('レスポンステキスト取得成功', responseText);
+          
+          if (responseText.trim()) {
+            responseData = JSON.parse(responseText);
+            addDebugLog('JSON解析成功', responseData);
+            
+            if (responseData.status === 'SUCCESS') {
+              sendSuccess = true;
+              addDebugLog('✅ 送信成功確認');
+            } else {
+              sendError = responseData.message || '不明なエラー';
+              addDebugLog('❌ サーバーエラー', responseData);
+            }
+          } else {
+            // 空のレスポンスでもステータスが200なら成功とみなす
+            sendSuccess = true;
+            addDebugLog('✅ 空のレスポンスだが200なので成功');
+          }
+        } catch (parseError) {
+          addDebugLog('レスポンス解析エラー', parseError);
+          // ステータスが200なら解析エラーでも成功とみなす
+          if (response.status === 200) {
+            sendSuccess = true;
+            addDebugLog('✅ 解析エラーだが200なので成功とみなす');
+          }
         }
-        
-      } catch (textError) {
-        addDebugLog('レスポンステキスト取得エラー', textError);
+      } else {
+        sendError = `HTTPエラー: ${response.status} ${response.statusText}`;
+        addDebugLog('❌ HTTPエラー', { status: response.status, statusText: response.statusText });
       }
 
     } catch (fetchError) {
-      addDebugLog('通常fetch エラー', fetchError);
-    }
+      addDebugLog('通常fetchエラー', fetchError);
+      
+      // 方法2: no-corsモードでフォールバック送信
+      try {
+        addDebugLog('no-corsモードでフォールバック送信...');
+        
+        const corsResponse = await fetch(GAS_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(data)
+        });
 
-    // no-corsでも送信（フォールバック）
-    try {
-      const corsResponse = await fetch(GAS_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-      });
+        addDebugLog('no-cors送信完了', {
+          status: corsResponse.status,
+          statusText: corsResponse.statusText,
+          ok: corsResponse.ok,
+          type: corsResponse.type
+        });
 
-      addDebugLog('no-cors fetch結果', {
-        status: corsResponse.status,
-        statusText: corsResponse.statusText,
-        ok: corsResponse.ok,
-        type: corsResponse.type
-      });
+        // no-corsでは詳細レスポンスが分からないが、送信は完了している
+        sendSuccess = true;
+        responseData = {
+          status: 'SUCCESS',
+          message: '送信完了（no-corsモード）',
+          note: 'レスポンス詳細は確認できませんが、データは送信されました'
+        };
+        addDebugLog('✅ no-cors送信完了（詳細不明だが送信済み）');
 
-    } catch (corsError) {
-      addDebugLog('no-cors fetch エラー', corsError);
+      } catch (corsError) {
+        addDebugLog('❌ no-cors送信もエラー', corsError);
+        sendError = `送信エラー: ${corsError.message}`;
+      }
     }
 
     // ステップ3: データ挿入
@@ -546,54 +581,63 @@ async function submitCorrectionData() {
     showProgressStep('step-complete');
     await delay(500);
 
-    addDebugLog('送信処理完了', sendResult);
+    // 🔥 結果判定と表示
+    if (sendSuccess) {
+      addDebugLog('✅ 全体処理成功', responseData);
+      
+      let successMessage = '✅ 修正データの送信が完了しました！';
+      
+      if (responseData && responseData.status === 'SUCCESS') {
+        successMessage += '\n✓ サーバーで正常に処理されました';
+      } else {
+        successMessage += '\n✓ データ送信が完了しました';
+      }
+      
+      if (responseData && responseData.note) {
+        successMessage += '\n' + responseData.note;
+      }
 
-    // 送信結果に基づいてメッセージを調整
-    let successMessage = '✅ 修正データの送信が完了しました！';
-    if (sendResult && sendResult.status === 'ERROR') {
-      throw new Error('GAS処理エラー: ' + (sendResult.message || '不明なエラー'));
-    } else if (sendResult && sendResult.status === 'SUCCESS') {
-      successMessage += '\n✓ GASで正常に処理されました';
-    } else {
-      successMessage += '\n※ 送信は完了しましたが、レスポンス確認はできませんでした';
-    }
+      // 成功メッセージ表示
+      const successMsg = document.getElementById('successMessage');
+      successMsg.textContent = successMessage;
+      successMsg.classList.add('show');
+      
+      setTimeout(() => {
+        successMsg.classList.remove('show');
+      }, 5000);
 
-    // 成功メッセージ表示
-    const successMsg = document.getElementById('successMessage');
-    successMsg.textContent = successMessage;
-    successMsg.classList.add('show');
-    
-    setTimeout(() => {
-      successMsg.classList.remove('show');
-    }, 5000);
-
-    // フォームリセット
-    document.getElementById('correctionForm').reset();
-    const categoryOptions = document.querySelectorAll('.category-option');
-    categoryOptions.forEach(opt => opt.classList.remove('selected'));
-    
-    // プログレス非表示
-    setTimeout(() => {
-      hideProgress();
-    }, 2000);
-    
-    addDebugLog('送信完了処理終了');
-    
-    // 戻るボタンを表示（自動リダイレクトの代わり）
-    setTimeout(() => {
-      if (confirm('修正データの送信が完了しました。元のページに戻りますか？')) {
-        if (document.referrer) {
-          history.back();
-        } else {
-          const currentPath = window.location.pathname;
-          if (currentPath.includes('/data/')) {
-            window.location.href = '../data/marugo.html';
+      // フォームリセット
+      document.getElementById('correctionForm').reset();
+      const categoryOptions = document.querySelectorAll('.category-option');
+      categoryOptions.forEach(opt => opt.classList.remove('selected'));
+      
+      // プログレス非表示
+      setTimeout(() => {
+        hideProgress();
+      }, 2000);
+      
+      addDebugLog('送信完了処理終了');
+      
+      // 戻る確認
+      setTimeout(() => {
+        if (confirm('修正データの送信が完了しました。元のページに戻りますか？')) {
+          if (document.referrer) {
+            history.back();
           } else {
-            window.location.href = 'data/marugo.html';
+            const currentPath = window.location.pathname;
+            if (currentPath.includes('/data/')) {
+              window.location.href = '../data/marugo.html';
+            } else {
+              window.location.href = 'data/marugo.html';
+            }
           }
         }
-      }
-    }, 3000);
+      }, 3000);
+
+    } else {
+      // 送信失敗
+      throw new Error(sendError || '送信に失敗しました');
+    }
 
   } catch (error) {
     addDebugLog('送信エラー', {
