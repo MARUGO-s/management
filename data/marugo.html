@@ -843,10 +843,11 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <!-- obfuscated.js を先に読み込む -->
+    <script src="obfuscated.js"></script> 
     <script>
-        // システム設定（実際の運用では別ファイルにして、サーバーサイドで管理することを推奨）
-        const SYSTEM_PASSWORD = 'marugo2025'; // パスワードを設定（実際の運用では変更してください）
-        const PASSWORD_EXPIRY_HOURS = 8; // パスワード認証の有効期限（時間）
+        // パスワード認証の有効期限（時間）
+        const PASSWORD_EXPIRY_HOURS = 8; 
 
         // ソート機能用の変数
         let sortDirection = {};
@@ -916,7 +917,9 @@
 
                 // パスワードチェック（少し遅延を入れてセキュリティらしく見せる）
                 setTimeout(() => {
-                    if (enteredPassword === SYSTEM_PASSWORD) {
+                    // ここを修正: obfuscated.js から提供される verifyPassword 関数を呼び出す
+                    // verifyPassword 関数が利用可能かチェック
+                    if (typeof verifyPassword === 'function' && verifyPassword(enteredPassword)) {
                         // 認証成功
                         this.setPasswordAuthentication();
                         passwordError.style.display = 'none';
@@ -2032,7 +2035,8 @@
                                 searchResultsLength: this.searchResults.length,
                                 searchResults: this.searchResults
                             });
-                            alert('選択されたデータが見つかりません。ページを再読み込みして再度お試しください。');
+                            // alert('選択されたデータが見つかりません。ページを再読み込みして再度お試しください。'); // alert の代わりにカスタムモーダルを使用
+                            this.showCustomAlertDialog('選択されたデータが見つかりません。ページを再読み込みして再度お試しください。');
                             return;
                         }
                         
@@ -2057,6 +2061,61 @@
                 console.log(`${dataRows.length}行にクリックイベントを追加しました`);
             }
 
+            // カスタムアラートダイアログの表示
+            showCustomAlertDialog(message) {
+                const dialogId = 'custom-alert-dialog';
+                let dialog = document.getElementById(dialogId);
+
+                if (!dialog) {
+                    dialog = document.createElement('div');
+                    dialog.id = dialogId;
+                    dialog.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        background-color: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                        z-index: 10000;
+                        text-align: center;
+                        max-width: 80%;
+                        min-width: 300px;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    `;
+                    const msgDiv = document.createElement('div');
+                    msgDiv.id = 'custom-alert-message';
+                    msgDiv.style.marginBottom = '20px';
+                    msgDiv.style.fontSize = '16px';
+                    msgDiv.style.color = '#333';
+                    dialog.appendChild(msgDiv);
+
+                    const closeBtn = document.createElement('button');
+                    closeBtn.textContent = 'OK';
+                    closeBtn.style.cssText = `
+                        background-color: #5a7c5a;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 600;
+                        transition: background-color 0.3s ease;
+                    `;
+                    closeBtn.onmouseover = () => closeBtn.style.backgroundColor = '#4a6b4a';
+                    closeBtn.onmouseout = () => closeBtn.style.backgroundColor = '#5a7c5a';
+                    closeBtn.onclick = () => dialog.remove();
+                    dialog.appendChild(closeBtn);
+
+                    document.body.appendChild(dialog);
+                }
+
+                document.getElementById('custom-alert-message').textContent = message;
+                dialog.style.display = 'block';
+            }
+
             // 削除確認ダイアログを表示（修正版）
             showDeleteConfirmDialog(selectedData) {
                 console.log('確認ダイアログ表示:', selectedData);
@@ -2064,7 +2123,7 @@
                 // データの基本検証
                 if (!selectedData) {
                     console.error('選択されたデータが無効です');
-                    alert('選択されたデータが無効です。再度お試しください。');
+                    this.showCustomAlertDialog('選択されたデータが無効です。再度お試しください。');
                     return;
                 }
                 
@@ -2090,13 +2149,95 @@
 
 続行しますか？`;
 
-                if (confirm(confirmMessage)) {
+                // confirm の代わりにカスタムモーダルを使用
+                this.showCustomConfirmDialog(confirmMessage, () => {
                     console.log('ユーザーが確認 - リダイレクト開始');
                     this.redirectToCorrectionPage(selectedData);
-                } else {
+                }, () => {
                     console.log('ユーザーがキャンセル');
-                }
+                });
             }
+
+            // カスタム確認ダイアログの表示
+            showCustomConfirmDialog(message, onConfirm, onCancel) {
+                const dialogId = 'custom-confirm-dialog';
+                let dialog = document.getElementById(dialogId);
+
+                if (!dialog) {
+                    dialog = document.createElement('div');
+                    dialog.id = dialogId;
+                    dialog.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        background-color: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                        z-index: 10000;
+                        text-align: center;
+                        max-width: 80%;
+                        min-width: 350px;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        white-space: pre-wrap; /* 改行を有効にする */
+                    `;
+                    const msgDiv = document.createElement('div');
+                    msgDiv.id = 'custom-confirm-message';
+                    msgDiv.style.marginBottom = '20px';
+                    msgDiv.style.fontSize = '16px';
+                    msgDiv.style.color = '#333';
+                    dialog.appendChild(msgDiv);
+
+                    const btnContainer = document.createElement('div');
+                    btnContainer.style.display = 'flex';
+                    btnContainer.style.justifyContent = 'center';
+                    btnContainer.style.gap = '15px';
+
+                    const confirmBtn = document.createElement('button');
+                    confirmBtn.textContent = 'はい、続行します';
+                    confirmBtn.style.cssText = `
+                        background-color: #5a7c5a;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 600;
+                        transition: background-color 0.3s ease;
+                    `;
+                    confirmBtn.onmouseover = () => confirmBtn.style.backgroundColor = '#4a6b4a';
+                    confirmBtn.onmouseout = () => confirmBtn.style.backgroundColor = '#5a7c5a';
+                    confirmBtn.onclick = () => { dialog.remove(); onConfirm(); };
+                    btnContainer.appendChild(confirmBtn);
+
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.textContent = 'キャンセル';
+                    cancelBtn.style.cssText = `
+                        background-color: #888;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 600;
+                        transition: background-color 0.3s ease;
+                    `;
+                    cancelBtn.onmouseover = () => cancelBtn.style.backgroundColor = '#6a6a6a';
+                    cancelBtn.onmouseout = () => cancelBtn.style.backgroundColor = '#888';
+                    cancelBtn.onclick = () => { dialog.remove(); onCancel(); };
+                    btnContainer.appendChild(cancelBtn);
+
+                    dialog.appendChild(btnContainer);
+                    document.body.appendChild(dialog);
+                }
+
+                document.getElementById('custom-confirm-message').textContent = message;
+                dialog.style.display = 'block';
+            }
+
 
             // correction.htmlページにリダイレクト（修正版）
             redirectToCorrectionPage(selectedData) {
@@ -2162,7 +2303,8 @@
                     
                 } catch (error) {
                     console.error('リダイレクトエラー:', error);
-                    alert(`修正ページへの移動中にエラーが発生しました: ${error.message}`);
+                    // alert(`修正ページへの移動中にエラーが発生しました: ${error.message}`); // alert の代わりにカスタムモーダルを使用
+                    this.showCustomAlertDialog(`修正ページへの移動中にエラーが発生しました: ${error.message}`);
                     
                     // デバッグ情報をコンソールに出力
                     console.log('エラー時のデバッグ情報:');
@@ -2175,7 +2317,8 @@
 
             exportResults() {
                 if (this.searchResults.length === 0) {
-                    alert('エクスポートするデータがありません');
+                    // alert('エクスポートするデータがありません'); // alert の代わりにカスタムモーダルを使用
+                    this.showCustomAlertDialog('エクスポートするデータがありません');
                     return;
                 }
 
