@@ -199,6 +199,148 @@
       position: relative;
     }
 
+    /* 🔥 名前入力フィールド強調スタイル */
+    .form-group.name-highlight {
+      position: relative;
+      padding: 8px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, 
+        rgba(214, 158, 46, 0.1) 0%, 
+        rgba(214, 158, 46, 0.05) 50%, 
+        rgba(214, 158, 46, 0.1) 100%);
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      animation: nameFieldPulse 3s ease-in-out infinite;
+    }
+
+    .form-group.name-highlight::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      background: linear-gradient(45deg, 
+        #d69e2e, #b7791f, #d69e2e, #b7791f);
+      background-size: 300% 300%;
+      border-radius: 20px;
+      z-index: -1;
+      animation: gradientShift 2s ease-in-out infinite;
+      opacity: 0.6;
+    }
+
+    .form-group.name-highlight::after {
+      content: '👈 ここに名前を入力してください';
+      position: absolute;
+      top: 50%;
+      right: -200px;
+      transform: translateY(-50%);
+      background: linear-gradient(135deg, #d69e2e, #b7791f);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 4px 15px rgba(214, 158, 46, 0.3);
+      animation: bouncePointer 2s ease-in-out infinite;
+      z-index: 10;
+    }
+
+    @keyframes nameFieldPulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(214, 158, 46, 0.4);
+      }
+      50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 0 10px rgba(214, 158, 46, 0.1);
+      }
+    }
+
+    @keyframes gradientShift {
+      0%, 100% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+    }
+
+    @keyframes bouncePointer {
+      0%, 100% {
+        transform: translateY(-50%) translateX(0px);
+        opacity: 0.8;
+      }
+      50% {
+        transform: translateY(-50%) translateX(-10px);
+        opacity: 1;
+      }
+    }
+
+    /* 名前入力完了時のアニメーション */
+    .form-group.name-completed {
+      animation: nameFieldComplete 0.6s ease-out;
+      background: linear-gradient(135deg, 
+        rgba(104, 211, 145, 0.1) 0%, 
+        rgba(104, 211, 145, 0.05) 100%);
+    }
+
+    .form-group.name-completed::before {
+      background: linear-gradient(45deg, #68d391, #4fd1c7);
+      animation: none;
+    }
+
+    .form-group.name-completed::after {
+      content: '✅ 入力完了！';
+      background: linear-gradient(135deg, #68d391, #4fd1c7);
+      animation: fadeInCheck 0.6s ease-out;
+    }
+
+    @keyframes nameFieldComplete {
+      0% {
+        transform: scale(1.02);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes fadeInCheck {
+      0% {
+        opacity: 0;
+        transform: translateY(-50%) translateX(-20px) scale(0.8);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0px) scale(1);
+      }
+    }
+
+    /* モバイル対応 */
+    @media (max-width: 768px) {
+      .form-group.name-highlight::after {
+        right: -180px;
+        font-size: 11px;
+        padding: 6px 10px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .form-group.name-highlight::after {
+        position: relative;
+        right: auto;
+        top: auto;
+        transform: none;
+        margin-top: 10px;
+        display: block;
+        text-align: center;
+      }
+    }
+
     label {
       display: block;
       font-weight: 600;
@@ -207,6 +349,22 @@
       font-size: 0.9rem;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+    }
+
+    /* 名前ラベルの特別スタイル */
+    .name-highlight label {
+      color: #d69e2e;
+      font-weight: 700;
+      animation: labelGlow 2s ease-in-out infinite;
+    }
+
+    @keyframes labelGlow {
+      0%, 100% {
+        text-shadow: 0 0 5px rgba(214, 158, 46, 0.3);
+      }
+      50% {
+        text-shadow: 0 0 15px rgba(214, 158, 46, 0.6);
+      }
     }
 
     input, select {
@@ -218,6 +376,30 @@
       background: rgba(255, 255, 255, 0.8);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
+    }
+
+    /* 名前入力フィールドの特別スタイル */
+    .name-highlight input {
+      border-color: #d69e2e;
+      background: rgba(255, 255, 255, 0.95);
+      font-weight: 600;
+      color: #2d3748;
+      animation: inputGlow 3s ease-in-out infinite;
+    }
+
+    .name-highlight input::placeholder {
+      color: #d69e2e;
+      opacity: 0.7;
+      font-weight: 500;
+    }
+
+    @keyframes inputGlow {
+      0%, 100% {
+        box-shadow: 0 0 10px rgba(214, 158, 46, 0.2);
+      }
+      50% {
+        box-shadow: 0 0 20px rgba(214, 158, 46, 0.4);
+      }
     }
 
     /* 無効化された入力フィールドのスタイル */
@@ -693,7 +875,7 @@
         <input type="date" id="date" required disabled>
       </div>
 
-      <div class="form-group">
+      <div class="form-group name-highlight" id="name-form-group">
         <label for="name">📋 名前</label>
        <input type="text" id="name" required placeholder="入力者名を入力">
       </div>
@@ -856,8 +1038,54 @@
         document.getElementById('error-notice').style.display = 'none';
         document.getElementById('original-data-section').style.display = 'block';
         document.getElementById('correctionForm').style.display = 'block';
+        
+        // 🔥 名前入力アニメーション制御
+        setupNameInputAnimation();
       }
     });
+
+    // 🔥 名前入力アニメーション設定
+    function setupNameInputAnimation() {
+      const nameInput = document.getElementById('name');
+      const nameFormGroup = document.getElementById('name-form-group');
+      
+      if (!nameInput || !nameFormGroup) return;
+      
+      // 入力監視
+      nameInput.addEventListener('input', () => {
+        if (nameInput.value.trim().length > 0) {
+          // 入力がある場合は完了状態に
+          nameFormGroup.classList.remove('name-highlight');
+          nameFormGroup.classList.add('name-completed');
+          
+          // 3秒後にアニメーションをリセット
+          setTimeout(() => {
+            nameFormGroup.classList.remove('name-completed');
+          }, 3000);
+        } else {
+          // 入力が空の場合は強調状態に戻す
+          nameFormGroup.classList.remove('name-completed');
+          nameFormGroup.classList.add('name-highlight');
+        }
+      });
+      
+      // フォーカス時の特別処理
+      nameInput.addEventListener('focus', () => {
+        nameFormGroup.classList.add('name-highlight');
+      });
+      
+      // ブラー時の処理
+      nameInput.addEventListener('blur', () => {
+        if (nameInput.value.trim().length === 0) {
+          nameFormGroup.classList.add('name-highlight');
+        }
+      });
+      
+      // 初期状態で強調アニメーションを開始
+      setTimeout(() => {
+        nameFormGroup.classList.add('name-highlight');
+      }, 1000);
+    }
   </script>
 
   <script src="correction.js"></script>
