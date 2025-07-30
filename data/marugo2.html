@@ -280,62 +280,101 @@
             margin-bottom: 30px;
         }
 
+        /* --- 集計表示の再改善点 --- */
         .summary-card {
-            background: linear-gradient(135deg, #777777 0%, #5a5a5a 100%);
+            background: #fff; /* 背景を白に */
+            border: 1px solid #e0e0e0; /* 細いボーダー */
             padding: 25px;
             border-radius: 15px;
-            color: white;
+            color: #333; /* 文字色を濃いグレーに */
             text-align: center;
-            transform: translateY(0);
-            transition: transform 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08); /* 影を柔らかく */
+            transition: all 0.3s ease;
+            position: relative; /* アイコン配置のため */
+            overflow: hidden; /* 背景グラデーションのため */
         }
 
         .summary-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-5px) scale(1.02); /* ホバー効果を強調 */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* 背景のグラデーションオーバーレイ */
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1; /* 透明度を調整 */
+            z-index: 0;
+            pointer-events: none; /* クリックイベントを妨げないように */
         }
 
-        .summary-card h3 {
-            font-size: 0.9rem;
-            opacity: 0.9;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        /* --- 集計表示の改善点（PC版） --- */
-        .summary-card .value {
-            font-size: 2.5rem; /* 主要な金額をさらに大きく */
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .summary-card.positive {
+        .summary-card.positive::before {
             background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
         }
 
-        .summary-card.negative {
+        .summary-card.negative::before {
             background: linear-gradient(135deg, #8a5a5a 0%, #6b4a4a 100%);
         }
 
-        .summary-card.neutral {
+        .summary-card.neutral::before {
             background: linear-gradient(135deg, #888888 0%, #707070 100%);
         }
 
+        .summary-card h3 {
+            font-size: 1rem; /* 少し大きく */
+            color: #555; /* タイトル色を調整 */
+            margin-bottom: 15px; /* 間隔を広げる */
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            position: relative;
+            z-index: 1; /* コンテンツが背景の上に来るように */
+        }
+
+        .summary-card .value {
+            font-size: 2.8rem; /* 主要な金額をさらに大きく */
+            font-weight: bold;
+            color: #333; /* 文字色を濃く */
+            margin-bottom: 10px; /* 間隔を広げる */
+            position: relative;
+            z-index: 1;
+        }
+
+        .summary-card.positive .value {
+            color: #4a6b4a; /* Positive値を強調 */
+        }
+
+        .summary-card.negative .value {
+            color: #6b4a4a; /* Negative値を強調 */
+        }
+        
+        .summary-card p {
+            font-size: 0.85rem;
+            color: #777;
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+
         .summary-card .breakdown {
-            font-size: 1.2rem; /* 内訳のフォントサイズを少し大きく戻す */
-            opacity: 0.9;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid rgba(255, 255, 255, 0.3); /* 区切り線をよりはっきりと */
-            line-height: 1.4; /* 行間を調整 */
+            font-size: 0.9rem; /* 内訳をコンパクトに */
+            color: #666; /* 内訳の文字色 */
+            margin-top: 15px; /* 間隔をさらに広げる */
+            padding-top: 15px; /* パディングも増やす */
+            border-top: 1px dashed #cccccc; /* 点線にして柔らかく */
+            line-height: 1.6; /* 行間を広げて読みやすく */
+            position: relative;
+            z-index: 1;
         }
 
         .summary-card .breakdown-item {
-            display: block; /* 各項目をブロック要素にして縦に並べる */
-            margin: 3px 0; /* 上下の余白を増やす */
+            display: block; /* 縦並びを維持 */
+            margin: 2px 0;
         }
-        /* --- /集計表示の改善点（PC版） --- */
-
+        /* --- /集計表示の再改善点 --- */
 
         .details-section {
             background: white;
@@ -656,60 +695,47 @@
                 font-size: 1rem; /* Slightly larger heading for mobile summary cards */
             }
 
-            /* --- 集計表示の改善点（モバイル版） --- */
+            /* --- 集計表示の再々改善点（モバイル版） --- */
             .summary-card .value {
-                font-size: 2.2rem; /* モバイルでも主要な金額を大きく */
+                font-size: 2.5rem; /* モバイルでも主要な金額をさらに大きく */
             }
 
             .summary-card .breakdown {
-                font-size: 0.95rem; /* モバイルの内訳フォントサイズを微調整 */
-                line-height: 1.3; /* 行間を少し狭める */
+                font-size: 0.85rem; /* モバイルの内訳フォントサイズをさらに小さく */
+                line-height: 1.2; /* モバイルの内訳行間をさらに狭める */
             }
-            /* --- /集計表示の改善点（モバイル版） --- */
+            /* --- /集計表示の再々改善点（モバイル版） --- */
+
 
             table {
-                min-width: 100%; /* Allow table to shrink, but it will still overflow */
-                font-size: 12px; /* Smaller font for table content */
+                min-width: 900px; /* テーブルを横並びに戻すため、min-widthを維持 */
+                font-size: 14px; /* モバイルでもPCと近いフォントサイズに */
             }
 
             th, td {
-                padding: 10px; /* Smaller table cell padding */
+                padding: 12px; /* モバイルでのテーブルセルパディングを少し調整 */
             }
 
-            /* Improve table readability on small screens by stacking content */
+            /* テーブルのレスポンシブスタイルを削除し、横スクロールに戻す */
             table.responsive th,
             table.responsive td {
-                display: block;
-                width: 100%;
-                box-sizing: border-box;
-                text-align: left;
+                display: table-cell; /* デフォルトに戻す */
+                width: auto;
+                padding-left: 12px; /* デフォルトに戻す */
+                text-align: left; /* デフォルトに戻す */
             }
             
             table.responsive thead {
-                display: none; /* Hide table headers on small screens */
-            }
-
-            table.responsive td {
-                border-bottom: 1px solid #f0f0f0;
-                position: relative;
-                padding-left: 50%; /* Make space for pseudo-element label */
+                display: table-header-group; /* デフォルトに戻す */
             }
 
             table.responsive td::before {
-                content: attr(data-label); /* Use data-label for mobile labels */
-                position: absolute;
-                left: 6px;
-                width: 45%;
-                padding-right: 10px;
-                white-space: nowrap;
-                text-align: left;
-                font-weight: bold;
-                color: #555;
+                content: none; /* ラベルを非表示にする */
             }
 
-            /* Specific adjustments for amount column on mobile */
+            /* Specific adjustments for amount column on mobile - Reset */
             table.responsive td.amount {
-                text-align: left; /* Align amount to left for consistency with labels */
+                text-align: right; /* デフォルトに戻す */
             }
         }
     </style>
@@ -1582,8 +1608,11 @@
                     </div>
                     <div class="summary-card negative">
                         <h3>データ範囲</h3>
-                        <div class="value" style="font-size: 1.8rem;">全期間</div> <div class="value" style="font-size: 1.8rem;">全店舗</div> <div class="breakdown">
-                            <span>完全なデータセット</span>
+                        <div class="value"><span>${document.getElementById('start-date').value}</span></div>
+                        <div class="value"><span>~ ${document.getElementById('end-date').value}</span></div>
+                        <p>${document.getElementById('store-name').value || '全店舗'}</p>
+                        <div class="breakdown">
+                            <span>データ表示期間</span>
                         </div>
                     </div>
                 `;
@@ -1728,14 +1757,14 @@
                         // 全データ表示時: 貸主→借主の形で表示
                         return `
                             <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;" title="クリックして逆取引修正">
-                                <td data-label="日付">${row.date}</td>
-                                <td data-label="取引種別"><span class="type-tag type-貸借">貸借</span></td>
-                                <td data-label="相手方">${row.lender} → ${row.borrower}</td>
-                                <td data-label="品目">${row.item}</td>
-                                <td data-label="カテゴリー">${row.category}</td>
-                                <td data-label="金額" class="amount">¥${row.amount.toLocaleString()}</td>
-                                <td data-label="入力者">${row.name}</td>
-                                <td data-label="修正">${correctionDisplay}</td>
+                                <td>${row.date}</td>
+                                <td><span class="type-tag type-貸借">貸借</span></td>
+                                <td>${row.lender} → ${row.borrower}</td>
+                                <td>${row.item}</td>
+                                <td>${row.category}</td>
+                                <td class="amount">¥${row.amount.toLocaleString()}</td>
+                                <td>${row.name}</td>
+                                <td>${correctionDisplay}</td>
                             </tr>
                         `;
                     } else {
@@ -1748,21 +1777,21 @@
 
                         return `
                             <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;" title="クリックして逆取引修正">
-                                <td data-label="日付">${row.date}</td>
-                                <td data-label="取引種別"><span class="type-tag type-${transactionType}">${transactionType}</span></td>
-                                <td data-label="相手方">${counterpart}</td>
-                                <td data-label="品目">${row.item}</td>
-                                <td data-label="カテゴリー">${row.category}</td>
-                                <td data-label="金額" class="amount ${amountClass}">¥${row.amount.toLocaleString()}</td>
-                                <td data-label="入力者">${row.name}</td>
-                                <td data-label="修正">${correctionDisplay}</td>
+                                <td>${row.date}</td>
+                                <td><span class="type-tag type-${transactionType}">${transactionType}</span></td>
+                                <td>${counterpart}</td>
+                                <td>${row.item}</td>
+                                <td>${row.category}</td>
+                                <td class="amount ${amountClass}">¥${row.amount.toLocaleString()}</td>
+                                <td>${row.name}</td>
+                                <td>${correctionDisplay}</td>
                             </tr>
                         `;
                     }
                 }).join('');
 
-                // Add responsive class to table for mobile
-                detailsTable.closest('table').classList.add('responsive'); // Add to the table, not tbody
+                // Remove responsive class from table for mobile
+                detailsTable.closest('table').classList.remove('responsive'); 
 
                 // テーブルデータを保存（ソート用）
                 currentTableData = this.searchResults;
