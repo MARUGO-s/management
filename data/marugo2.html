@@ -280,117 +280,59 @@
             margin-bottom: 30px;
         }
 
-        /* --- 集計表示の抜本的再構築 --- */
         .summary-card {
-            background: white;
+            background: linear-gradient(135deg, #777777 0%, #5a5a5a 100%);
+            padding: 25px;
             border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* 影を強調 */
-            color: #333;
+            color: white;
             text-align: center;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 220px; /* カードの最低高さを確保 */
-            position: relative;
+            transform: translateY(0);
+            transition: transform 0.3s ease;
         }
 
         .summary-card:hover {
-            transform: translateY(-5px) scale(1.01); /* ホバー効果を維持 */
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-        }
-        
-        /* 上部アイコン・タイトル・メイン値 */
-        .summary-card-top {
-            padding: 25px 20px 15px;
-            background-size: cover;
-            background-position: center;
-            position: relative;
-            z-index: 1;
-            flex-grow: 0; /* 縮まないように */
+            transform: translateY(-5px);
         }
 
-        .summary-card-top::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.05); /* 薄いオーバーレイ */
-            z-index: -1;
-        }
-
-        /* 各カードの背景色 (薄いトーン) */
-        .summary-card.positive .summary-card-top {
-            background-color: #e8f5e8; /* 緑系の薄い色 */
-        }
-        .summary-card.negative .summary-card-top {
-            background-color: #f5e8e8; /* 赤系の薄い色 */
-        }
-        .summary-card.neutral .summary-card-top {
-            background-color: #f0f0f0; /* グレー系の薄い色 */
-        }
-
-        .summary-card-top h3 {
-            font-size: 1rem;
-            color: #666;
-            margin-bottom: 8px;
+        .summary-card h3 {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 10px;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 1px;
         }
 
-        .summary-card-top .value {
-            font-size: 2.8rem; /* メイン金額を大きく、しかし前回の「大きすぎ」を考慮 */
+        .summary-card .value {
+            font-size: 2rem;
             font-weight: bold;
-            color: #333;
-            line-height: 1.1;
-        }
-        .summary-card.positive .summary-card-top .value {
-            color: #4a6b4a;
-        }
-        .summary-card.negative .summary-card-top .value {
-            color: #6b4a4a;
+            margin-bottom: 5px;
         }
 
-        .summary-card-top p {
-            font-size: 0.85rem;
-            color: #777;
-            margin-top: 5px;
+        .summary-card.positive {
+            background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
         }
 
-        /* 下部 内訳詳細 */
-        .summary-card-bottom {
-            padding: 15px 20px;
-            background-color: #fcfcfc; /* やや明るい背景色 */
-            border-top: 1px solid #eee; /* 薄い区切り線 */
-            flex-grow: 1; /* 残りのスペースを埋める */
-            display: flex;
-            flex-direction: column;
-            justify-content: center; /* 垂直中央揃え */
-            align-items: flex-start; /* 左寄せ */
-            text-align: left;
+        .summary-card.negative {
+            background: linear-gradient(135deg, #8a5a5a 0%, #6b4a4a 100%);
         }
-        
+
+        .summary-card.neutral {
+            background: linear-gradient(135deg, #888888 0%, #707070 100%);
+        }
+
+        .summary-card .breakdown {
+            font-size: 1.4rem;
+            opacity: 0.8;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            line-height: 1.3;
+        }
+
         .summary-card .breakdown-item {
-            display: block; /* 各項目をブロック要素にして縦に並べる */
-            font-size: 0.85rem; /* 内訳のフォントサイズを調整 */
-            color: #555;
-            margin: 2px 0;
-            word-break: break-word; /* 長い単語でも折り返す */
+            display: inline-block;
+            margin: 1px 0;
         }
-
-        /* データ範囲カードの調整 */
-        .summary-card.range-card .summary-card-top .value {
-            font-size: 1.8rem; /* 日付表示に適したサイズ */
-            line-height: 1.2;
-        }
-        .summary-card.range-card .summary-card-top p {
-            margin-top: 5px;
-        }
-
-        /* --- /集計表示の抜本的再構築 --- */
-
 
         .details-section {
             background: white;
@@ -418,13 +360,13 @@
         }
 
         .table-wrapper {
-            overflow-x: auto; /* モバイルでは横スクロールを許可 */
+            overflow-x: auto;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 900px; /* デフォルトで900pxを維持し、横スクロールを発生させる */
+            min-width: 900px;
         }
 
         th {
@@ -703,48 +645,28 @@
                 gap: 15px;
             }
 
-            /* --- 集計表示のモバイル調整（再々構築版） --- */
             .summary-card {
-                min-height: 200px; /* モバイルでの最低高さを調整 */
+                padding: 20px; /* Smaller padding for summary cards */
             }
-            .summary-card-top {
-                padding: 20px 15px 10px; /* パディング調整 */
-            }
-            .summary-card-top h3 {
-                font-size: 0.95rem; /* タイトルを微調整 */
-                margin-bottom: 5px;
-            }
-            .summary-card-top .value {
-                font-size: 2.5rem; /* モバイルでのメイン金額 */
-            }
-            .summary-card-top p {
-                font-size: 0.8rem;
-            }
-            .summary-card-bottom {
-                padding: 10px 15px;
-                font-size: 0.8rem; /* 内訳のフォントサイズ */
-                line-height: 1.3;
-            }
-            .summary-card .breakdown-item {
-                margin: 1px 0;
-            }
-            .summary-card.range-card .summary-card-top .value {
-                font-size: 1.5rem; /* モバイルの日付表示サイズ */
-            }
-            /* --- /集計表示のモバイル調整（再々構築版） --- */
 
+            .summary-card .value {
+                font-size: 1.8rem; /* Smaller font for values */
+            }
 
-            /* --- テーブル表示の再々々調整（最初のコンパクトな積み重ね表示に戻す） --- */
+            .summary-card .breakdown {
+                font-size: 1.1rem; /* Smaller font for breakdown */
+            }
+
             table {
-                min-width: 100%; /* 横スクロールしないように min-width を解除 */
-                font-size: 12px; /* 小さめのフォントで全体を表示 */
+                min-width: 100%; /* Allow table to shrink, but it will still overflow */
+                font-size: 12px; /* Smaller font for table content */
             }
 
             th, td {
-                padding: 8px; /* モバイルでのテーブルセルパディングをさらに小さく */
+                padding: 10px; /* Smaller table cell padding */
             }
 
-            /* テーブルのレスポンシブスタイルを再適用し、積み重ね表示に戻す */
+            /* Improve table readability on small screens by stacking content */
             table.responsive th,
             table.responsive td {
                 display: block;
@@ -760,14 +682,14 @@
             table.responsive td {
                 border-bottom: 1px solid #f0f0f0;
                 position: relative;
-                padding-left: 45%; /* Make space for pseudo-element label */
+                padding-left: 50%; /* Make space for pseudo-element label */
             }
 
             table.responsive td::before {
                 content: attr(data-label); /* Use data-label for mobile labels */
                 position: absolute;
                 left: 6px;
-                width: 40%; /* ラベルの幅を調整 */
+                width: 45%;
                 padding-right: 10px;
                 white-space: nowrap;
                 text-align: left;
@@ -779,7 +701,6 @@
             table.responsive td.amount {
                 text-align: left; /* Align amount to left for consistency with labels */
             }
-            /* --- /テーブル表示の再々々調整 --- */
         }
     </style>
 </head>
@@ -1612,37 +1533,32 @@
                                 : '';
                             return `<span class="breakdown-item">${category}: ¥${amount.toLocaleString()}${countText}</span>`;
                         })
-                        .join(''); // Join with empty string, as items are now block
+                        .join('<br>');
                 };
 
                 summaryCards.innerHTML = `
                     <div class="summary-card neutral">
-                        <div class="summary-card-top">
-                            <h3>総取引金額</h3>
-                            <div class="value">¥${totalAmount.toLocaleString()}</div>
-                            <p>${this.searchResults.length}件</p>
-                        </div>
-                        <div class="summary-card-bottom">
+                        <h3>総取引金額</h3>
+                        <div class="value">¥${totalAmount.toLocaleString()}</div>
+                        <p>${this.searchResults.length}件</p>
+                        <div class="breakdown">
                             ${createBreakdown(totalByCategory, true, countByCategory)}
                         </div>
                     </div>
                     <div class="summary-card positive">
-                        <div class="summary-card-top">
-                            <h3>取引店舗数</h3>
-                            <div class="value">${Object.keys(storeTransactions).length}</div>
-                            <p>店舗</p>
-                        </div>
-                        <div class="summary-card-bottom">
-                            ${mostActiveStore ? `<span>最多取引: ${mostActiveStore[0]}</span><br><span>(${mostActiveStore[1].count}件)</span>` : '<span>なし</span>'}
+                        <h3>取引店舗数</h3>
+                        <div class="value">${Object.keys(storeTransactions).length}</div>
+                        <p>店舗</p>
+                        <div class="breakdown">
+                            最多取引: ${mostActiveStore ? mostActiveStore[0] : 'なし'}<br>
+                            ${mostActiveStore ? `(${mostActiveStore[1].count}件)` : ''}
                         </div>
                     </div>
                     <div class="summary-card neutral">
-                        <div class="summary-card-top">
-                            <h3>平均取引額</h3>
-                            <div class="value">¥${this.searchResults.length > 0 ? Math.round(totalAmount / this.searchResults.length).toLocaleString() : '0'}</div>
-                            <p>1件あたり</p>
-                        </div>
-                        <div class="summary-card-bottom">
+                        <h3>平均取引額</h3>
+                        <div class="value">¥${this.searchResults.length > 0 ? Math.round(totalAmount / this.searchResults.length).toLocaleString() : '0'}</div>
+                        <p>1件あたり</p>
+                        <div class="breakdown">
                             ${(() => {
                                 const categories = ['食材', '飲料', 'その他'];
                                 return categories
@@ -1651,19 +1567,16 @@
                                         const avg = Math.round(totalByCategory[category] / countByCategory[category]);
                                         return `<span class="breakdown-item">${category}: ¥${avg.toLocaleString()}</span>`;
                                     })
-                                    .join('');
+                                    .join('<br>');
                             })()}
                         </div>
                     </div>
-                    <div class="summary-card negative range-card">
-                        <div class="summary-card-top">
-                            <h3>データ範囲</h3>
-                            <div class="value"><span>${document.getElementById('start-date').value}</span></div>
-                            <div class="value"><span>~ ${document.getElementById('end-date').value}</span></div>
-                            <p>${document.getElementById('store-name').value || '全店舗'}</p>
-                        </div>
-                        <div class="summary-card-bottom">
-                            <span>データ表示期間</span>
+                    <div class="summary-card negative">
+                        <h3>データ範囲</h3>
+                        <div class="value" style="font-size: 1.2rem;">全期間</div>
+                        <div class="value" style="font-size: 1.2rem;">全店舗</div>
+                        <div class="breakdown">
+                            完全なデータセット
                         </div>
                     </div>
                 `;
@@ -1742,47 +1655,39 @@
                                 : '';
                             return `<span class="breakdown-item">${category}: ¥${amount.toLocaleString()}${countText}</span>`;
                         })
-                        .join(''); // Join with empty string, as items are now block
+                        .join('<br>');
                 };
 
                 summaryCards.innerHTML = `
                     <div class="summary-card positive">
-                        <div class="summary-card-top">
-                            <h3>貸出合計</h3>
-                            <div class="value">¥${totalLent.toLocaleString()}</div>
-                            <p>${this.searchResults.filter(row => row.lender === storeName).length}件</p>
-                        </div>
-                        <div class="summary-card-bottom">
+                        <h3>貸出合計</h3>
+                        <div class="value">¥${totalLent.toLocaleString()}</div>
+                        <p>${this.searchResults.filter(row => row.lender === storeName).length}件</p>
+                        <div class="breakdown">
                             ${createBreakdown(lentByCategory, true, lentCountByCategory)}
                         </div>
                     </div>
                     <div class="summary-card negative">
-                        <div class="summary-card-top">
-                            <h3>借入合計</h3>
-                            <div class="value">¥${totalBorrowed.toLocaleString()}</div>
-                            <p>${this.searchResults.filter(row => row.borrower === storeName).length}件</p>
-                        </div>
-                        <div class="summary-card-bottom">
+                        <h3>借入合計</h3>
+                        <div class="value">¥${totalBorrowed.toLocaleString()}</div>
+                        <p>${this.searchResults.filter(row => row.borrower === storeName).length}件</p>
+                        <div class="breakdown">
                             ${createBreakdown(borrowedByCategory, true, borrowedCountByCategory)}
                         </div>
                     </div>
                     <div class="summary-card ${balance >= 0 ? 'positive' : 'negative'}">
-                        <div class="summary-card-top">
-                            <h3>残高</h3>
-                            <div class="value">¥${balance.toLocaleString()}</div>
-                            <p> </p>
-                        </div>
-                        <div class="summary-card-bottom">
+                        <h3>残高</h3>
+                        <div class="value">¥${balance.toLocaleString()}</div>
+                        <p> </p>
+                        <div class="breakdown">
                             ${createBreakdown(balanceByCategory)}
                         </div>
                     </div>
                     <div class="summary-card neutral">
-                        <div class="summary-card-top">
-                            <h3>取引件数</h3>
-                            <div class="value">${this.searchResults.length}</div>
-                            <p>件</p>
-                        </div>
-                        <div class="summary-card-bottom">
+                        <h3>取引件数</h3>
+                        <div class="value">${this.searchResults.length}</div>
+                        <p>件</p>
+                        <div class="breakdown">
                             ${(() => {
                                 const totalCountByCategory = {
                                     '食材': (lentCountByCategory['食材'] || 0) + (borrowedCountByCategory['食材'] || 0),
@@ -1794,7 +1699,7 @@
                                 return categories
                                     .filter(category => (totalCountByCategory[category] || 0) > 0)
                                     .map(category => `<span class="breakdown-item">${category}: ${totalCountByCategory[category]}件</span>`)
-                                    .join(''); // Join with empty string, as items are now block
+                                    .join('<br>');
                             })()}
                         </div>
                     </div>
@@ -1849,8 +1754,8 @@
                     }
                 }).join('');
 
-                // Add responsive class to table for mobile - 積み重ね表示を再度適用
-                detailsTable.closest('table').classList.add('responsive'); 
+                // Add responsive class to table for mobile
+                table.classList.add('responsive');
 
                 // テーブルデータを保存（ソート用）
                 currentTableData = this.searchResults;
