@@ -1,0 +1,2365 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>店舗別貸借分析システム</title>
+<style>
+        /* CSSスタイルは基本的に変更なし */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4a4a4a 0%, #363636 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* パスワード認証画面のスタイル */
+        .password-screen {
+            display: block;
+            text-align: center;
+            padding: 50px 30px;
+        }
+
+        .password-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .password-title {
+            font-size: 2rem;
+            background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+        }
+
+        .password-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .password-input {
+            padding: 15px;
+            border: 2px solid #cccccc;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+            text-align: center;
+        }
+
+        .password-input:focus {
+            border-color: #5a7c5a;
+        }
+
+        .password-btn {
+            background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .password-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .password-btn:disabled {
+            background: linear-gradient(135deg, #cccccc 0%, #999999 100%);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .password-error {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .password-info {
+            font-size: 14px;
+            color: #666;
+            margin-top: 20px;
+        }
+
+        /* ログイン画面の要素名を自動ログインに合わせて変更 */
+        .auto-login-screen {
+            display: none;
+            text-align: center;
+            padding: 50px 30px;
+        }
+
+        .main-app {
+            display: none;
+        }
+
+        .auto-login-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .auto-login-title {
+            font-size: 2rem;
+            background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+        }
+
+        .auto-login-status {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .auto-login-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #5a7c5a;
+            border-radius: 50%;
+            animation: autoLoginSpin 1s linear infinite;
+            margin: 20px 0;
+        }
+
+        @keyframes autoLoginSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            z-index: 10;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .home-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            z-index: 10;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .home-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+            padding-top: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .status-section {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .status-section h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .status-info {
+            background: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .status-success {
+            background: #e8f5e8;
+            border: 1px solid #c8e6c8;
+            color: #5a7c5a;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .status-loading {
+            background: #e9ecef;
+            border: 1px solid #d0d0d0;
+            color: #495057;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #5a7c5a;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .search-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .search-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            align-items: end;
+        }
+
+        /* ボタン群の配置をPC向けに調整 */
+        .button-group {
+            display: flex; /* Flexboxを使用 */
+            flex-wrap: wrap; /* 必要に応じて折り返し */
+            gap: 15px; /* ボタン間の間隔 */
+            align-items: center;
+            justify-content: flex-start; /* 左寄せ */
+            width: 100%; /* グリッドの全幅を使用 */
+            grid-column: 1 / -1; /* グリッドの全幅を使用 */
+            margin-top: 10px; /* フォーム要素との間に少し間隔 */
+        }
+
+        .sub-buttons { /* 補助ボタンのラッパー */
+            display: flex; /* Flexboxを使用 */
+            gap: 15px; /* ボタン間の間隔 */
+            flex-wrap: wrap; /* 必要に応じて折り返し */
+            justify-content: flex-start; /* 左寄せ */
+            flex-grow: 1; /* 親の残りのスペースを埋めるように広がる */
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 12px 15px;
+            border: 2px solid #cccccc;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+            width: 100%; /* フォーム要素が幅いっぱいに広がるように */
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #5a7c5a;
+        }
+
+        /* 個別ボタンのスタイルはそのまま */
+        .search-btn,
+        .all-data-btn,
+        .correction-search-btn {
+            flex-shrink: 0; /* 縮小しない */
+            min-width: 120px; /* ある程度の最小幅を確保 */
+            padding: 15px 20px; /* パディングを調整 */
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: transform 0.2s ease;
+            height: fit-content;
+        }
+
+        .search-btn {
+            background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+            color: white;
+            border: none;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .all-data-btn {
+            background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
+            color: white;
+            border: none;
+        }
+
+        .all-data-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .correction-search-btn {
+            background: linear-gradient(135deg, #a67f3f 0%, #8a6a2a 100%); /* 少し異なる色で強調 */
+            color: white;
+            border: none;
+        }
+        .correction-search-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #777777 0%, #5a5a5a 100%);
+            padding: 25px;
+            border-radius: 15px;
+            color: white;
+            text-align: center;
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .summary-card h3 {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .summary-card.positive {
+            background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+        }
+
+        .summary-card.negative {
+            background: linear-gradient(135deg, #8a5a5a 0%, #6b4a4a 100%);
+        }
+
+        .summary-card.neutral {
+            background: linear-gradient(135deg, #888888 0%, #707070 100%);
+        }
+
+        .summary-card .breakdown {
+            font-size: 1.4rem;
+            opacity: 0.8;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            line-height: 1.3;
+        }
+
+        .summary-card .breakdown-item {
+            display: inline-block;
+            margin: 1px 0;
+        }
+
+        .details-section {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .details-header {
+            background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .details-header h3 {
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+        }
+
+        .details-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: background-color 0.2s ease;
+        }
+
+        th:hover {
+            background: #f1f5f9;
+        }
+
+        th.sortable::after {
+            content: " ↕️";
+            font-size: 12px;
+            margin-left: 5px;
+            opacity: 0.5;
+        }
+
+        th.sort-asc::after {
+            content: " ↑";
+            color: #5a7c5a;
+            opacity: 1;
+        }
+
+        th.sort-desc::after {
+            content: " ↓";
+            color: #5a7c5a;
+            opacity: 1;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+
+        tr:hover {
+            background: rgba(90, 124, 90, 0.05);
+        }
+
+        .data-row {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .data-row:hover {
+            background: rgba(214, 158, 46, 0.1) !important;
+            transform: scale(1.01);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .data-row:active {
+            transform: scale(0.99);
+        }
+
+        .amount {
+            text-align: right;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        .amount.positive {
+            color: #5a7c5a;
+        }
+
+        .amount.negative {
+            color: #8a5a5a;
+        }
+
+        .type-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .type-貸出 {
+            background: #e8f5e8;
+            color: #5a7c5a;
+        }
+
+        .type-借入 {
+            background: #f5e8e8;
+            color: #8a5a5a;
+        }
+
+        .type-貸借 { /* 全データ表示時の「貸借」タグ用 */
+            background: #e0f2f7;
+            color: #007bff;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+            font-size: 18px;
+        }
+
+        .export-section {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .export-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .retry-btn {
+            background: linear-gradient(135deg, #888888 0%, #6a6a6a 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin-top: 15px;
+        }
+
+        .retry-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* モバイル対応 */
+        @media (max-width: 768px) {
+            .search-form {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                min-width: 600px;
+            }
+
+            .header {
+                padding-top: 40px; /* Adjust header padding for auto-login screen */
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+                margin-bottom: 15px;
+            }
+
+            .logout-btn {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                padding: 8px 15px;
+                font-size: 14px;
+                z-index: 1000;
+            }
+
+            .home-btn {
+                position: fixed;
+                top: 10px;
+                left: 10px;
+                padding: 8px 15px;
+                font-size: 14px;
+                z-index: 1000;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            .button-group {
+                flex-direction: column; /* モバイルでは縦並び */
+                gap: 10px;
+                justify-content: center; /* 中央寄せ */
+            }
+
+            .sub-buttons { /* モバイルでは補助ボタンも縦並び */
+                flex-direction: column;
+                width: 100%; /* 親要素いっぱいに広げる */
+                justify-content: center; /* 中央寄せ */
+            }
+
+            .search-btn,
+            .all-data-btn,
+            .correction-search-btn {
+                width: 100%; /* 幅を100%に */
+            }
+
+            .password-card {
+                padding: 30px 20px;
+            }
+
+            .auto-login-card {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+<style>
+@media screen and (max-width: 600px) {
+    table {
+        font-size: 10px;
+        table-layout: fixed;
+        width: 100%;
+        word-wrap: break-word;
+    }
+    th, td {
+        padding: 2px;
+        white-space: normal;
+    }
+}
+table {
+    font-size: 12px;
+    table-layout: fixed;
+    width: 100%;
+    word-wrap: break-word;
+}
+th, td {
+    padding: 4px;
+    white-space: normal;
+}
+</style></head>
+<body>
+<div class="container">
+<!-- パスワード認証画面 -->
+<div class="password-screen" id="password-screen">
+<div class="password-card">
+<h1 class="password-title">🔐 システムアクセス</h1>
+<div class="password-info">
+                    システムにアクセスするにはパスワードが必要です
+                </div>
+<form class="password-form" id="password-form">
+<input class="password-input" id="password-input" placeholder="パスワードを入力してください" required="" type="password"/>
+<button class="password-btn" id="password-btn" type="submit">
+                        🚪 ログイン
+                    </button>
+<div class="password-error" id="password-error">
+                        ❌ パスワードが正しくありません
+                    </div>
+</form>
+<div class="password-info">
+                    🛡️ セキュアな環境でデータを保護しています
+                </div>
+</div>
+</div>
+<!-- 自動ログイン画面 -->
+<div class="auto-login-screen" id="auto-login-screen">
+<div class="auto-login-card">
+<h1 class="auto-login-title">🔐 システム認証</h1>
+<div class="auto-login-status" id="auto-login-status">
+                    APIキーによる自動認証中...
+                </div>
+<div class="auto-login-spinner"></div>
+<div style="margin-top: 20px; font-size: 14px; color: #666;">
+                    🛡️ セキュア接続でデータにアクセス中です
+                </div>
+</div>
+</div>
+<!-- メインアプリケーション -->
+<div class="main-app" id="main-app">
+<div class="header" style="position: relative;">
+<h1>📊 店舗別貸借分析システム</h1>
+<p>Google Sheets API を使用してリアルタイムデータ分析</p>
+<a class="home-btn" href="https://marugo-s.github.io/management/">🏠 トップページ</a>
+<button class="logout-btn" id="logout-btn">🚪 ログアウト</button>
+</div>
+<div class="status-section">
+<h3>📈 システム状態</h3>
+<div class="status-info" id="status-info">
+                APIキーを入力して接続を開始してください
+            </div>
+<button class="retry-btn" id="debug-btn" style="display: none; margin-top: 10px;">
+                🐛 詳細デバッグ情報を表示
+            </button>
+<div id="debug-info" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 15px; margin-top: 10px; font-family: 'Courier New', monospace; font-size: 12px; max-height: 300px; overflow-y: auto;"></div>
+</div>
+<div class="search-section" id="search-section">
+<h2 style="margin-bottom: 20px;">🔍 データ検索・分析</h2>
+<form class="search-form" id="search-form">
+<div class="form-group">
+<label for="start-date">開始日</label>
+<input id="start-date" name="startDate" required="" type="date"/>
+</div>
+<div class="form-group">
+<label for="end-date">終了日</label>
+<input id="end-date" name="endDate" required="" type="date"/>
+</div>
+<div class="form-group">
+<label for="store-name">店舗名</label>
+<select id="store-name" name="storeName"> <option value="">店舗を選択してください（任意）</option>
+</select>
+</div>
+<div class="form-group" style="grid-column: 1 / -1; margin-top: 0;"> <div class="button-group">
+<button class="search-btn" type="submit">🔍 検索実行</button>
+<div class="sub-buttons">
+<button class="all-data-btn" id="all-data-btn" type="button">📋 全データを表示</button>
+<button class="correction-search-btn" id="correction-search-btn" type="button">✏️ 修正データ検索</button>
+</div>
+</div>
+</div>
+</form>
+</div>
+<div class="results-section" id="results-section">
+<div class="summary-cards" id="summary-cards">
+</div>
+<div class="details-section">
+<div class="details-header">
+<h3 id="details-title">取引詳細</h3>
+<p id="details-subtitle">期間内の全取引データ（各列をクリックでソート）</p>
+</div>
+<div class="table-wrapper">
+<table id="results-table">
+<thead>
+<tr>
+<th class="sortable" onclick="sortTable(0)">日付</th>
+<th class="sortable" onclick="sortTable(1)">取引種別</th>
+<th class="sortable" onclick="sortTable(2)">相手方</th>
+<th class="sortable" onclick="sortTable(3)">品目</th>
+<th class="sortable" onclick="sortTable(4)">カテゴリー</th>
+<th class="sortable" onclick="sortTable(5)">金額</th>
+<th class="sortable" onclick="sortTable(6)">入力者</th>
+<th class="sortable" onclick="sortTable(7)">修正</th>
+</tr>
+</thead>
+<tbody id="details-table">
+</tbody>
+</table>
+</div>
+</div>
+<div class="export-section">
+<button class="export-btn" id="export-btn">📊 結果をCSV出力</button>
+</div>
+</div>
+</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+<!-- obfuscated.js を先に読み込む -->
+<script src="obfuscated.js"></script>
+<script>
+        // パスワード認証の有効期限（時間）
+        const PASSWORD_EXPIRY_HOURS = 8; 
+
+        // ソート機能用の変数
+        let sortDirection = {};
+        let currentTableData = [];
+
+        // パスワード認証管理クラス
+        class PasswordAuth {
+            constructor() {
+                this.setupPasswordAuth();
+            }
+
+            setupPasswordAuth() {
+                // 既存の認証状態をチェック
+                if (this.isPasswordAuthenticated()) {
+                    this.showAutoLoginScreen();
+                } else {
+                    this.showPasswordScreen();
+                }
+
+                // パスワードフォームのイベントリスナー
+                const passwordForm = document.getElementById('password-form');
+                if (passwordForm) {
+                    passwordForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.handlePasswordSubmit();
+                    });
+                }
+
+                // Enterキーでログイン
+                const passwordInput = document.getElementById('password-input');
+                if (passwordInput) {
+                    passwordInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            this.handlePasswordSubmit();
+                        }
+                    });
+                }
+            }
+
+            isPasswordAuthenticated() {
+                const authData = sessionStorage.getItem('passwordAuth');
+                if (!authData) return false;
+
+                try {
+                    const auth = JSON.parse(authData);
+                    const now = new Date().getTime();
+                    const authTime = new Date(auth.timestamp).getTime();
+                    const hoursElapsed = (now - authTime) / (1000 * 60 * 60);
+
+                    return auth.authenticated && hoursElapsed < PASSWORD_EXPIRY_HOURS;
+                } catch (error) {
+                    console.error('認証データの解析エラー:', error);
+                    return false;
+                }
+            }
+
+            handlePasswordSubmit() {
+                const passwordInput = document.getElementById('password-input');
+                const passwordBtn = document.getElementById('password-btn');
+                const passwordError = document.getElementById('password-error');
+                const enteredPassword = passwordInput.value;
+
+                // ボタンを無効化
+                passwordBtn.disabled = true;
+                passwordBtn.textContent = '🔄 認証中...';
+
+                // パスワードチェック（少し遅延を入れてセキュリティらしく見せる）
+                setTimeout(() => {
+                    // ここを修正: obfuscated.js から提供される verifyPassword 関数を呼び出す
+                    // verifyPassword 関数が利用可能かチェック
+                    if (typeof verifyPassword === 'function' && verifyPassword(enteredPassword)) {
+                        // 認証成功
+                        this.setPasswordAuthentication();
+                        passwordError.style.display = 'none';
+                        this.showAutoLoginScreen();
+                    } else {
+                        // 認証失敗
+                        passwordError.style.display = 'block';
+                        passwordInput.value = '';
+                        passwordInput.focus();
+                        
+                        // ボタンを元に戻す
+                        passwordBtn.disabled = false;
+                        passwordBtn.textContent = '🚪 ログイン';
+                        
+                        // エラーメッセージを少し揺らす
+                        passwordError.style.animation = 'shake 0.5s';
+                        setTimeout(() => {
+                            passwordError.style.animation = '';
+                        }, 500);
+                    }
+                }, 1000);
+            }
+
+            setPasswordAuthentication() {
+                const authData = {
+                    authenticated: true,
+                    timestamp: new Date().toISOString()
+                };
+                sessionStorage.setItem('passwordAuth', JSON.stringify(authData));
+                console.log('パスワード認証完了');
+            }
+
+            showPasswordScreen() {
+                document.getElementById('password-screen').style.display = 'block';
+                document.getElementById('auto-login-screen').style.display = 'none';
+                document.getElementById('main-app').style.display = 'none';
+                
+                // パスワード入力欄にフォーカス
+                setTimeout(() => {
+                    const passwordInput = document.getElementById('password-input');
+                    if (passwordInput) {
+                        passwordInput.focus();
+                    }
+                }, 100);
+            }
+
+            showAutoLoginScreen() {
+                document.getElementById('password-screen').style.display = 'none';
+                document.getElementById('auto-login-screen').style.display = 'block';
+                document.getElementById('main-app').style.display = 'none';
+                
+                // 自動ログイン処理を開始
+                if (typeof GoogleSheetsAPIAnalyzer !== 'undefined') {
+                    new GoogleSheetsAPIAnalyzer();
+                }
+            }
+
+            logout() {
+                sessionStorage.removeItem('passwordAuth');
+                sessionStorage.removeItem('apiAuthenticated');
+                window.location.reload();
+            }
+        }
+
+        // CSS animation for shake effect
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                20%, 40%, 60%, 80% { transform: translateX(5px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // ソート機能
+        function sortTable(columnIndex) {
+            const table = document.getElementById("results-table");
+            const tbody = table.querySelector("tbody");
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            
+            if (rows.length === 0) return;
+            
+            // ソート方向を決定
+            if (sortDirection[columnIndex] === 'asc') {
+                sortDirection[columnIndex] = 'desc';
+            } else {
+                sortDirection[columnIndex] = 'asc';
+            }
+            
+            // ヘッダーのクラスを更新
+            const headers = table.querySelectorAll("th");
+            headers.forEach((header, index) => {
+                header.classList.remove('sort-asc', 'sort-desc');
+                if (index === columnIndex) {
+                    header.classList.add(sortDirection[columnIndex] === 'asc' ? 'sort-asc' : 'sort-desc');
+                }
+            });
+            
+            // ソート実行
+            rows.sort((a, b) => {
+                const aText = a.cells[columnIndex].textContent.trim();
+                const bText = b.cells[columnIndex].textContent.trim();
+                
+                let comparison = 0;
+                
+                // 列ごとのソート処理
+                if (columnIndex === 0) {
+                    // 日付列
+                    const dateA = new Date(aText);
+                    const dateB = new Date(bText);
+                    comparison = dateA - dateB;
+                } else if (columnIndex === 5) {
+                    // 金額列 - 数値として比較
+                    const amountA = parseFloat(aText.replace(/[¥,]/g, '')) || 0;
+                    const amountB = parseFloat(bText.replace(/[¥,]/g, '')) || 0;
+                    comparison = amountA - amountB;
+                } else {
+                    // その他の列 - 文字列として比較
+                    comparison = aText.localeCompare(bText, 'ja');
+                }
+                
+                return sortDirection[columnIndex] === 'asc' ? comparison : -comparison;
+            });
+            
+            // テーブルを更新
+            tbody.innerHTML = '';
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        class GoogleSheetsAPIAnalyzer {
+            constructor() {
+                console.log('=== GoogleSheetsAPIAnalyzer 初期化開始 ===');
+                
+                this.data = []; // スプレッドシートから読み込んだ全データ
+                this.searchResults = []; // 検索結果データ
+                this.statusDiv = document.getElementById('status-info');
+                this.stores = new Set();
+                // ここにあなたのAPIキーを貼り付けてください
+                this.apiKey = 'AIzaSyAcy7hXztCjngG2poP-Sn_g6ED0TESnNTE'; // 実際のAPIキーに置き換えてください
+                this.spreadsheetId = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'; // 実際のスプレッドシートIDに置き換えてください
+                this.sheetName = '貸借表'; // シート名
+                
+                console.log('基本設定完了');
+                console.log('自動認証開始');
+                
+                // 自動認証を開始
+                this.initAutoAuth();
+                
+                console.log('=== コンストラクタ完了 ===');
+            }
+
+            async initAutoAuth() {
+                console.log('=== 自動認証開始 ===');
+                
+                // ログアウトボタンのイベントリスナーを設定
+                this.setupLogoutListener();
+                
+                // 既にログイン済みかチェック
+                const isAuthenticated = sessionStorage.getItem('apiAuthenticated') === 'true';
+                console.log('既存認証状態:', isAuthenticated);
+                
+                if (isAuthenticated) {
+                    console.log('既にAPI認証済み - メインアプリを表示');
+                    await this.showMainApp();
+                } else {
+                    console.log('API認証実行中...');
+                    await this.performAutoAuth();
+                }
+                
+                console.log('=== 自動認証完了 ===');
+            }
+
+            async performAutoAuth() {
+                const autoLoginScreen = document.getElementById('auto-login-screen');
+                const statusElement = document.getElementById('auto-login-status');
+                
+                // ロード画面を表示
+                if (autoLoginScreen) {
+                    autoLoginScreen.style.display = 'block';
+                }
+
+                try {
+                    // 認証ステータス更新
+                    statusElement.textContent = 'Google Sheets API に接続中...';
+                    
+                    // 少し待ってから認証開始（ユーザー体験向上）
+                    await this.delay(1000);
+                    
+                    // APIキーの有効性をテスト
+                    const isValidKey = await this.validateApiKey();
+                    
+                    if (isValidKey) {
+                        statusElement.textContent = '✅ API認証成功 - システムを初期化中...';
+                        await this.delay(500);
+                        
+                        // 認証成功をセッションに保存
+                        sessionStorage.setItem('apiAuthenticated', 'true');
+                        
+                        // メインアプリに移行
+                        await this.showMainApp();
+                        
+                    } else {
+                        throw new Error('APIキーが無効または期限切れです');
+                    }
+                    
+                } catch (error) {
+                    console.error('自動認証エラー:', error);
+                    statusElement.textContent = `❌ 認証失敗: ${error.message}`;
+                    
+                    // エラー時の再試行ボタンを表示
+                    setTimeout(() => {
+                        if (statusElement) {
+                            statusElement.innerHTML = `
+                                ❌ 認証に失敗しました<br>
+                                <button onclick="location.reload()" style="margin-top: 15px; padding: 10px 20px; background: #5a7c5a; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                                    🔄 再試行
+                                </button>
+                            `;
+                        }
+                    }, 2000);
+                }
+            }
+
+            async validateApiKey() {
+                try {
+                    // APIキーの有効性をテスト（簡単なAPI呼び出し）
+                    const testUrl = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?key=${this.apiKey}`;
+                    const response = await fetch(testUrl);
+                    
+                    return response.ok;
+                } catch (error) {
+                    console.error('APIキー検証エラー:', error);
+                    return false;
+                }
+            }
+
+            setupLogoutListener() {
+                const logoutBtn = document.getElementById('logout-btn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', () => {
+                        this.handleLogout();
+                    });
+                    console.log('ログアウトリスナー設定完了');
+                }
+            }
+
+            handleLogout() {
+                // パスワード認証とAPI認証の両方をクリア
+                sessionStorage.removeItem('apiAuthenticated');
+                sessionStorage.removeItem('passwordAuth');
+                window.location.reload(); // ページをリロードして初期状態に戻る
+            }
+
+            async showMainApp() {
+                console.log('=== メインアプリ表示開始 ===');
+                
+                const autoLoginScreen = document.getElementById('auto-login-screen');
+                const mainApp = document.getElementById('main-app');
+                
+                console.log('自動ログイン画面要素:', autoLoginScreen);
+                console.log('メインアプリ要素:', mainApp);
+                
+                if (autoLoginScreen && mainApp) {
+                    autoLoginScreen.style.display = 'none';
+                    mainApp.style.display = 'block';
+                    console.log('画面切り替え完了');
+                    
+                    // メインアプリを初期化
+                    try {
+                        await this.init();
+                        console.log('メインアプリ初期化完了');
+                    } catch (error) {
+                        console.error('メインアプリ初期化エラー:', error);
+                    }
+                } else {
+                    console.error('画面要素が見つかりません');
+                    console.error('自動ログイン画面:', autoLoginScreen);
+                    console.error('メインアプリ:', mainApp);
+                }
+                
+                console.log('=== メインアプリ表示完了 ===');
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            async init() {
+                this.log('システム初期化中...', 'loading');
+                this.setupEventListeners();
+                this.setDefaultDates();
+                
+                // APIキーが設定されている場合は自動接続
+                if (this.apiKey && this.apiKey !== 'YOUR_API_KEY_HERE') { // APIキーが空でないこともチェック
+                    await this.connectToGoogleSheets();
+                } else {
+                    this.log('APIキーを設定してください', 'error');
+                }
+            }
+
+            debugLog(message, data = null) {
+                const debugDiv = document.getElementById('debug-info');
+                const timestamp = new Date().toLocaleTimeString();
+                let logEntry = `[${timestamp}] ${message}`;
+                if (data) {
+                    logEntry += `\n${JSON.stringify(data, null, 2)}`;
+                }
+                
+                const logElement = document.createElement('div');
+                logElement.style.marginBottom = '10px';
+                logElement.style.paddingBottom = '10px';
+                logElement.style.borderBottom = '1px solid #e9ecef';
+                logElement.textContent = logEntry;
+                debugDiv.appendChild(logElement);
+                debugDiv.scrollTop = debugDiv.scrollHeight;
+                
+                console.log(message, data);
+            }
+
+            showDebugInfo() {
+                const debugBtn = document.getElementById('debug-btn');
+                const debugInfo = document.getElementById('debug-info');
+                
+                debugBtn.style.display = 'block';
+                debugBtn.onclick = () => {
+                    debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+                    debugBtn.textContent = debugInfo.style.display === 'none' ? '🐛 詳細デバッグ情報を表示' : '🐛 デバッグ情報を非表示';
+                };
+            }
+
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = `[${timestamp}] ${message}`;
+                
+                if (type === 'loading') {
+                    this.statusDiv.className = 'status-loading';
+                    this.statusDiv.innerHTML = `<span class="loading-spinner"></span>${logEntry}`;
+                } else {
+                    this.statusDiv.className = type === 'error' ? 'status-error' : type === 'success' ? 'status-success' : 'status-info';
+                    this.statusDiv.textContent = logEntry;
+                }
+                
+                console.log(logEntry);
+            }
+
+            async connectToGoogleSheets() {
+                if (!this.apiKey || this.apiKey === 'YOUR_API_KEY_HERE') {
+                    this.log('APIキーが設定されていません', 'error');
+                    return;
+                }
+
+                this.log('Google Sheets API に接続中...', 'loading');
+                this.showDebugInfo();
+
+                try {
+                    // まず、スプレッドシートの情報を取得してシート名を確認
+                    const metadataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?key=${this.apiKey}`;
+                    
+                    this.debugLog('メタデータ取得 URL', metadataUrl);
+                    
+                    const metadataResponse = await fetch(metadataUrl);
+                    
+                    if (!metadataResponse.ok) {
+                        throw new Error(`メタデータ取得失敗: ${metadataResponse.status} ${metadataResponse.statusText}`);
+                    }
+                    
+                    const metadata = await metadataResponse.json();
+                    this.debugLog('スプレッドシート情報', metadata);
+                    
+                    // 「貸借表」シートを探す
+                    let targetSheetName = this.sheetName;
+                    const targetSheet = metadata.sheets.find(sheet => sheet.properties.title === this.sheetName);
+                    
+                    if (!targetSheet) {
+                        throw new Error(`「${this.sheetName}」シートが見つかりません。`);
+                    }
+                    
+                    this.debugLog('対象シートが見つかりました', targetSheetName);
+                    
+                    // Google Sheets API v4 を使用してデータを取得
+                    const range = `${targetSheetName}!A:I`; // A列からI列までを取得
+                    const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${range}?key=${this.apiKey}`;
+                    
+                    this.debugLog('API リクエスト URL', url);
+                    
+                    const response = await fetch(url);
+                    
+                    this.debugLog('API レスポンス', {
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                    
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            throw new Error('APIキーが無効または権限が不足しています。APIキーとスプレッドシートの共有設定を確認してください。');
+                        } else if (response.status === 400) {
+                            throw new Error('スプレッドシートIDまたはシート名が正しくありません。');
+                        } else {
+                            throw new Error(`API エラー: ${response.status} ${response.statusText}`);
+                        }
+                    }
+                    
+                    const data = await response.json();
+                    this.debugLog('取得データ', data);
+                    
+                    if (!data.values || data.values.length === 0) {
+                        throw new Error('スプレッドシートにデータが見つかりません。');
+                    }
+                    
+                    this.log('データ取得成功', 'success');
+                    await this.processSheetData(data.values);
+                    this.populateStoreDropdown();
+                    
+                    this.log(`データ読み込み完了！${this.data.length}件のレコード、${this.stores.size}店舗`, 'success');
+                    
+                    document.getElementById('search-section').style.display = 'block';
+                    
+                } catch (error) {
+                    this.log(`接続エラー: ${error.message}`, 'error');
+                    this.debugLog('接続エラー詳細', error);
+                }
+            }
+
+            async processSheetData(values) {
+                this.log('データを解析中...', 'loading');
+                
+                if (values.length === 0) {
+                    throw new Error('データが空です');
+                }
+
+                // ヘッダー行を取得
+                const headers = values[0];
+                this.debugLog('ヘッダー行', headers);
+                
+                // フィールドマッピング
+                const getColumnIndex = (aliases) => {
+                    for (const alias of aliases) {
+                        const index = headers.findIndex(header => {
+                            if (header === alias) return true;
+                            if (header.toLowerCase().includes(alias.toLowerCase()) || 
+                                alias.toLowerCase().includes(header.toLowerCase())) return true;
+                            if (alias === 'date' && (header === '›' || header.includes('日付'))) return true;
+                            return false;
+                        });
+                        if (index !== -1) {
+                            this.debugLog(`フィールドマッピング成功: ${aliases[0]} -> ${headers[index]} (列${index})`);
+                            return index;
+                        }
+                    }
+                    this.debugLog(`フィールドマッピング失敗: ${aliases[0]}`);
+                    return -1;
+                };
+
+                const dateIndex = getColumnIndex(['›', '日付', 'date', '取引日']); // A列
+                const nameIndex = getColumnIndex(['名前', 'name', '取引名']); // B列
+                const lenderIndex = getColumnIndex(['貸主', 'lender']); // C列
+                const borrowerIndex = getColumnIndex(['借主', 'borrower']); // D列
+                const categoryIndex = getColumnIndex(['カテゴリー', 'category']); // E列
+                const itemIndex = getColumnIndex(['品目', 'item']); // F列
+                const amountIndex = getColumnIndex(['金額', 'amount']); // G列
+                const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']); // H列
+                const correctionIndex = getColumnIndex(['修正', 'correction']); // I列
+
+                this.debugLog('フィールドインデックス', {
+                    dateIndex, nameIndex, lenderIndex, borrowerIndex, 
+                    categoryIndex, itemIndex, amountIndex, inputDateIndex, correctionIndex
+                });
+
+                // データ行を処理（ヘッダーをスキップ）
+                this.data = values.slice(1).map((row, index) => {
+                    const getValue = (colIndex) => colIndex !== -1 && row[colIndex] ? row[colIndex] : '';
+                    
+                    let extractedDate = '';
+                    if (dateIndex !== -1 && row[dateIndex]) {
+                        extractedDate = this.extractDateFromDateTime(row[dateIndex]);
+                    } else if (inputDateIndex !== -1 && row[inputDateIndex]) {
+                        extractedDate = this.extractDateFromDateTime(row[inputDateIndex]);
+                    }
+
+                    const processedRow = {
+                        date: extractedDate,
+                        name: getValue(nameIndex),
+                        lender: this.normalizeStoreName(getValue(lenderIndex).trim()),
+                        borrower: this.normalizeStoreName(getValue(borrowerIndex).trim()),
+                        category: getValue(categoryIndex),
+                        item: getValue(itemIndex),
+                        amount: this.parseAmount(getValue(amountIndex)),
+                        originalAmount: getValue(amountIndex),
+                        inputDate: getValue(inputDateIndex),
+                        correction: getValue(correctionIndex), // 修正フラグを追加
+                        originalRowIndex: index + 2 // 🔥 追加: スプレッドシートの実際の行番号
+                    };
+
+                    // 店舗名を収集
+                    if (processedRow.lender) this.stores.add(processedRow.lender);
+                    if (processedRow.borrower) this.stores.add(processedRow.borrower);
+
+                    if (index < 5) {
+                        this.debugLog(`処理済みデータサンプル（行${index + 2}）`, processedRow);
+                    }
+
+                    return processedRow;
+                }).filter((row, index) => {
+                    const isValid = row.date && (row.lender || row.borrower);
+                    if (!isValid && index < 10) {
+                        this.debugLog(`無効行をフィルタ（行${index + 2}）`, row);
+                    }
+                    return isValid;
+                });
+
+                this.debugLog(`最終データ件数: ${this.data.length}件`);
+                this.debugLog('検出された店舗一覧', Array.from(this.stores).sort());
+            }
+
+            // 店舗名の正規化
+            normalizeStoreName(storeName) {
+                if (!storeName) return '';
+                
+                // まず基本的なクリーニング
+                let normalized = storeName.trim().toUpperCase();
+                
+                const normalizations = {
+                    'クラウディア２': 'Claudia2',
+                    'クラウディア2': 'Claudia2',
+                    'マルゴ': 'MARUGO',
+                    'マルゴセカンド': 'MARUGO2',
+                    
+                    // BISTRO CAVA系の正規化を追加
+                    'BISTRO CAVA,CAVA': 'BISTRO CAVACAVA',
+                    'BISTRO CAVA CAVA': 'BISTRO CAVACAVA',
+                    'BISTROCAVACAVA': 'BISTRO CAVACAVA',
+                    'BISTRO CAVA・CAVA': 'BISTRO CAVACAVA',
+                    
+                    // その他の正規化ルール
+                    'MARUGO GRANDE': 'MARUGO GRANDE',
+                    'MARUGO MARUNOUCHI': 'MARUGO MARUNOUCHI',
+                    'MARUGO YOTSUYA': 'MARUGO YOTSUYA',
+                    'MARUGO-D': 'MARUGO-D',
+                    'MARUGO-OTTO': 'MARUGO-OTTO'
+                };
+                
+                // 完全一致での正規化
+                if (normalizations[normalized]) {
+                    return normalizations[normalized];
+                }
+                
+                // BISTRO CAVA系の部分的正規化
+                if (normalized.includes('BISTRO') && normalized.includes('CAVA')) {
+                    return 'BISTRO CAVACAVA';
+                }
+                
+                return storeName; // 元の形式を保持
+            }
+
+            extractDateFromDateTime(dateTimeStr) {
+                if (!dateTimeStr) return '';
+                
+                try {
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(dateTimeStr)) {
+                        return dateTimeStr;
+                    }
+                    
+                    const date = new Date(dateTimeStr);
+                    if (!isNaN(date.getTime())) {
+                        return date.toISOString().split('T')[0];
+                    }
+                    
+                    const japaneseMatch = dateTimeStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+                    if (japaneseMatch) {
+                        const [, year, month, day] = japaneseMatch;
+                        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                    }
+                    
+                    const slashMatch = dateTimeStr.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+                    if (slashMatch) {
+                        const [, year, month, day] = slashMatch;
+                        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                    }
+                    
+                    const hyphenMatch = dateTimeStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+                    if (hyphenMatch) {
+                        const [, year, month, day] = hyphenMatch;
+                        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                    }
+                    
+                    return '';
+                } catch (error) {
+                    return '';
+                }
+            }
+
+            parseAmount(amountStr) {
+                if (!amountStr) return 0;
+                const normalized = amountStr.toString().replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
+                const cleaned = normalized.replace(/[,\s]/g, '');
+                return parseFloat(cleaned) || 0;
+            }
+
+            populateStoreDropdown() {
+                const storeSelect = document.getElementById('store-name');
+                
+                // 既存のオプションをクリア
+                while (storeSelect.children.length > 1) {
+                    storeSelect.removeChild(storeSelect.lastChild);
+                }
+
+                // 店舗をソートして追加
+                const sortedStores = Array.from(this.stores).sort();
+                sortedStores.forEach(store => {
+                    const option = document.createElement('option');
+                    option.value = store;
+                    option.textContent = store;
+                    storeSelect.appendChild(option);
+                });
+
+                this.debugLog('店舗プルダウン設定完了', sortedStores);
+                this.log(`店舗プルダウン設定完了: ${sortedStores.length}店舗`, 'success');
+            }
+
+            setupEventListeners() {
+                const searchForm = document.getElementById('search-form');
+                const exportBtn = document.getElementById('export-btn');
+                const allDataBtn = document.getElementById('all-data-btn');
+                const correctionSearchBtn = document.getElementById('correction-search-btn');
+
+                searchForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.performSearch();
+                });
+
+                allDataBtn.addEventListener('click', () => {
+                    this.showAllData();
+                });
+
+                correctionSearchBtn.addEventListener('click', () => {
+                    this.searchCorrections();
+                });
+
+                exportBtn.addEventListener('click', () => {
+                    this.exportResults();
+                });
+            }
+
+            setDefaultDates() {
+                const today = new Date();
+                const oneMonthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+                
+                document.getElementById('start-date').value = oneMonthAgo.toISOString().split('T')[0];
+                document.getElementById('end-date').value = today.toISOString().split('T')[0];
+            }
+
+            // 修正データのみを検索する機能
+            searchCorrections() {
+                this.log('修正データを検索中...', 'loading');
+                
+                try {
+                    if (!this.data || this.data.length === 0) {
+                        this.log('データを先に読み込んでください。「📋 全データを表示」をクリックしてください。', 'error');
+                        return;
+                    }
+
+                    const startDate = document.getElementById('start-date').value;
+                    const endDate = document.getElementById('end-date').value;
+                    const storeName = document.getElementById('store-name').value;
+                    
+                    let results = this.data.filter(row => {
+                        // 修正列に「✏️修正」があるかチェック (J列またはI列に相当)
+                        const isCorrectionMarked = row.correction && row.correction.includes('✏️修正');
+
+                        if (!isCorrectionMarked) return false; // 修正マークがない場合は除外
+
+                        // 期間指定がある場合の絞り込み
+                        if (row.date) {
+                            const rowDate = new Date(row.date);
+                            const start = startDate ? new Date(startDate) : null;
+                            const end = endDate ? new Date(endDate) : null;
+                            
+                            if (start && rowDate < start) return false;
+                            if (end && rowDate > end) return false;
+                        }
+
+                        // 店舗名による絞り込み
+                        if (storeName) {
+                            // 店舗名が指定されている場合、その店舗が貸主または借主である修正データのみ
+                            return row.lender === storeName || row.borrower === storeName;
+                        } else {
+                            // 店舗名が指定されていない場合、全ての修正データを表示
+                            return true;
+                        }
+                    });
+
+                    this.searchResults = results;
+                    
+                    // 表示タイトルを店舗名に応じて変更
+                    const displayTitle = storeName ? `${storeName}の修正データ詳細` : '修正データ詳細（全店舗）';
+                    
+                    this.log(`修正データ検索完了: ${this.searchResults.length}件の修正取引が見つかりました`, 'success');
+                    
+                    // 店舗名が指定されている場合は店舗別表示、指定されていない場合は全データ表示
+                    if (storeName) {
+                        this.displayResults(storeName); // 店舗別検索と同じ形式で表示
+                        // タイトルを修正データ用に変更
+                        document.getElementById('details-title').textContent = displayTitle;
+                    } else {
+                        this.displayAllDataResults(displayTitle); // 全データ表示と同じ形式で表示
+                    }
+                    
+                    if (results.length === 0) {
+                        const message = storeName 
+                            ? `${storeName}の修正データが指定された期間内に見つかりませんでした。`
+                            : '指定された期間内に修正データが見つかりませんでした。';
+                        this.log(message, 'info');
+                    }
+                }
+                catch (error) {
+                    console.error('修正検索エラー:', error);
+                    this.log('修正データの検索中にエラーが発生しました。', 'error');
+                }
+            }
+
+            // 店舗別検索機能
+            performSearch() { 
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                const storeName = document.getElementById('store-name').value;
+
+                if (!startDate || !endDate) {
+                    this.log('開始日と終了日を両方入力してください', 'error');
+                    return;
+                }
+                
+                this.log('検索実行中...', 'loading');
+
+                this.searchResults = this.data.filter(row => {
+                    const dateMatch = row.date >= startDate && row.date <= endDate;
+                    // 店舗名が選択されている場合のみ店舗で絞り込み
+                    const storeMatch = storeName ? (row.lender === storeName || row.borrower === storeName) : true; 
+                    return dateMatch && storeMatch;
+                });
+
+                this.log(`検索完了: ${this.searchResults.length}件の取引が見つかりました`, 'success');
+                this.displayResults(storeName || "全店舗"); // 店舗名がない場合は「全店舗」と表示
+            }
+
+            showAllData() {
+                this.log('全データ表示中...', 'loading');
+                // 真の全データ表示（期間フィルタも適用しない）
+                this.searchResults = [...this.data]; // 全データをコピー
+
+                this.log(`全データ表示: ${this.searchResults.length}件の取引を表示中`, 'success');
+                this.displayAllDataResults("全取引詳細");
+            }
+
+            displayResults(storeName) {
+                const resultsSection = document.getElementById('results-section');
+                resultsSection.style.display = 'block';
+
+                // ヘッダーとサブタイトルを店舗検索用に設定
+                document.getElementById('details-title').textContent = `${storeName}の取引詳細`;
+                document.getElementById('details-subtitle').textContent = '期間内の取引データ（各列をクリックでソート）';
+
+                this.updateSummaryCards(storeName);
+                this.updateDetailsTable(false); // 店舗別検索モード
+                
+                // ソート状態をリセット
+                sortDirection = {};
+                const headers = document.querySelectorAll("#results-table th");
+                headers.forEach(header => {
+                    header.classList.remove('sort-asc', 'sort-desc');
+                });
+            }
+
+            displayAllDataResults(titleText = "全取引詳細") { // タイトルを引数で受け取る
+                const resultsSection = document.getElementById('results-section');
+                resultsSection.style.display = 'block';
+
+                // ヘッダーとサブタイトルを更新
+                document.getElementById('details-title').textContent = titleText;
+                document.getElementById('details-subtitle').textContent = '期間内の取引データ（各列をクリックでソート）'; // 全データ表示でもこのサブタイトルを使う
+
+                this.updateAllDataSummaryCards();
+                this.updateDetailsTable(true); // 全データ表示モード
+                
+                // ソート状態をリセット
+                sortDirection = {};
+                const headers = document.querySelectorAll("#results-table th");
+                headers.forEach(header => {
+                    header.classList.remove('sort-asc', 'sort-desc');
+                });
+            }
+
+            updateAllDataSummaryCards() {
+                const summaryCards = document.getElementById('summary-cards');
+                
+                // カテゴリー別集計用オブジェクト
+                const totalByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+                const countByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+                const storeTransactions = {};
+                
+                let totalAmount = 0;
+                
+                this.searchResults.forEach(row => {
+                    // カテゴリーの正規化
+                    let category = row.category || 'その他';
+                    const item = (row.item || '').toLowerCase();
+                    
+                    // 品目から飲料を判定
+                    if (category.includes('飲料') || category.includes('ドリンク') || category.includes('酒') ||
+                        item.includes('酒') || item.includes('ビール') || item.includes('ワイン') || 
+                        item.includes('日本酒') || item.includes('焼酎') || item.includes('ウイスキー') ||
+                        item.includes('カクテル') || item.includes('チューハイ') || item.includes('サワー') ||
+                        item.includes('ジュース') || item.includes('コーヒー') || item.includes('茶') ||
+                        item.includes('水') || item.includes('ソーダ') || item.includes('コーラ')) {
+                        category = '飲料';
+                    } 
+                    // 食材の判定
+                    else if (category.includes('食材') || category.includes('食品') ||
+                        item.includes('肉') || item.includes('魚') || item.includes('野菜') ||
+                        item.includes('米') || item.includes('パン') || item.includes('麺') ||
+                        item.includes('調味料') || item.includes('油') || item.includes('塩') ||
+                        item.includes('砂糖') || item.includes('醤油') || item.includes('味噌') ||
+                        item.includes('だし') || item.includes('スパイス') || item.includes('香辛料') ||
+                        item.includes('人参') || item.includes('玉ねぎ') || item.includes('じゃがいも') ||
+                        item.includes('アサリ') || item.includes('鮭') || item.includes('麻') || 
+                        item.includes('オリーブオイル')) {
+                        category = '食材';
+                    } 
+                    // その他
+                    else {
+                        category = 'その他';
+                    }
+                    
+                    totalAmount += row.amount;
+                    totalByCategory[category] = (totalByCategory[category] || 0) + row.amount;
+                    countByCategory[category] = (countByCategory[category] || 0) + 1;
+
+                    // 店舗別統計
+                    if (row.lender) {
+                        if (!storeTransactions[row.lender]) storeTransactions[row.lender] = { lent: 0, borrowed: 0, count: 0 };
+                        storeTransactions[row.lender].lent += row.amount;
+                        storeTransactions[row.lender].count++;
+                    }
+                    if (row.borrower) {
+                        if (!storeTransactions[row.borrower]) storeTransactions[row.borrower] = { lent: 0, borrowed: 0, count: 0 };
+                        storeTransactions[row.borrower].borrowed += row.amount;
+                        storeTransactions[row.borrower].count++;
+                    }
+                });
+
+                // 最も活発な店舗（取引件数ベース）
+                const mostActiveStore = Object.entries(storeTransactions)
+                    .sort((a, b) => b[1].count - a[1].count)[0];
+
+                // 内訳表示用のヘルパー関数
+                const createBreakdown = (categoryData, showCounts = false, countData = null) => {
+                    const categories = ['食材', '飲料', 'その他'];
+                    return categories
+                        .filter(category => (categoryData[category] || 0) !== 0)
+                        .map(category => {
+                            const amount = categoryData[category] || 0;
+                            const countText = showCounts && countData && (countData[category] || 0) > 0
+                                ? ` (${countData[category]}件)` 
+                                : '';
+                            return `<span class="breakdown-item">${category}: ¥${amount.toLocaleString()}${countText}</span>`;
+                        })
+                        .join('<br>');
+                };
+
+                summaryCards.innerHTML = `
+                    <div class="summary-card neutral">
+                        <h3>総取引金額</h3>
+                        <div class="value">¥${totalAmount.toLocaleString()}</div>
+                        <p>${this.searchResults.length}件</p>
+                        <div class="breakdown">
+                            ${createBreakdown(totalByCategory, true, countByCategory)}
+                        </div>
+                    </div>
+                    <div class="summary-card positive">
+                        <h3>取引店舗数</h3>
+                        <div class="value">${Object.keys(storeTransactions).length}</div>
+                        <p>店舗</p>
+                        <div class="breakdown">
+                            最多取引: ${mostActiveStore ? mostActiveStore[0] : 'なし'}<br>
+                            ${mostActiveStore ? `(${mostActiveStore[1].count}件)` : ''}
+                        </div>
+                    </div>
+                    <div class="summary-card neutral">
+                        <h3>平均取引額</h3>
+                        <div class="value">¥${this.searchResults.length > 0 ? Math.round(totalAmount / this.searchResults.length).toLocaleString() : '0'}</div>
+                        <p>1件あたり</p>
+                        <div class="breakdown">
+                            ${(() => {
+                                const categories = ['食材', '飲料', 'その他'];
+                                return categories
+                                    .filter(category => (countByCategory[category] || 0) > 0)
+                                    .map(category => {
+                                        const avg = Math.round(totalByCategory[category] / countByCategory[category]);
+                                        return `<span class="breakdown-item">${category}: ¥${avg.toLocaleString()}</span>`;
+                                    })
+                                    .join('<br>');
+                            })()}
+                        </div>
+                    </div>
+                    <div class="summary-card negative">
+                        <h3>データ範囲</h3>
+                        <div class="value" style="font-size: 1.2rem;">全期間</div>
+                        <div class="value" style="font-size: 1.2rem;">全店舗</div>
+                        <div class="breakdown">
+                            完全なデータセット
+                        </div>
+                    </div>
+                `;
+            }
+
+            updateSummaryCards(storeName) {
+                const summaryCards = document.getElementById('summary-cards');
+                
+                // カテゴリー別集計用オブジェクト
+                const lentByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+                const borrowedByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+                const lentCountByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+                const borrowedCountByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+                
+                let totalLent = 0;
+                let totalBorrowed = 0;
+                
+                this.searchResults.forEach(row => {
+                    // カテゴリーの正規化
+                    let category = row.category || 'その他';
+                    const item = (row.item || '').toLowerCase();
+                    
+                    // 品目から飲料を判定
+                    if (category.includes('飲料') || category.includes('ドリンク') || category.includes('酒') ||
+                        item.includes('酒') || item.includes('ビール') || item.includes('ワイン') || 
+                        item.includes('日本酒') || item.includes('焼酎') || item.includes('ウイスキー') ||
+                        item.includes('カクテル') || item.includes('チューハイ') || item.includes('サワー') ||
+                        item.includes('ジュース') || item.includes('コーヒー') || item.includes('茶') ||
+                        item.includes('水') || item.includes('ソーダ') || item.includes('コーラ')) {
+                        category = '飲料';
+                    } 
+                    // 食材の判定
+                    else if (category.includes('食材') || category.includes('食品') ||
+                        item.includes('肉') || item.includes('魚') || item.includes('野菜') ||
+                        item.includes('米') || item.includes('パン') || item.includes('麺') ||
+                        item.includes('調味料') || item.includes('油') || item.includes('塩') ||
+                        item.includes('砂糖') || item.includes('醤油') || item.includes('味噌') ||
+                        item.includes('だし') || item.includes('スパイス') || item.includes('香辛料') ||
+                        item.includes('人参') || item.includes('玉ねぎ') || item.includes('じゃがいも') ||
+                        item.includes('アサリ') || item.includes('鮭') || item.includes('麻') || 
+                        item.includes('オリーブオイル')) {
+                        category = '食材';
+                    } 
+                    // その他
+                    else {
+                        category = 'その他';
+                    }
+                    
+                    if (row.lender === storeName) {
+                        totalLent += row.amount;
+                        lentByCategory[category] = (lentByCategory[category] || 0) + row.amount;
+                        lentCountByCategory[category] = (lentCountByCategory[category] || 0) + 1;
+                    } else if (row.borrower === storeName) {
+                        totalBorrowed += row.amount;
+                        borrowedByCategory[category] = (borrowedByCategory[category] || 0) + row.amount;
+                        borrowedCountByCategory[category] = (borrowedCountByCategory[category] || 0) + 1;
+                    }
+                });
+
+                const balance = totalLent - totalBorrowed;
+                const balanceByCategory = {
+                    '食材': (lentByCategory['食材'] || 0) - (borrowedByCategory['食材'] || 0),
+                    '飲料': (lentByCategory['飲料'] || 0) - (borrowedByCategory['飲料'] || 0),
+                    'その他': (lentByCategory['その他'] || 0) - (borrowedByCategory['その他'] || 0)
+                };
+
+                // 内訳表示用のヘルパー関数
+                const createBreakdown = (categoryData, showCounts = false, countData = null) => {
+                    const categories = ['食材', '飲料', 'その他'];
+                    return categories
+                        .filter(category => (categoryData[category] || 0) !== 0)
+                        .map(category => {
+                            const amount = categoryData[category] || 0;
+                            const countText = showCounts && countData && (countData[category] || 0) > 0
+                                ? ` (${countData[category]}件)` 
+                                : '';
+                            return `<span class="breakdown-item">${category}: ¥${amount.toLocaleString()}${countText}</span>`;
+                        })
+                        .join('<br>');
+                };
+
+                summaryCards.innerHTML = `
+                    <div class="summary-card positive">
+                        <h3>貸出合計</h3>
+                        <div class="value">¥${totalLent.toLocaleString()}</div>
+                        <p>${this.searchResults.filter(row => row.lender === storeName).length}件</p>
+                        <div class="breakdown">
+                            ${createBreakdown(lentByCategory, true, lentCountByCategory)}
+                        </div>
+                    </div>
+                    <div class="summary-card negative">
+                        <h3>借入合計</h3>
+                        <div class="value">¥${totalBorrowed.toLocaleString()}</div>
+                        <p>${this.searchResults.filter(row => row.borrower === storeName).length}件</p>
+                        <div class="breakdown">
+                            ${createBreakdown(borrowedByCategory, true, borrowedCountByCategory)}
+                        </div>
+                    </div>
+                    <div class="summary-card ${balance >= 0 ? 'positive' : 'negative'}">
+                        <h3>残高</h3>
+                        <div class="value">¥${balance.toLocaleString()}</div>
+                        <p> </p>
+                        <div class="breakdown">
+                            ${createBreakdown(balanceByCategory)}
+                        </div>
+                    </div>
+                    <div class="summary-card neutral">
+                        <h3>取引件数</h3>
+                        <div class="value">${this.searchResults.length}</div>
+                        <p>件</p>
+                        <div class="breakdown">
+                            ${(() => {
+                                const totalCountByCategory = {
+                                    '食材': (lentCountByCategory['食材'] || 0) + (borrowedCountByCategory['食材'] || 0),
+                                    '飲料': (lentCountByCategory['飲料'] || 0) + (borrowedCountByCategory['飲料'] || 0),
+                                    'その他': (lentCountByCategory['その他'] || 0) + (borrowedCountByCategory['その他'] || 0)
+                                };
+                                
+                                const categories = ['食材', '飲料', 'その他'];
+                                return categories
+                                    .filter(category => (totalCountByCategory[category] || 0) > 0)
+                                    .map(category => `<span class="breakdown-item">${category}: ${totalCountByCategory[category]}件</span>`)
+                                    .join('<br>');
+                            })()}
+                        </div>
+                    </div>
+                `;
+            }
+
+            updateDetailsTable(isAllData = false) {
+                const detailsTable = document.getElementById('details-table');
+                
+                if (this.searchResults.length === 0) {
+                    detailsTable.innerHTML = '<tr><td colspan="8" class="no-results">検索条件に該当するデータがありません</td></tr>';
+                    return;
+                }
+
+                detailsTable.innerHTML = this.searchResults.map((row, index) => {
+                    const correctionDisplay = row.correction || ''; 
+
+                    if (isAllData) {
+                        // 全データ表示時: 貸主→借主の形で表示
+                        return `
+                            <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;" title="クリックして逆取引修正">
+                                <td>${row.date}</td>
+                                <td><span class="type-tag type-貸借">貸借</span></td>
+                                <td>${row.lender} → ${row.borrower}</td>
+                                <td>${row.item}</td>
+                                <td>${row.category}</td>
+                                <td class="amount">¥${row.amount.toLocaleString()}</td>
+                                <td>${row.name}</td>
+                                <td>${correctionDisplay}</td>
+                            </tr>
+                        `;
+                    } else {
+                        // 店舗別検索時: 従来の表示
+                        const storeName = document.getElementById('store-name').value;
+                        const isLender = row.lender === storeName;
+                        const transactionType = isLender ? '貸出' : '借入';
+                        const counterpart = isLender ? row.borrower : row.lender;
+                        const amountClass = isLender ? 'positive' : 'negative';
+
+                        return `
+                            <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;" title="クリックして逆取引修正">
+                                <td>${row.date}</td>
+                                <td><span class="type-tag type-${transactionType}">${transactionType}</span></td>
+                                <td>${counterpart}</td>
+                                <td>${row.item}</td>
+                                <td>${row.category}</td>
+                                <td class="amount ${amountClass}">¥${row.amount.toLocaleString()}</td>
+                                <td>${row.name}</td>
+                                <td>${correctionDisplay}</td>
+                            </tr>
+                        `;
+                    }
+                }).join('');
+
+                // テーブルデータを保存（ソート用）
+                currentTableData = this.searchResults;
+                
+                // 行クリックイベントを追加
+                this.addRowClickEvents();
+            }
+
+            // 行クリックイベントを追加（修正版）
+            addRowClickEvents() {
+                const dataRows = document.querySelectorAll('.data-row');
+                
+                dataRows.forEach(rowElement => { // 変数名を 'row' から 'rowElement' に変更
+                    rowElement.addEventListener('click', (e) => {
+                        // イベントバブリングを防止
+                        e.stopPropagation();
+                        
+                        // data-original-row-index から直接スプレッドシートの行番号を取得
+                        const originalRowIndex = parseInt(rowElement.dataset.originalRowIndex);
+                        
+                        // this.searchResults から対応するデータを検索
+                        const selectedData = this.searchResults.find(data => data.originalRowIndex === originalRowIndex);
+
+                        if (!selectedData) {
+                            console.error('選択されたデータが見つかりません', {
+                                originalRowIndex: originalRowIndex,
+                                searchResultsLength: this.searchResults.length,
+                                searchResults: this.searchResults
+                            });
+                            // alert('選択されたデータが見つかりません。ページを再読み込みして再度お試しください。'); // alert の代わりにカスタムモーダルを使用
+                            this.showCustomAlertDialog('選択されたデータが見つかりません。ページを再読み込みして再度お試しください。');
+                            return;
+                        }
+                        
+                        console.log('行クリック - データ選択:', selectedData);
+                        this.showDeleteConfirmDialog(selectedData);
+                    });
+                    
+                    // ホバー効果を強化
+                    rowElement.addEventListener('mouseenter', () => {
+                        rowElement.style.backgroundColor = 'rgba(214, 158, 46, 0.1)';
+                        rowElement.style.transform = 'scale(1.02)';
+                        rowElement.style.transition = 'all 0.2s ease';
+                        rowElement.style.cursor = 'pointer';
+                    });
+                    
+                    rowElement.addEventListener('mouseleave', () => {
+                        rowElement.style.backgroundColor = '';
+                        rowElement.style.transform = '';
+                    });
+                });
+                
+                console.log(`${dataRows.length}行にクリックイベントを追加しました`);
+            }
+
+            // カスタムアラートダイアログの表示
+            showCustomAlertDialog(message) {
+                const dialogId = 'custom-alert-dialog';
+                let dialog = document.getElementById(dialogId);
+
+                if (!dialog) {
+                    dialog = document.createElement('div');
+                    dialog.id = dialogId;
+                    dialog.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        background-color: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                        z-index: 10000;
+                        text-align: center;
+                        max-width: 80%;
+                        min-width: 300px;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    `;
+                    const msgDiv = document.createElement('div');
+                    msgDiv.id = 'custom-alert-message';
+                    msgDiv.style.marginBottom = '20px';
+                    msgDiv.style.fontSize = '16px';
+                    msgDiv.style.color = '#333';
+                    dialog.appendChild(msgDiv);
+
+                    const closeBtn = document.createElement('button');
+                    closeBtn.textContent = 'OK';
+                    closeBtn.style.cssText = `
+                        background-color: #5a7c5a;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 600;
+                        transition: background-color 0.3s ease;
+                    `;
+                    closeBtn.onmouseover = () => closeBtn.style.backgroundColor = '#4a6b4a';
+                    closeBtn.onmouseout = () => closeBtn.style.backgroundColor = '#5a7c5a';
+                    closeBtn.onclick = () => dialog.remove();
+                    dialog.appendChild(closeBtn);
+
+                    document.body.appendChild(dialog);
+                }
+
+                document.getElementById('custom-alert-message').textContent = message;
+                dialog.style.display = 'block';
+            }
+
+            // 削除確認ダイアログを表示（修正版）
+            showDeleteConfirmDialog(selectedData) {
+                console.log('確認ダイアログ表示:', selectedData);
+                
+                // データの基本検証
+                if (!selectedData) {
+                    console.error('選択されたデータが無効です');
+                    this.showCustomAlertDialog('選択されたデータが無効です。再度お試しください。');
+                    return;
+                }
+                
+                const formattedAmount = selectedData.amount ? 
+                    `¥${parseInt(selectedData.amount).toLocaleString('ja-JP')}` : 
+                    '不明';
+                
+                const confirmMessage = `🗑️ 以下のデータを逆取引として修正送信しますか？
+
+📅 日付: ${selectedData.date || '不明'}
+👤 入力者: ${selectedData.name || '不明'}
+📤 貸主: ${selectedData.lender || '不明'}
+📥 借主: ${selectedData.borrower || '不明'}
+🏷️ カテゴリー: ${selectedData.category || '不明'}
+📝 品目: ${selectedData.item || '不明'}
+💵 金額: ${formattedAmount}
+スプレッドシート行: ${selectedData.originalRowIndex || '不明'}
+
+⚠️ この操作により：
+• 貸主と借主が入れ替わった逆取引データが作成されます
+• 自動的に「✏️修正」マークが付与されます
+• 修正用ページに移動します
+
+続行しますか？`;
+
+                // confirm の代わりにカスタムモーダルを使用
+                this.showCustomConfirmDialog(confirmMessage, () => {
+                    console.log('ユーザーが確認 - リダイレクト開始');
+                    this.redirectToCorrectionPage(selectedData);
+                }, () => {
+                    console.log('ユーザーがキャンセル');
+                });
+            }
+
+            // カスタム確認ダイアログの表示
+            showCustomConfirmDialog(message, onConfirm, onCancel) {
+                const dialogId = 'custom-confirm-dialog';
+                let dialog = document.getElementById(dialogId);
+
+                if (!dialog) {
+                    dialog = document.createElement('div');
+                    dialog.id = dialogId;
+                    dialog.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        background-color: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                        z-index: 10000;
+                        text-align: center;
+                        max-width: 80%;
+                        min-width: 350px;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        white-space: pre-wrap; /* 改行を有効にする */
+                    `;
+                    const msgDiv = document.createElement('div');
+                    msgDiv.id = 'custom-confirm-message';
+                    msgDiv.style.marginBottom = '20px';
+                    msgDiv.style.fontSize = '16px';
+                    msgDiv.style.color = '#333';
+                    dialog.appendChild(msgDiv);
+
+                    const btnContainer = document.createElement('div');
+                    btnContainer.style.display = 'flex';
+                    btnContainer.style.justifyContent = 'center';
+                    btnContainer.style.gap = '15px';
+
+                    const confirmBtn = document.createElement('button');
+                    confirmBtn.textContent = 'はい、続行します';
+                    confirmBtn.style.cssText = `
+                        background-color: #5a7c5a;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 600;
+                        transition: background-color 0.3s ease;
+                    `;
+                    confirmBtn.onmouseover = () => confirmBtn.style.backgroundColor = '#4a6b4a';
+                    confirmBtn.onmouseout = () => confirmBtn.style.backgroundColor = '#5a7c5a';
+                    confirmBtn.onclick = () => { dialog.remove(); onConfirm(); };
+                    btnContainer.appendChild(confirmBtn);
+
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.textContent = 'キャンセル';
+                    cancelBtn.style.cssText = `
+                        background-color: #888;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 600;
+                        transition: background-color 0.3s ease;
+                    `;
+                    cancelBtn.onmouseover = () => cancelBtn.style.backgroundColor = '#6a6a6a';
+                    cancelBtn.onmouseout = () => cancelBtn.style.backgroundColor = '#888';
+                    cancelBtn.onclick = () => { dialog.remove(); onCancel(); };
+                    btnContainer.appendChild(cancelBtn);
+
+                    dialog.appendChild(btnContainer);
+                    document.body.appendChild(dialog);
+                }
+
+                document.getElementById('custom-confirm-message').textContent = message;
+                dialog.style.display = 'block';
+            }
+
+
+            // correction.htmlページにリダイレクト（修正版）
+            redirectToCorrectionPage(selectedData) {
+                try {
+                    console.log('=== リダイレクト処理開始 ===');
+                    console.log('選択されたデータ:', selectedData);
+                    
+                    // データの検証
+                    if (!selectedData) {
+                        throw new Error('送信するデータが無効です');
+                    }
+                    
+                    // 必要なフィールドの検証
+                    const requiredFields = ['date', 'lender', 'borrower', 'category', 'item', 'amount', 'originalRowIndex']; // originalRowIndex を追加
+                    const missingFields = requiredFields.filter(field => !selectedData[field]);
+                    if (missingFields.length > 0) {
+                        console.warn('不足しているフィールド:', missingFields);
+                    }
+                    
+                    // sessionStorageに選択されたデータを保存
+                    const dataToSave = JSON.stringify(selectedData);
+                    console.log('保存するデータ:', dataToSave);
+                    
+                    sessionStorage.setItem('correctionData', dataToSave);
+                    console.log('sessionStorageへの保存完了');
+                    
+                    // 保存されたデータを確認
+                    const savedData = sessionStorage.getItem('correctionData');
+                    console.log('保存確認:', savedData ? '成功' : '失敗');
+                    
+                    if (!savedData) {
+                        throw new Error('sessionStorageへの保存に失敗しました');
+                    }
+                    
+                    // URLを決定（現在のページの場所に基づいて適切なパスを設定）
+                    let correctionUrl;
+                    const currentPath = window.location.pathname;
+                    console.log('現在のパス:', currentPath);
+                    
+                    if (currentPath.includes('/data/')) {
+                        // data/marugo.html から呼び出された場合
+                        correctionUrl = '../correction.html';
+                    } else if (currentPath.endsWith('/')) {
+                        // ルートディレクトリから呼び出された場合
+                        correctionUrl = 'correction.html';
+                    } else {
+                        // その他の場合
+                        correctionUrl = 'correction.html';
+                    }
+                    
+                    console.log('リダイレクト先URL:', correctionUrl);
+                    
+                    // バックアップとして、localStorageにも保存
+                    try {
+                        localStorage.setItem('correctionData', dataToSave);
+                        console.log('localStorageにもバックアップ保存完了');
+                    } catch (localStorageError) {
+                        console.warn('localStorageへのバックアップ保存に失敗:', localStorageError);
+                    }
+                    
+                    // correction.htmlページに移動
+                    window.location.href = correctionUrl;
+                    
+                } catch (error) {
+                    console.error('リダイレクトエラー:', error);
+                    // alert(`修正ページへの移動中にエラーが発生しました: ${error.message}`); // alert の代わりにカスタムモーダルを使用
+                    this.showCustomAlertDialog(`修正ページへの移動中にエラーが発生しました: ${error.message}`);
+                    
+                    // デバッグ情報をコンソールに出力
+                    console.log('エラー時のデバッグ情報:');
+                    console.log('- 選択されたデータ:', selectedData);
+                    console.log('- 現在のURL:', window.location.href);
+                    console.log('- sessionStorage状態:', Object.keys(sessionStorage));
+                    console.log('- localStorage状態:', Object.keys(localStorage));
+                }
+            }
+
+            exportResults() {
+                if (this.searchResults.length === 0) {
+                    // alert('エクスポートするデータがありません'); // alert の代わりにカスタムモーダルを使用
+                    this.showCustomAlertDialog('エクスポートするデータがありません');
+                    return;
+                }
+
+                // CSV出力用のマッピング (device情報を除く)
+                const csvData = Papa.unparse(this.searchResults.map(row => ({
+                    日付: row.date,
+                    取引名: row.name,
+                    貸主: row.lender,
+                    借主: row.borrower,
+                    カテゴリー: row.category,
+                    品目: row.item,
+                    金額: row.amount,
+                    入力日時: row.inputDate,
+                    修正: row.correction || ''
+                })));
+
+                const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', `検索結果_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                this.log('CSV出力完了', 'success');
+            }
+        }
+
+        // アプリケーション初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            // パスワード認証を最初に実行
+            const passwordAuth = new PasswordAuth();
+        });
+    </script>
+</body>
+</html>
