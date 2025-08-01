@@ -1696,36 +1696,5 @@ window.addEventListener('load', checkScrollHintVisibility);
 window.addEventListener('resize', checkScrollHintVisibility);
 </script>
 </body>
-	<script>
-		function checkScrollHintVisibility() {
-    const container = document.getElementById("scroll-container");
-    const hint = document.getElementById("scroll-hint");
-    if (!container || !hint) return;
-
-    const isScrollable = container.scrollWidth > container.clientWidth;
-
-    if (isScrollable) {
-        hint.style.opacity = "1";
-        hint.style.transition = "opacity 0.5s ease";
-    } else {
-        hint.style.opacity = "0";
-        hint.style.display = "none";
-    }
-
-    // スクロールされたら非表示
-    container.addEventListener("scroll", () => {
-        hint.style.opacity = "0";
-        setTimeout(() => {
-            hint.style.display = "none";
-        }, 500);
-    }, { once: true }); // 一度だけ実行
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(() => {
-        checkScrollHintVisibility();
-    }, 1000); // 1秒遅らせてDOMの幅が正しく計算されるように
-});
-
-	</script>
+	
 </html>
