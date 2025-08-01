@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const hideScrollHint = () => {
     setTimeout(() => {
       scrollHint.style.display = 'none';
-    }, 7000);
+    }, 20000);
   };
 
   // すべてのボタンに対してクリックイベントを設定
