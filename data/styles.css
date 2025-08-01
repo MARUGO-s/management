@@ -866,7 +866,7 @@ tr:hover {
 }
 
 /* 非常に小さいスマホ画面では1列表示に戻す */
-@media (max-width: 480px) {
+@media (max-width: 300px) {
     .summary-cards {
         grid-template-columns: 1fr;
         gap: 15px;
