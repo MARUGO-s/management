@@ -713,6 +713,16 @@ tr:hover {
 
 /* モバイル表示のみ（767px以下） */
 @media (max-width: 767px) {
+    /* 主要なタイトルのフォントサイズを動的に調整し、1行に収まるようにする */
+    .header h1,
+    .password-title,
+    .auto-login-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: clamp(1rem, 5vw, 2.5rem);
+    }
+    
     .search-form {
         display: grid;
         grid-template-columns: 1fr 1fr; /* 開始日と終了日を横並び */
