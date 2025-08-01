@@ -6,10 +6,8 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>店舗別貸借分析システム</title>
 <link href="styles.css" rel="stylesheet"/>
-<!-- ↓↓↓ ここに追加 ↓↓↓ -->
 <script defer="" src="obfuscated.js"></script>
 <script defer="" src="scripts.js"></script>
-<!-- ↑↑↑ ここに追加 ↑↑↑ -->
 <script>
         function showSummary() {
             const summary = document.getElementById('summary-cards');
@@ -141,7 +139,6 @@
 <h3 id="details-title">取引詳細</h3>
 <p id="details-subtitle">期間内の全取引データ（各列をクリックでソート）</p>
 </div>
-<!-- 横スクロール検知＆ヒント付きテーブル -->
 <div class="table-scroll-wrapper">
 <div class="scroll-hint" id="scroll-hint">↔️</div>
 <div class="table-container" id="scroll-container">
@@ -159,7 +156,6 @@
 </tr>
 </thead>
 <tbody id="details-table">
-<!-- データが動的にここへ -->
 </tbody>
 </table>
 </div>
@@ -1693,24 +1689,8 @@
         const passwordAuth = new PasswordAuth();
     });
 </script>
-</div><script src="obfuscated.js"></script>
-<script>
-function checkScrollHintVisibility() {
-  const hintWrapper = document.querySelector('.scroll-hint');
-  const wrapper = document.querySelector('.scroll-hint-wrapper');
-  if (!hintWrapper || !wrapper) return;
-
-  const needScroll = wrapper.scrollWidth > wrapper.clientWidth;
-
-  if (needScroll) {
-    hintWrapper.classList.remove('hidden');
-  } else {
-    hintWrapper.classList.add('hidden');
-  }
-}
-window.addEventListener('load', checkScrollHintVisibility);
-window.addEventListener('resize', checkScrollHintVisibility);
-</script>
+</div>
+<script src="obfuscated.js"></script>
+<script src="scripts.js"></script>
 </body>
-	
 </html>
