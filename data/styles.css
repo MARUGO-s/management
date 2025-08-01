@@ -873,7 +873,7 @@ th.amount,
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        font-size: clamp(0.8rem, 3vw, 1.8rem);
+        font-size: clamp(1rem, 3vw, 1.8rem);
     }
     
     .search-form {
