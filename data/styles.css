@@ -774,6 +774,10 @@ tr:hover {
     }
 
     /* テーブル関連のスタイル */
+    table tr td,
+    table tr th {
+        white-space: nowrap; /* テキストの折り返しを防止 */
+    }
     table tr td:nth-child(6) {
         white-space: nowrap !important;
     }
@@ -872,6 +876,30 @@ tr:hover {
     .amount {
         font-weight: bold !important;
         font-size: 1.01rem !important;
+    }
+}
+
+/* 非常に小さいスマホ画面では1列表示に戻す */
+@media (max-width: 300px) {
+    .summary-cards {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .summary-card {
+        padding: 18px 12px;
+    }
+
+    .summary-card h3 {
+        font-size: 0.7rem;
+    }
+
+    .summary-card .value {
+        font-size: 1.5rem;
+    }
+
+    .summary-card .breakdown {
+        font-size: 0.85rem;
     }
 }
 
