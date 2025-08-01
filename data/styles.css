@@ -1,0 +1,953 @@
+/* CSSスタイルは基本的に変更なし */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #4a4a4a 0%, #363636 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    padding: 30px;
+    backdrop-filter: blur(10px);
+}
+
+/* パスワード認証画面のスタイル */
+.password-screen {
+    display: block;
+    text-align: center;
+    padding: 50px 30px;
+}
+
+.password-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.password-title {
+    font-size: 2rem;
+    background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 30px;
+}
+
+.password-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.password-input {
+    padding: 15px;
+    border: 2px solid #cccccc;
+    border-radius: 10px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.3s ease;
+    text-align: center;
+}
+
+.password-input:focus {
+    border-color: #5a7c5a;
+}
+
+.password-btn {
+    background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+    color: white;
+    border: none;
+    padding: 15px 20px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.password-btn:hover {
+    transform: translateY(-2px);
+}
+
+.password-btn:disabled {
+    background: linear-gradient(135deg, #cccccc 0%, #999999 100%);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.password-error {
+    color: #dc3545;
+    font-size: 14px;
+    margin-top: 10px;
+    display: none;
+}
+
+.password-info {
+    font-size: 14px;
+    color: #666;
+    margin-top: 20px;
+}
+
+/* ログイン画面の要素名を自動ログインに合わせて変更 */
+.auto-login-screen {
+    display: none;
+    text-align: center;
+    padding: 50px 30px;
+}
+
+.main-app {
+    display: none;
+}
+
+.auto-login-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.auto-login-title {
+    font-size: 2rem;
+    background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 30px;
+}
+
+.auto-login-status {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.auto-login-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #5a7c5a;
+    border-radius: 50%;
+    animation: autoLoginSpin 1s linear infinite;
+    margin: 20px 0;
+}
+
+@keyframes autoLoginSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.logout-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s ease;
+    z-index: 10;
+}
+
+.logout-btn:hover {
+    transform: translateY(-2px);
+}
+
+.home-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s ease;
+    z-index: 10;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.home-btn:hover {
+    transform: translateY(-2px);
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+    padding-top: 20px;
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+    white-space: nowrap;
+    overflow-x: auto;
+}
+
+.status-section {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.status-section h3 {
+    color: #495057;
+    margin-bottom: 15px;
+    
+}
+
+.status-info {
+    background: #e9ecef;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    font-family: 'Courier New', monospace;
+}
+
+.status-success {
+    background: #e8f5e8;
+    border: 1px solid #c8e6c8;
+    color: #5a7c5a;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.status-error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.status-loading {
+    background: #e9ecef;
+    border: 1px solid #d0d0d0;
+    color: #495057;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #5a7c5a;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.search-section {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    display: none;
+}
+
+.search-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    align-items: end;
+}
+
+/* ボタン群の配置をPC向けに調整 */
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    grid-column: 1 / -1;
+    margin-top: 10px;
+}
+
+.sub-buttons {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    flex-grow: 1;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.form-group input,
+.form-group select {
+    padding: 12px 15px;
+    border: 2px solid #cccccc;
+    border-radius: 10px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.3s ease;
+    width: 100%;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: #5a7c5a;
+}
+
+/* 個別ボタンのスタイルはそのまま */
+.search-btn,
+.all-data-btn,
+.correction-search-btn {
+    flex-shrink: 0;
+    min-width: 120px;
+    padding: 15px 20px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: transform 0.2s ease;
+    height: fit-content;
+}
+
+.search-btn {
+    background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+    color: white;
+    border: none;
+}
+
+.search-btn:hover {
+    transform: translateY(-2px);
+}
+
+.all-data-btn {
+    background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
+    color: white;
+    border: none;
+}
+
+.all-data-btn:hover {
+    transform: translateY(-2px);
+}
+
+.correction-search-btn {
+    background: linear-gradient(135deg, #a67f3f 0%, #8a6a2a 100%);
+    color: white;
+    border: none;
+}
+.correction-search-btn:hover {
+    transform: translateY(-2px);
+}
+
+.results-section {
+    display: none;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, #777777 0%, #5a5a5a 100%);
+    padding: 25px;
+    border-radius: 15px;
+    color: white;
+    text-align: center;
+    transform: translateY(0);
+    transition: transform 0.3s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-5px);
+}
+
+.summary-card h3 {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.summary-card .value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.summary-card.positive {
+    background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+}
+
+.summary-card.negative {
+    background: linear-gradient(135deg, #8a5a5a 0%, #6b4a4a 100%);
+}
+
+.summary-card.neutral {
+    background: linear-gradient(135deg, #888888 0%, #707070 100%);
+}
+
+.summary-card .breakdown {
+    font-size: 1.4rem;
+    opacity: 0.8;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    line-height: 1.3;
+}
+
+.summary-card .breakdown-item {
+    display: inline-block;
+    margin: 1px 0;
+}
+
+.details-section {
+    background: white;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.details-header {
+    background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+.details-header h3 {
+    font-size: 1.3rem;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow-x: auto;
+}
+
+.details-subtitle-container {
+    text-align: center;
+    margin-top: 10px;
+    line-height: 1.5;
+}
+
+.details-subtitle-item {
+    font-size: 14px;
+    color: #fff;
+    opacity: 0.9;
+    font-weight: 400;
+    margin: 0;
+    padding: 0;
+}
+
+/* 記号に色をつける */
+.details-subtitle-item::before {
+    content: '\25b8'; /* ▶️ */
+    color: #ffcc00; /* 黄色に */
+    margin-right: 8px;
+    font-size: 12px;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+/* Global font size and table layout */
+table {
+    font-size: 12px;
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    padding: 2px;
+    margin: 0;
+    word-break: break-word;
+}
+
+th {
+    background: #f8fafc;
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #e5e7eb;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+th:hover {
+    background: #f1f5f9;
+}
+
+th.sortable::after {
+    content: " ↕️";
+    font-size: 12px;
+    margin-left: 5px;
+    opacity: 0.5;
+}
+
+th.sort-asc::after {
+    content: " ↑";
+    color: #5a7c5a;
+    opacity: 1;
+}
+
+th.sort-desc::after {
+    content: " ↓";
+    color: #5a7c5a;
+    opacity: 1;
+}
+
+td {
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+    font-size: 12px;
+}
+
+tr:hover {
+    background: rgba(90, 124, 90, 0.05);
+}
+
+.data-row {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.data-row:hover {
+    background: rgba(214, 158, 46, 0.1) !important;
+    transform: scale(1.01);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.data-row:active {
+    transform: scale(0.99);
+}
+
+.amount {
+    text-align: right;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+.amount.positive {
+    color: #5a7c5a;
+}
+
+.amount.negative {
+    color: #8a5a5a;
+}
+
+.type-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.type-貸出 {
+    background: #e8f5e8;
+    color: #5a7c5a;
+}
+
+.type-借入 {
+    background: #f5e8e8;
+    color: #8a5a5a;
+}
+
+.type-貸借 {
+    background: #e0f2f7;
+    color: #007bff;
+}
+
+.no-results {
+    text-align: center;
+    padding: 50px;
+    color: #666;
+    font-size: 18px;
+}
+
+.export-section {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.export-btn {
+    background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.export-btn:hover {
+    transform: scale(1.05);
+}
+
+.retry-btn {
+    background: linear-gradient(135deg, #888888 0%, #6a6a6a 100%);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    margin-top: 15px;
+}
+
+.retry-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* モバイル・タブレット対応 */
+@media (max-width: 1024px) {
+    .search-form {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .summary-card {
+        padding: 20px 15px;
+    }
+
+    .summary-card h3 {
+        font-size: 0.8rem;
+        margin-bottom: 8px;
+    }
+
+    .summary-card .value {
+        font-size: 1.6rem;
+        margin-bottom: 4px;
+    }
+
+    .summary-card .breakdown {
+        font-size: 0.9rem;
+        margin-top: 6px;
+        padding-top: 6px;
+        line-height: 1.2;
+    }
+
+    table {
+        min-width: 600px;
+    }
+
+    .header {
+        padding-top: 40px;
+    }
+
+    .header h1 {
+        font-size: 1.8rem;
+        margin-bottom: 15px;
+    }
+
+    .logout-btn {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        padding: 8px 15px;
+        font-size: 14px;
+        z-index: 1000;
+    }
+
+    .home-btn {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        padding: 8px 15px;
+        font-size: 14px;
+        z-index: 1000;
+    }
+
+    .container {
+        padding: 15px;
+    }
+
+    .button-group {
+        flex-direction: column;
+        gap: 10px;
+        justify-content: center;
+    }
+
+    .sub-buttons {
+        flex-direction: column;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .search-btn,
+    .all-data-btn,
+    .correction-search-btn {
+        width: 100%;
+    }
+
+    .password-card {
+        padding: 30px 20px;
+    }
+
+    .auto-login-card {
+        padding: 30px 20px;
+    }
+
+    .details-subtitle-item {
+        font-size: 12px;
+    }
+}
+
+/* 非常に小さいスマホ画面でも2列を維持するためにフォントサイズをさらに調整 */
+@media (max-width: 480px) {
+    .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .summary-card {
+        padding: 10px;
+    }
+
+    .summary-card h3 {
+        font-size: 0.6rem;
+        margin-bottom: 5px;
+    }
+
+    .summary-card .value {
+        font-size: 1.2rem;
+        margin-bottom: 2px;
+    }
+
+    .summary-card .breakdown {
+        font-size: 0.7rem;
+        margin-top: 4px;
+        padding-top: 4px;
+    }
+    
+    .header h1 {
+        font-size: 1.4rem;
+    }
+    
+    .details-header h3 {
+        font-size: 1.1rem;
+    }
+    
+    .details-subtitle-item {
+        font-size: 10px;
+    }
+}
+
+@media screen and (max-width: 1024px) {
+    table tr td:nth-child(6) {
+        white-space: nowrap !important;
+    }
+    table tr td:nth-child(7) {
+        text-align: right !important;
+    }
+    td.date-cell {
+        display: block;
+        line-height: 1.2;
+    }
+    /* モバイル表示時のテーブル全体のフォントサイズを10pxに設定 */
+    table {
+        font-size: 10px;
+    }
+    /* thとtdのフォントサイズも明示的に10pxに設定 */
+    th, td {
+        font-size: 10px !important;
+        padding: 4px !important;
+    }
+    
+    #summary-cards h3 {
+        font-size: 0.63rem !important;
+    }
+    #summary-cards .value {
+        font-size: 1.4rem !important;
+    }
+    #summary-cards .breakdown {
+        font-size: 0.98rem !important;
+    }
+}
+
+@media screen and (min-width: 1025px) {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto !important;
+  }
+
+  th, td {
+    white-space: nowrap;
+    padding: 8px;
+    border: 1px solid #ccc;
+    text-align: left;
+    font-size: 13px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  td.amount {
+    text-align: right;
+    font-family: monospace;
+  }
+}
+
+/* Hide columns 2 (取引種別), 7 (入力者), and 8 (修正) in intermediate view */
+.intermediate-view td:nth-child(2),
+.intermediate-view th:nth-child(2),
+.intermediate-view td:nth-child(7),
+.intermediate-view th:nth-child(7),
+.intermediate-view td:nth-child(8),
+.intermediate-view th:nth-child(8) {
+    display: none;
+}
+
+/* Prevent wrapping in column 6 (金額) */
+.intermediate-view td:nth-child(6),
+.intermediate-view th:nth-child(6) {
+    white-space: nowrap;
+}
+
+/* モーダルの高さ制限とスクロール対応 */
+.modal-content {
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* スマホの横向き対策（高さが小さい時） */
+@media screen and (max-height: 500px) {
+  .modal-content {
+    max-height: 70vh;
+  }
+}
+
+/* モーダル内のスクロールバー見やすく */
+.modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+.modal-content::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.3);
+  border-radius: 4px;
+}
+
+@media screen and (max-width: 1024px) {
+    table {
+        font-size: 9px !important;
+    }
+    th, td {
+        font-size: 9px !important;
+        padding: 4px !important;
+    }
+}
+
+/* 金額を太文字で見やすく */
+.amount {
+    text-align: right;
+    font-weight: bold;
+    
+    font-family: 'Courier New', monospace;
+}
+
+/* ワイプインアニメーション */
+@keyframes wipe-in {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.type-tag {
+    animation: wipe-in 0.6s ease-out;
+}
+
+/* 各種 type-tag にワイプアニメ適用 */
+.type-貸出,
+.type-借入,
+.type-貸借 {
+    animation: wipe-in 0.6s ease-out;
+}
+
+/* モバイル表示ではアニメーション無効化 */
+@media screen and (max-width: 768px) {
+  .type-tag {
+    animation: none !important;
+  }
+}
+
+@media screen and (max-width: 1024px) {
+  .amount {
+    font-weight: bold !important;
+    font-size: 1.01rem !important;
+  }
+}
+
+/* テーブルのスクロール対応 */
+.table-scroll-wrapper {
+  position: relative;
+  overflow-x: auto;
+}
