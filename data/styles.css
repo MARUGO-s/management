@@ -1,4 +1,8 @@
-/* CSSスタイルは基本的に変更なし */
+/* ================================
+   店舗別貸借分析システム - 完全版CSS
+   ================================ */
+
+/* ベーススタイル */
 * {
     margin: 0;
     padding: 0;
@@ -22,7 +26,9 @@ body {
     backdrop-filter: blur(10px);
 }
 
-/* パスワード認証画面のスタイル */
+/* ================================
+   パスワード認証画面
+   ================================ */
 .password-screen {
     display: block;
     text-align: center;
@@ -102,7 +108,9 @@ body {
     margin-top: 20px;
 }
 
-/* ログイン画面の要素名を自動ログインに合わせて変更 */
+/* ================================
+   自動ログイン画面
+   ================================ */
 .auto-login-screen {
     display: none;
     text-align: center;
@@ -153,6 +161,25 @@ body {
     100% { transform: rotate(360deg); }
 }
 
+/* ================================
+   ヘッダー・ナビゲーション
+   ================================ */
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+    padding-top: 20px;
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+}
+
 .logout-btn {
     position: absolute;
     top: 20px;
@@ -193,22 +220,9 @@ body {
     transform: translateY(-2px);
 }
 
-.header {
-    text-align: center;
-    margin-bottom: 40px;
-    position: relative;
-    padding-top: 20px;
-}
-
-.header h1 {
-    font-size: 2.5rem;
-    background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 10px;
-}
-
+/* ================================
+   ステータスセクション
+   ================================ */
 .status-section {
     background: #f8f9fa;
     border: 2px solid #e9ecef;
@@ -216,13 +230,12 @@ body {
     padding: 25px;
     margin-bottom: 30px;
     text-align: center;
-    display: none; /* システム状態セクションを非表示 */
+    display: none;
 }
 
 .status-section h3 {
     color: #495057;
     margin-bottom: 15px;
-    
 }
 
 .status-info {
@@ -280,6 +293,9 @@ body {
     100% { transform: rotate(360deg); }
 }
 
+/* ================================
+   検索セクション
+   ================================ */
 .search-section {
     background: white;
     padding: 30px;
@@ -296,16 +312,15 @@ body {
     align-items: end;
 }
 
-/* ボタン群の配置をPC向けに調整 */
 .button-group {
-    display: flex; /* Flexboxを使用 */
-    flex-wrap: wrap; /* 必要に応じて折り返し */
-    gap: 15px; /* ボタン間の間隔 */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
     align-items: center;
-    justify-content: flex-start; /* 左寄せ */
-    width: 100%; /* グリッドの全幅を使用 */
-    grid-column: 1 / -1; /* グリッドの全幅を使用 */
-    margin-top: 10px; /* フォーム要素との間に少し間隔 */
+    justify-content: flex-start;
+    width: 100%;
+    grid-column: 1 / -1;
+    margin-top: 10px;
 }
 
 .form-group label {
@@ -325,7 +340,7 @@ body {
     font-size: 16px;
     outline: none;
     transition: border-color 0.3s ease;
-    width: 100%; /* フォーム要素が幅いっぱいに広がるように */
+    width: 100%;
 }
 
 .form-group input:focus,
@@ -333,13 +348,12 @@ body {
     border-color: #5a7c5a;
 }
 
-/* 個別ボタンのスタイルはそのまま */
 .search-btn,
 .all-data-btn,
 .correction-search-btn {
-    flex-shrink: 0; /* 縮小しない */
-    min-width: 120px; /* ある程度の最小幅を確保 */
-    padding: 15px 20px; /* パディングを調整 */
+    flex-shrink: 0;
+    min-width: 120px;
+    padding: 15px 20px;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -369,14 +383,18 @@ body {
 }
 
 .correction-search-btn {
-    background: linear-gradient(135deg, #a67f3f 0%, #8a6a2a 100%); /* 少し異なる色で強調 */
+    background: linear-gradient(135deg, #a67f3f 0%, #8a6a2a 100%);
     color: white;
     border: none;
 }
+
 .correction-search-btn:hover {
     transform: translateY(-2px);
 }
 
+/* ================================
+   結果表示セクション
+   ================================ */
 .results-section {
     display: none;
 }
@@ -442,6 +460,9 @@ body {
     margin: 1px 0;
 }
 
+/* ================================
+   詳細テーブルセクション
+   ================================ */
 .details-section {
     background: white;
     border-radius: 15px;
@@ -471,13 +492,16 @@ body {
     overflow-x: auto;
 }
 
-/* Global font size and table layout */
+/* ================================
+   テーブルスタイル（全デバイス共通）
+   ================================ */
 table {
-    font-size: 12px; /* PC表示時のベースサイズを2サイズ大きくする */
+    font-size: 12px;
     table-layout: fixed;
     width: 100%;
     border-collapse: collapse;
 }
+
 th, td {
     padding: 2px;
     margin: 0;
@@ -527,7 +551,7 @@ td {
     padding: 15px;
     border-bottom: 1px solid #f0f0f0;
     vertical-align: middle;
-    font-size: 12px; /* データセルのサイズを12pxに設定 */
+    font-size: 12px;
 }
 
 tr:hover {
@@ -549,10 +573,29 @@ tr:hover {
     transform: scale(0.99);
 }
 
+/* ================================
+   金額列スタイル（全デバイス共通）
+   ================================ */
+/* 金額列を全デバイスで絶対に1行表示にする包括的ルール */
+table tr td:nth-child(6),
+table tr th:nth-child(6),
+td.amount,
+th.amount,
+.amount-cell {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    min-width: 80px !important;
+    max-width: 120px !important;
+}
+
 .amount {
-    text-align: right;
-    font-weight: 600;
-    font-family: 'Courier New', monospace;
+    text-align: right !important;
+    font-weight: bold !important;
+    font-family: 'Courier New', monospace !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
 .amount.positive {
@@ -563,6 +606,20 @@ tr:hover {
     color: #8a5a5a;
 }
 
+.amount-cell {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #222;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: right !important;
+    font-family: 'Courier New', monospace !important;
+}
+
+/* ================================
+   取引タイプタグ
+   ================================ */
 .type-tag {
     display: inline-block;
     padding: 4px 12px;
@@ -570,6 +627,7 @@ tr:hover {
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
+    animation: wipe-in 0.6s ease-out;
 }
 
 .type-貸出 {
@@ -582,9 +640,14 @@ tr:hover {
     color: #8a5a5a;
 }
 
-.type-貸借 { /* 全データ表示時の「貸借」タグ用 */
+.type-貸借 {
     background: #e0f2f7;
     color: #007bff;
+}
+
+@keyframes wipe-in {
+    0% { clip-path: inset(0 100% 0 0); }
+    100% { clip-path: inset(0 0 0 0); }
 }
 
 .no-results {
@@ -594,6 +657,9 @@ tr:hover {
     font-size: 18px;
 }
 
+/* ================================
+   エクスポートセクション
+   ================================ */
 .export-section {
     text-align: center;
     margin-top: 20px;
@@ -632,7 +698,84 @@ tr:hover {
     transform: translateY(-2px);
 }
 
-/* タブレット表示（768px〜1024px） */
+/* ================================
+   スクロールヒント
+   ================================ */
+.scroll-hint::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    right: 16px;
+    width: 160px;
+    height: 160px;
+    background-image: url('finger.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0;
+    animation: swipeHand 2s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 10;
+}
+
+@keyframes swipeHand {
+    0% { transform: translateX(0); opacity: 0; }
+    10% { opacity: 0.5; }
+    30% { transform: translateX(-20px); opacity: 0.9; }
+    60% { transform: translateX(-40px); opacity: 0.4; }
+    100% { transform: translateX(-60px); opacity: 0; }
+}
+
+.scroll-hint.hidden::before {
+    display: none;
+}
+
+.table-scroll-wrapper {
+    position: relative;
+    overflow-x: auto;
+}
+
+/* ================================
+   中間ビュー（特定列非表示）
+   ================================ */
+.intermediate-view td:nth-child(2),
+.intermediate-view th:nth-child(2),
+.intermediate-view td:nth-child(7),
+.intermediate-view th:nth-child(7),
+.intermediate-view td:nth-child(8),
+.intermediate-view th:nth-child(8) {
+    display: none;
+}
+
+.intermediate-view td:nth-child(6),
+.intermediate-view th:nth-child(6) {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* ================================
+   モーダル
+   ================================ */
+.modal-content {
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background-color: rgba(0,0,0,0.3);
+    border-radius: 4px;
+}
+
+/* ================================
+   タブレット表示（768px〜1024px）
+   ================================ */
 @media (max-width: 1024px) and (min-width: 768px) {
     .search-form {
         display: grid;
@@ -669,6 +812,15 @@ tr:hover {
 
     table {
         min-width: 600px;
+    }
+
+    /* タブレットでも金額列を1行表示に */
+    table tr td:nth-child(6),
+    table tr th:nth-child(6),
+    .amount {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 
     .header {
@@ -711,9 +863,10 @@ tr:hover {
     }
 }
 
-/* モバイル表示のみ（767px以下） */
+/* ================================
+   モバイル表示（767px以下）
+   ================================ */
 @media (max-width: 767px) {
-    /* 主要なタイトルのフォントサイズを動的に調整し、1行に収まるようにする */
     .header h1,
     .password-title,
     .auto-login-title {
@@ -725,25 +878,23 @@ tr:hover {
     
     .search-form {
         display: grid;
-        grid-template-columns: 1fr 1fr; /* 開始日と終了日を横並び */
+        grid-template-columns: 1fr 1fr;
         gap: 15px;
         align-items: end;
     }
     
     .form-group:nth-child(3) {
-        /* 店舗名は全幅に */
         grid-column: 1 / -1;
     }
     
     .form-group:nth-child(4) {
-        /* ボタン群は全幅に */
         grid-column: 1 / -1;
     }
 
     .button-group {
         display: flex;
         flex-wrap: wrap;
-        gap: 5px; /* ボタン間に少し余白を追加 */
+        gap: 5px;
         justify-content: flex-start;
         align-items: flex-start;
         width: 100%;
@@ -751,7 +902,7 @@ tr:hover {
 
     .search-btn,
     .correction-search-btn {
-        flex: 0 0 calc(50% - 2.5px); /* 50%から gap の半分を引く */
+        flex: 0 0 calc(50% - 2.5px);
         min-width: 0;
         padding: 15px 5px;
         margin: 0;
@@ -762,7 +913,7 @@ tr:hover {
     }
 
     .all-data-btn {
-        flex: 0 0 100%; /* 全幅 */
+        flex: 0 0 100%;
         min-width: 0;
         padding: 15px 20px;
         margin: 0;
@@ -773,29 +924,36 @@ tr:hover {
         box-sizing: border-box;
     }
 
-    /* テーブル関連のスタイル */
     table tr td,
     table tr th {
         white-space: normal;
     }
 
-    table tr td:nth-child(6), /* 金額の列 */
+    /* モバイルでも金額列（6列目）は絶対に1行表示 */
+    table tr td:nth-child(6),
     table tr th:nth-child(6) {
         white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        min-width: 60px !important;
+        max-width: 100px !important;
     }
 
     table tr td:nth-child(7) {
         text-align: right !important;
     }
-    td.date-cell {
+
+    .date-cell {
         display: block;
         font-size: 12px;
         line-height: 1.2;
     }
+
     table {
         font-size: 9px !important;
         min-width: 600px;
     }
+
     th, td {
         font-size: 9px !important;
         padding: 4px !important;
@@ -804,9 +962,11 @@ tr:hover {
     #summary-cards h3 {
         font-size: 0.63rem !important;
     }
+
     #summary-cards .value {
         font-size: 1.4rem !important;
     }
+
     #summary-cards .breakdown {
         font-size: 0.98rem !important;
     }
@@ -879,140 +1039,64 @@ tr:hover {
     .amount {
         font-weight: bold !important;
         font-size: 1.01rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        text-align: right !important;
+    }
+
+    /* モバイルではアニメーション無効化 */
+    .type-tag {
+        animation: none !important;
+    }
+
+    #scroll-hint {
+        display: block;
     }
 }
 
+/* ================================
+   PC表示（1025px以上）
+   ================================ */
 @media screen and (min-width: 1025px) {
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: auto !important;
-  }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: auto !important;
+    }
 
-  th, td {
-    white-space: nowrap;
-    padding: 8px;
-    border: 1px solid #ccc;
-    text-align: left;
-    font-size: 13px;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  }
+    th, td {
+        white-space: nowrap;
+        padding: 8px;
+        border: 1px solid #ccc;
+        text-align: left;
+        font-size: 13px;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
 
-  td.amount {
-    text-align: right;
-    font-family: monospace;
-  }
+    /* PC表示でも金額列（6列目）は絶対に1行表示 */
+    table tr td:nth-child(6),
+    table tr th:nth-child(6),
+    td.amount {
+        text-align: right;
+        font-family: monospace;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        min-width: 80px !important;
+        max-width: 150px !important;
+    }
+
+    #scroll-hint {
+        display: none !important;
+    }
 }
 
-/* Hide columns 2 (取引種別), 7 (入力者), and 8 (修正) in intermediate view */
-.intermediate-view td:nth-child(2),
-.intermediate-view th:nth-child(2),
-.intermediate-view td:nth-child(7),
-.intermediate-view th:nth-child(7),
-.intermediate-view td:nth-child(8),
-.intermediate-view th:nth-child(8) {
-    display: none;
-}
-
-/* Prevent wrapping in column 6 (金額) */
-.intermediate-view td:nth-child(6),
-.intermediate-view th:nth-child(6) {
-    white-space: nowrap;
-}
-
-/* モーダルの高さ制限とスクロール対応 */
-.modal-content {
-  max-height: 80vh;
-  overflow-y: auto;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-/* スマホの横向き対策（高さが小さい時） */
+/* ================================
+   高さ制限対応（横向きスマホ等）
+   ================================ */
 @media screen and (max-height: 500px) {
-  .modal-content {
-    max-height: 70vh;
-  }
-}
-
-/* モーダル内のスクロールバー見やすく */
-.modal-content::-webkit-scrollbar {
-  width: 8px;
-}
-.modal-content::-webkit-scrollbar-thumb {
-  background-color: rgba(0,0,0,0.3);
-  border-radius: 4px;
-}
-
-/* 金額を太文字で見やすく */
-.amount {
-    text-align: right;
-    font-weight: bold;
-    
-    font-family: 'Courier New', monospace;
-}
-
-/* ワイプインアニメーション */
-@keyframes wipe-in {
-  0% {
-    clip-path: inset(0 100% 0 0);
-  }
-  100% {
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-.type-tag {
-    animation: wipe-in 0.6s ease-out;
-}
-
-/* 各種 type-tag にワイプアニメ適用 */
-.type-貸出,
-.type-借入,
-.type-貸借 {
-    animation: wipe-in 0.6s ease-out;
-}
-
-/* モバイル表示ではアニメーション無効化 */
-@media screen and (max-width: 768px) {
-  .type-tag {
-    animation: none !important;
-  }
-}
-
-/* スクロールヒント（スワイプ手アイコン）アニメーション */
-@keyframes swipe-motion {
-  0%, 100% {
-    transform: translateX(0);
-    opacity: 0.3;
-  }
-  50% {
-    transform: translateX(15px);
-    opacity: 1;
-  }
-}
-
-.swipe-hint {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  width: 32px;
-  height: 32px;
-  background: url('hand-swipe-icon.svg') no-repeat center center;
-  background-size: contain;
-  animation: swipe-motion 1.6s ease-in-out infinite;
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-/* スクロール可能なテーブルに対して相対配置を確保 */
-.table-scroll-wrapper {
-  position: relative;
-  overflow-x: auto;
-}
-
-@media screen and (min-width: 769px) {
-  #scroll-hint {
-    display: none !important;
-  }
+    .modal-content {
+        max-height: 70vh;
+    }
 }
