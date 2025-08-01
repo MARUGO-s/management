@@ -865,30 +865,6 @@ tr:hover {
     }
 }
 
-/* 非常に小さいスマホ画面では1列表示に戻す */
-@media (max-width: 300px) {
-    .summary-cards {
-        grid-template-columns: 1fr;
-        gap: 15px;
-    }
-
-    .summary-card {
-        padding: 18px 12px;
-    }
-
-    .summary-card h3 {
-        font-size: 0.7rem;
-    }
-
-    .summary-card .value {
-        font-size: 1.5rem;
-    }
-
-    .summary-card .breakdown {
-        font-size: 0.85rem;
-    }
-}
-
 @media screen and (min-width: 1025px) {
   table {
     width: 100%;
