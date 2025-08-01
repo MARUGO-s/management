@@ -720,7 +720,7 @@ tr:hover {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        font-size: clamp(1rem, 5vw, 2.5rem);
+        font-size: clamp(0.8rem, 4vw, 2.5rem);
     }
     
     .search-form {
@@ -776,26 +776,15 @@ tr:hover {
     /* テーブル関連のスタイル */
     table tr td,
     table tr th {
-        white-space: normal; /* テキストの折り返しを有効にする */
+        white-space: normal;
     }
 
-    table tr td:nth-child(6) {
-        white-space: nowrap !important;
-    }
-    table tr td:nth-child(7) {
-        text-align: right !important;
-    }
-    td.date-cell {
-        display: block;
-        font-size: 12px;
-        line-height: 1.2;
-    }
     table {
-        font-size: 10px !important;
+        font-size: 9px !important;
         min-width: 600px;
     }
     th, td {
-        font-size: 10px !important;
+        font-size: 9px !important;
         padding: 4px !important;
     }
     
