@@ -172,7 +172,7 @@ body {
 }
 
 .header h1 {
-    font-size: 2.5rem;
+    font-size: 2rem;
     background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
