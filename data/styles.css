@@ -779,6 +779,19 @@ tr:hover {
         white-space: normal;
     }
 
+    table tr td:nth-child(6), /* 金額の列 */
+    table tr th:nth-child(6) {
+        white-space: nowrap !important;
+    }
+
+    table tr td:nth-child(7) {
+        text-align: right !important;
+    }
+    td.date-cell {
+        display: block;
+        font-size: 12px;
+        line-height: 1.2;
+    }
     table {
         font-size: 9px !important;
         min-width: 600px;
