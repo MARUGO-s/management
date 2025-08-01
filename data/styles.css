@@ -1038,7 +1038,7 @@ th.amount,
 
     .amount {
         font-weight: bold !important;
-        font-size: 1.01rem !important;
+        font-size: 0.8rem !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
