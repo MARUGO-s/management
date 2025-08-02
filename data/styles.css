@@ -786,11 +786,18 @@ th.amount,
 
     .summary-cards {
         grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
+        gap: 10px;
+        margin-bottom: 30px;
+        padding: 0 5px;
     }
 
     .summary-card {
-        padding: 20px 15px;
+        padding: 15px 10px;
+        margin: 0;
+        min-width: 0;
+        overflow: hidden;
+        max-width: 100%;
+        word-wrap: break-word;
     }
 
     .summary-card h3 {
@@ -799,7 +806,7 @@ th.amount,
     }
 
     .summary-card .value {
-        font-size: 1.6rem;
+        font-size: 1.3rem;
         margin-bottom: 4px;
     }
 
@@ -852,7 +859,8 @@ th.amount,
     }
 
     .container {
-        padding: 15px;
+        padding: 10px;
+        margin: 5px;
     }
 
     .password-card {
@@ -868,6 +876,10 @@ th.amount,
    モバイル表示（767px以下）
    ================================ */
 @media (max-width: 767px) {
+    body {
+        padding: 10px;
+    }
+
     .header h1,
     .password-title,
     .auto-login-title {
@@ -975,7 +987,7 @@ th.amount,
     }
 
     #summary-cards .value {
-        font-size: 1.4rem !important;
+        font-size: 1.2rem !important;
     }
 
     #summary-cards .breakdown {
