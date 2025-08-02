@@ -912,18 +912,18 @@ th.amount,
     .search-form {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 20px;
+        gap: 25px;
         align-items: end;
     }
     
     .form-group:nth-child(1),
     .form-group:nth-child(2) {
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
 
     .form-group input,
     .form-group select {
-        margin-bottom: 5px;
+        margin-bottom: 8px;
     }
     
     .form-group:nth-child(3) {
