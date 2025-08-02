@@ -453,11 +453,25 @@ body {
     padding-top: 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.2);
     line-height: 1.3;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+}
+
+.summary-card .breakdown br {
+    display: none;
 }
 
 .summary-card .breakdown-item {
     display: inline-block;
     margin: 1px 0;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 1.2rem;
+    white-space: nowrap;
 }
 
 /* ================================
@@ -808,6 +822,24 @@ th.amount,
         margin-top: 6px;
         padding-top: 6px;
         line-height: 1.2;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .summary-card .breakdown br {
+        display: none;
+    }
+
+    .summary-card .breakdown .breakdown-item {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        white-space: nowrap;
     }
 
     table {
@@ -880,8 +912,18 @@ th.amount,
     .search-form {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 15px;
+        gap: 20px;
         align-items: end;
+    }
+    
+    .form-group:nth-child(1),
+    .form-group:nth-child(2) {
+        margin-bottom: 20px;
+    }
+
+    .form-group input,
+    .form-group select {
+        margin-bottom: 5px;
     }
     
     .form-group:nth-child(3) {
@@ -970,6 +1012,25 @@ th.amount,
 
     #summary-cards .breakdown {
         font-size: 0.98rem !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+
+    #summary-cards .breakdown br {
+        display: none !important;
+    }
+
+    #summary-cards .breakdown .breakdown-item {
+        display: inline-block !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        padding: 3px 8px !important;
+        border-radius: 12px !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap !important;
+        margin: 2px !important;
     }
 
     .summary-cards {
