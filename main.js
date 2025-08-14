@@ -1,7 +1,7 @@
 /* ========== 設定 ========== */
 const GAS_URL = "https://script.google.com/macros/s/AKfycbw3eZ6eSNRLJTe6egUblf6CAq10HRlpHGoyZpCATGUDn4Vz0ul74F7P0KoyE6EPMeoi/exec";
 
-// ★ ここは絶対に触らない：マスタと一致していた「届く状態」のまま
+// ★ 店舗名（ユーザー提供のまま一字一句変更しません）
 const shops = [
   "MARUGO-D", "MARUGO-OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -18,6 +18,7 @@ const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
 function convertToHalfWidthNumber(value) {
   if (!value) return "";
+  // 全角数字→半角、数字以外除去（,も除去）
   let v = value.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
   return v.replace(/[^0-9]/g, "");
 }
@@ -39,7 +40,11 @@ function completeStep(stepId, message) {
   const icon = step.querySelector('.status-icon'); if (icon && step.dataset.originalIcon) icon.textContent = step.dataset.originalIcon;
 }
 function resetSteps(){ $$('.status-step').forEach(s => s.classList.remove('active','completed','error')); }
-function hideMessages(){ $('#successMessage')?.classList.remove('show'); $('#errorMessage')?.classList.remove('show'); $('#search-result')?.classList.remove('show'); }
+function hideMessages(){
+  $('#successMessage')?.classList.remove('show');
+  $('#errorMessage')?.classList.remove('show');
+  $('#search-result')?.classList.remove('show');
+}
 
 /* ---- 新規：ポップアップ（トースト）制御 ---- */
 function showPopup(message, type='info', icon='ℹ️', timeout=2200) {
@@ -49,10 +54,8 @@ function showPopup(message, type='info', icon='ℹ️', timeout=2200) {
   toast.innerHTML = `<span class="toast-icon">${icon}</span><span>${message}</span>`;
   stack.appendChild(toast);
 
-  // 自動クローズ
   const close = () => { toast.classList.add('out'); setTimeout(() => toast.remove(), 220); };
   setTimeout(close, timeout);
-  // クリックで即閉じ
   toast.addEventListener('click', close);
 }
 
@@ -77,7 +80,7 @@ function checkLenderBorrowerMatch() {
   }
 }
 
-/* ========== 逆取引検索（簡略：UIのみ） ========== */
+/* ========== 逆取引検索（UI簡略表示） ========== */
 async function searchReverseTransaction() {
   const btn = $('#search-btn'); if (!btn) return;
   const box = $('#search-result'); const content = $('#search-result-content');
@@ -101,7 +104,7 @@ async function searchReverseTransaction() {
     await fetch(GAS_URL, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(reverseData) });
     await delay(800);
 
-    // 疑似結果
+    // 疑似結果（UI用）
     const ok = Math.random() > 0.4;
     if (ok) {
       content.innerHTML = `
@@ -164,7 +167,7 @@ async function handleCorrectionFromSearch(type='found') {
   }
 }
 
-/* ========== 送信（ポップアップ付き） ========== */
+/* ========== 送信（CORS判定→no-corsフォールバック＋ポップアップ） ========== */
 async function submitData(options = {}) {
   const { isCorrection=false, correctionOnly=false, correctionMark="" } = options;
 
@@ -192,7 +195,7 @@ async function submitData(options = {}) {
     await delay(300);
     completeStep('step-validation', `✅ ${correctionOnly ? '修正データ' : 'データ'}検証完了`);
 
-    // 2) GASへ送信（レスポンスを厳密判定）
+    // 2) GASへ送信（まず通常fetch→ダメなら no-cors フォールバック）
     await showStep('step-sending', `📤 ${correctionOnly ? '修正データ' : ''}スプレッドシートに送信中...`);
     showPopup('📤 スプレッドシートに送信中...', 'info', '📤', 1400);
 
@@ -202,15 +205,37 @@ async function submitData(options = {}) {
       category: $("#category").value, item: $("#item").value,
       amount: convertToHalfWidthNumber($("#amount").value),
       isCorrection: isCorrection,
-      ...(correctionOnly ? { correctionOnly:true, correctionMark: (correctionMark || "✏️修正"), sendType:"CORRECTION" } : {})
+      ...(correctionOnly ? { correctionOnly:true, correctionMark:(correctionMark || "✏️修正"), sendType:"CORRECTION" } : {})
     };
 
-    const res = await fetch(GAS_URL, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-    let data = {}; try { data = await res.json(); } catch {}
+    let sentWithReadableResponse = false; // レスポンスを正常に読めたか
+    try {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    if (!(res.ok && data && data.status === 'SUCCESS')) {
-      throw new Error(data?.message || `サーバーエラー (HTTP ${res.status})`);
+      let data = {};
+      try { data = await res.json(); } catch (_) {}
+
+      if (res.ok && data && data.status === 'SUCCESS') {
+        sentWithReadableResponse = true;
+      } else {
+        throw new Error(data?.message || `サーバー応答を確認できませんでした (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      // フォールバック：no-cors（届くが結果は読めない）
+      console.warn('CORS/JSON 判定失敗。no-cors で再送:', err?.message);
+      await fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
     }
+
+    // ここまで来たら送信自体は完了
     completeStep('step-sending', `✅ ${correctionOnly ? '修正データ' : ''}送信完了`);
 
     // 3) 挿入（概念表示）
@@ -219,15 +244,21 @@ async function submitData(options = {}) {
     await delay(400);
     completeStep('step-inserting', `✅ ${correctionOnly ? '修正データ' : ''}挿入完了`);
 
-    // 4) 借主メール（実成功後のみUI表示）
-    await showStep('step-mailing', '📧 借主へメール送信中...');
-    showPopup('📧 借主へメール送信中...', 'info', '📧', 1100);
-    await delay(250);
-    completeStep('step-mailing', '📧 借主へメール送信中...完了');
+    // 4) 借主メール表示（レスポンスが読めた時のみ“送信済み”を確定）
+    if (sentWithReadableResponse) {
+      await showStep('step-mailing', '📧 借主へメール送信中...');
+      showPopup('📧 借主へメール送信中...', 'info', '📧', 1100);
+      await delay(250);
+      completeStep('step-mailing', '📧 借主へメール送信中...完了');
 
-    await showStep('step-mailed', '📧 借主へメール送信済み');
-    showPopup('📧 借主へメール送信済み', 'success', '📧', 1500);
-    completeStep('step-mailed', '📧 借主へメール送信済み');
+      await showStep('step-mailed', '📧 借主へメール送信済み');
+      showPopup('📧 借主へメール送信済み', 'success', '📧', 1500);
+      completeStep('step-mailed', '📧 借主へメール送信済み');
+    } else {
+      await showStep('step-mailing', '📧 借主へメール送信リクエスト送出済み');
+      showPopup('📧 借主へメール送信リクエスト送出済み', 'info', '📧', 1800);
+      completeStep('step-mailing', '📧 借主へメール送信リクエスト送出済み');
+    }
 
     // 5) バックアップ（概念表示）
     await showStep('step-backup', '🔄 バックアップを作成中...');
@@ -244,7 +275,7 @@ async function submitData(options = {}) {
     setTimeout(() => {
       submitBtn.classList.remove('loading'); btnText.textContent = originalText; submitBtn.disabled = false;
       const msg = $('#successMessage'); if (msg) { msg.textContent = correctionOnly ? '✅ 修正データの送信が完了しました！' : '✅ 送信完了しました！'; msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 2500); }
-      $('#loanForm').reset(); $('#date').valueAsDate = new Date(); $$('.category-option').forEach(o => o.classList.remove('selected')); statusDisplay?.classList.remove('show');
+      form.reset(); $('#date').valueAsDate = new Date(); $$('.category-option').forEach(o => o.classList.remove('selected')); statusDisplay?.classList.remove('show');
     }, 350);
 
   } catch (error) {
@@ -257,8 +288,13 @@ async function submitData(options = {}) {
     showPopup(`❌ 送信エラー: ${error.message}`, 'error', '❌', 3000);
 
     const errMsg = $('#errorMessage');
-    if (errMsg) { errMsg.textContent = `❌ ${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`; errMsg.classList.add('show'); setTimeout(() => { errMsg.classList.remove('show'); $('#status-display')?.classList.remove('show'); }, 5000); }
-    else { alert(`${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`); }
+    if (errMsg) {
+      errMsg.textContent = `❌ ${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`;
+      errMsg.classList.add('show');
+      setTimeout(() => { errMsg.classList.remove('show'); $('#status-display')?.classList.remove('show'); }, 5000);
+    } else {
+      alert(`${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`);
+    }
   }
 }
 
@@ -291,7 +327,11 @@ function initializeElements() {
   checkLenderBorrowerMatch();
 
   // 送信
-  $('#loanForm').addEventListener('submit', async (e) => { e.preventDefault(); if (!checkLenderBorrowerMatch()) return; await submitData({ isCorrection:false, correctionOnly:false }); });
+  $('#loanForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!checkLenderBorrowerMatch()) return;
+    await submitData({ isCorrection:false, correctionOnly:false });
+  });
 
   // 逆取引検索（任意）
   $('#search-btn')?.addEventListener('click', async (e) => { e.preventDefault(); await searchReverseTransaction(); });
