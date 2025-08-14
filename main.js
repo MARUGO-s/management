@@ -53,6 +53,11 @@ async function showStep(stepId, message) {
   const step = document.getElementById(stepId);
   const activeSteps = document.querySelectorAll('.status-step.active');
   
+  if (!step) {
+    console.error(`Error: Step element with ID '${stepId}' not found.`);
+    throw new Error(`送信処理でエラーが発生しました。存在しないステップID: ${stepId}`);
+  }
+
   if (popupOverlay.style.display === 'none' || popupOverlay.style.display === '') {
     popupOverlay.style.display = 'flex';
     popupTitle.textContent = '📨 送信処理中...';
@@ -80,6 +85,10 @@ async function showStep(stepId, message) {
 // プログレスステップを完了状態にする関数 (ポップアップ対応)
 function completeStep(stepId, message) {
   const step = document.getElementById(stepId);
+  if (!step) {
+    console.error(`Error: Step element with ID '${stepId}' not found.`);
+    return;
+  }
   step.classList.remove('active');
   step.classList.add('completed');
   step.querySelector('span:last-child').textContent = message;
@@ -563,10 +572,14 @@ async function submitData(options = {}) {
     } else {
       // どのステップもアクティブでなかった場合（検証エラーなど）
       const validationStep = document.getElementById('step-validation');
-      validationStep.classList.add('error');
-      validationStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
+      if(validationStep) {
+          validationStep.classList.add('error');
+          validationStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
+      }
     }
-    popupTitle.textContent = '❌ エラーが発生しました';
+    if (popupTitle) {
+      popupTitle.textContent = '❌ エラーが発生しました';
+    }
     
     // エラー処理
     submitBtn.classList.remove('loading');
@@ -575,7 +588,9 @@ async function submitData(options = {}) {
 
     // ポップアップをしばらく表示してから閉じる
     setTimeout(() => {
-      popupOverlay.style.display = 'none';
+      if (popupOverlay) {
+        popupOverlay.style.display = 'none';
+      }
       
       // エラーメッセージをポップアップとは別に表示
       const errorMessage = document.getElementById('errorMessage');
