@@ -1,5 +1,10 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbw3eZ6eSNRLJTe6egUblf6CAq10HRlpHGoyZpCATGUDn4Vz0ul74F7P0KoyE6EPMeoi/exec"; // Google Apps ScriptのURL
-const shops = [ // 店舗名のリスト（※あなたの最後の配列をそのまま使用）
+/* =========================
+   設定
+========================= */
+const GAS_URL = "https://script.google.com/macros/s/AKfycbw3eZ6eSNRLJTe6egUblf6CAq10HRlpHGoyZpCATGUDn4Vz0ul74F7P0KoyE6EPMeoi/exec"; // GASのWebアプリURL
+
+// ★ マスタと一致して“届いていた状態”の店舗名。ここは絶対に変えません。
+const shops = [
   "MARUGO-D", "MARUGO-OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
   "マルゴ新橋", "MARUGO YOTSUYA", "371BAR", "三三五五",
@@ -8,166 +13,140 @@ const shops = [ // 店舗名のリスト（※あなたの最後の配列をそ�
   "X&C", "トラットリア ブリッコラ"
 ];
 
-// 店舗データで貸主・借主のオプションを設定
-function populateShops() {
-  const lenderSelect = document.getElementById("lender");
-  const borrowerSelect = document.getElementById("borrower");
+/* =========================
+   ユーティリティ
+========================= */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  shops.forEach(shop => {
-    const option1 = document.createElement("option");
-    option1.value = shop;
-    option1.textContent = shop;
-    lenderSelect.appendChild(option1);
-
-    const option2 = document.createElement("option");
-    option2.value = shop;
-    option2.textContent = shop;
-    borrowerSelect.appendChild(option2);
-  });
-}
-
-// ヘルパー関数: 指定ミリ秒待機
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// 金額を半角数字に変換する関数 (カンマは含まない)
 function convertToHalfWidthNumber(value) {
-  if (!value) return '';
-  let converted = value.replace(/[０-９]/g, function(s) {
-    return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-  });
-  converted = converted.replace(/[^0-9]/g, '');
+  if (!value) return "";
+  let converted = value.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+  converted = converted.replace(/[^0-9]/g, "");
   return converted;
 }
 
-// プログレスステップを表示する関数
+// ステータス表示：既存の仕組みに乗せる（active/completedの切替）
 async function showStep(stepId, message) {
   const step = document.getElementById(stepId);
-  const activeSteps = document.querySelectorAll('.status-step.active');
-
-  // 前のステップを完了状態に
-  activeSteps.forEach(s => {
+  if (!step) return;
+  document.querySelectorAll('.status-step.active').forEach(s => {
     s.classList.remove('active');
     s.classList.add('completed');
   });
-
-  // 現在のステップをアクティブに
   step.classList.add('active');
-  step.querySelector('span:last-child').textContent = message;
+  const label = step.querySelector('span:last-child');
+  if (label) label.textContent = message;
 
-  // ローディングスピナー演出
   const icon = step.querySelector('.status-icon');
-  const originalIcon = icon.textContent;
-  icon.innerHTML = '<span class="mini-loading-spinner"></span>';
-  step.dataset.originalIcon = originalIcon;
-}
-
-// プログレスステップを完了状態にする関数
-function completeStep(stepId, message) {
-  const step = document.getElementById(stepId);
-  step.classList.remove('active');
-  step.classList.add('completed');
-  step.querySelector('span:last-child').textContent = message;
-
-  // アイコンを元に戻す
-  const icon = step.querySelector('.status-icon');
-  if (step.dataset.originalIcon) {
-    icon.textContent = step.dataset.originalIcon;
+  if (icon) {
+    const originalIcon = icon.textContent;
+    icon.innerHTML = '<span class="mini-loading-spinner"></span>';
+    step.dataset.originalIcon = originalIcon;
   }
 }
+function completeStep(stepId, message) {
+  const step = document.getElementById(stepId);
+  if (!step) return;
+  step.classList.remove('active');
+  step.classList.add('completed');
+  const label = step.querySelector('span:last-child');
+  if (label) label.textContent = message;
 
-// 全てのプログレスステップをリセットする関数
+  const icon = step.querySelector('.status-icon');
+  if (icon && step.dataset.originalIcon) icon.textContent = step.dataset.originalIcon;
+}
 function resetSteps() {
-  const steps = document.querySelectorAll('.status-step');
-  steps.forEach(step => {
+  document.querySelectorAll('.status-step').forEach(step => {
     step.classList.remove('active', 'completed', 'error');
   });
 }
-
-// メッセージ表示を非表示にする関数
 function hideMessages() {
-  document.getElementById('successMessage')?.classList.remove('show');
-  const errorMessage = document.getElementById('errorMessage');
-  if (errorMessage) errorMessage.classList.remove('show');
-  const searchResult = document.getElementById('search-result');
-  if (searchResult) searchResult.classList.remove('show');
+  $('#successMessage')?.classList.remove('show');
+  $('#errorMessage')?.classList.remove('show');
+  $('#search-result')?.classList.remove('show');
 }
 
-/**
- * 貸主と借主が同じ店舗名でないことをチェック（リアルタイム）
- */
-function checkLenderBorrowerMatch() {
-  const lenderSelect = document.getElementById("lender");
-  const borrowerSelect = document.getElementById("borrower");
-  const errorMessageDiv = document.getElementById("lender-borrower-error");
+/* =========================
+   初期化
+========================= */
+function populateShops() {
+  const lenderSelect = $("#lender");
+  const borrowerSelect = $("#borrower");
+  shops.forEach(shop => {
+    const o1 = document.createElement("option");
+    o1.value = shop; o1.textContent = shop;
+    lenderSelect.appendChild(o1);
 
-  if (!lenderSelect || !borrowerSelect || !errorMessageDiv) {
-    console.error("Lender/borrower select or error div not found for real-time validation.");
-    return true;
-  }
+    const o2 = document.createElement("option");
+    o2.value = shop; o2.textContent = shop;
+    borrowerSelect.appendChild(o2);
+  });
+}
+
+function checkLenderBorrowerMatch() {
+  const lenderSelect = $("#lender");
+  const borrowerSelect = $("#borrower");
+  const errorDiv = $("#lender-borrower-error");
+  if (!lenderSelect || !borrowerSelect || !errorDiv) return true;
 
   if (lenderSelect.value && borrowerSelect.value && lenderSelect.value === borrowerSelect.value) {
-    errorMessageDiv.textContent = '❌ 貸主と借主は異なる店舗を選択してください。';
-    errorMessageDiv.style.display = 'block';
+    errorDiv.textContent = '❌ 貸主と借主は異なる店舗を選択してください。';
+    errorDiv.style.display = 'block';
     return false;
   } else {
-    errorMessageDiv.style.display = 'none';
-    errorMessageDiv.textContent = '';
+    errorDiv.style.display = 'none';
+    errorDiv.textContent = '';
     return true;
   }
 }
 
-// 逆取引検索（ダイジェスト：通信はno-corsのまま）
+/* =========================
+   逆取引検索（ダイジェスト）
+========================= */
 async function searchReverseTransaction() {
-  const searchBtn = document.getElementById('search-btn');
-  const searchResult = document.getElementById('search-result');
-  const searchResultContent = document.getElementById('search-result-content');
-  const btnText = searchBtn.querySelector('.btn-text');
+  const btn = $('#search-btn');
+  const resBox = $('#search-result');
+  const content = $('#search-result-content');
+  const btnText = btn.querySelector('.btn-text');
   const originalText = btnText.textContent;
 
   const currentData = {
-    date: document.getElementById("date").value,
-    name: document.getElementById("name").value,
-    lender: document.getElementById("lender").value,
-    borrower: document.getElementById("borrower").value,
-    category: document.getElementById("category").value,
-    item: document.getElementById("item").value,
-    amount: convertToHalfWidthNumber(document.getElementById("amount").value)
+    date: $("#date").value,
+    name: $("#name").value,
+    lender: $("#lender").value,
+    borrower: $("#borrower").value,
+    category: $("#category").value,
+    item: $("#item").value,
+    amount: convertToHalfWidthNumber($("#amount").value)
   };
 
   if (!currentData.date || !currentData.lender || !currentData.borrower || !currentData.category || !currentData.item || !currentData.amount) {
-    searchResultContent.innerHTML = `<div class="search-error">❌ すべての項目を入力してから検索してください</div>`;
-    searchResult.classList.add('show');
-    return;
+    content.innerHTML = `<div class="search-error">❌ すべての項目を入力してから検索してください</div>`;
+    resBox.classList.add('show'); return;
   }
   if (currentData.lender === currentData.borrower) {
-    searchResultContent.innerHTML = `<div class="search-error">❌ 貸主と借主が同じため検索できません</div>`;
-    searchResult.classList.add('show');
-    return;
+    content.innerHTML = `<div class="search-error">❌ 貸主と借主が同じため検索できません</div>`;
+    resBox.classList.add('show'); return;
   }
 
-  // ローディング
-  searchBtn.disabled = true;
-  searchBtn.classList.add('loading');
-  btnText.textContent = '検索中...';
-  searchResult.classList.remove('show');
+  btn.disabled = true; btn.classList.add('loading'); btnText.textContent = '検索中...';
+  resBox.classList.remove('show');
 
   try {
     const reverseData = { ...currentData, lender: currentData.borrower, borrower: currentData.lender, searchMode: true };
 
+    // CORS許可ありなので通常fetchでも送れるが、検索UIは疑似表示のまま
     await fetch(GAS_URL, {
       method: "POST",
-      mode: "no-cors",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(reverseData)
     });
+    await delay(800);
 
-    await delay(800); // 疑似待機
-
-    const searchSuccess = Math.random() > 0.4; // 疑似
-
-    if (searchSuccess) {
+    const ok = Math.random() > 0.4; // 疑似
+    if (ok) {
       const matchData = {
         date: currentData.date,
         name: "システム検索結果",
@@ -179,8 +158,7 @@ async function searchReverseTransaction() {
         inputDate: "2024-12-27 10:30:00",
         correction: ""
       };
-
-      searchResultContent.innerHTML = `
+      content.innerHTML = `
         <div class="search-match">
           ✅ 逆取引データが見つかりました！
           <div class="match-details">
@@ -198,10 +176,10 @@ async function searchReverseTransaction() {
           </div>
         </div>`;
     } else {
-      searchResultContent.innerHTML = `
+      content.innerHTML = `
         <div class="search-no-match">
           ❓ 逆取引データは見つかりませんでした
-          <div style="margin-top: 10px; font-size: 14px; font-weight: normal;">
+          <div style="margin-top: 10px; font-size: 14px;">
             以下の条件に一致するデータは存在しません：<br>
             📅 ${currentData.date} | ${currentData.borrower} → ${currentData.lender}<br>
             🏷️ ${currentData.category} | 📝 ${currentData.item} | 💵 ¥${parseInt(currentData.amount).toLocaleString('ja-JP')}
@@ -212,58 +190,38 @@ async function searchReverseTransaction() {
         </div>`;
     }
 
-    searchResult.classList.add('show');
+    resBox.classList.add('show');
 
-    const existingListener = searchResultContent.dataset.listenerAdded;
-    if (existingListener) {
-      searchResultContent.removeEventListener('click', handleSearchResultButtonClick);
-    }
-    searchResultContent.addEventListener('click', handleSearchResultButtonClick);
-    searchResultContent.dataset.listenerAdded = 'true';
-
-  } catch (error) {
-    console.error('検索エラー:', error);
-    searchResultContent.innerHTML = `
-      <div class="search-error">
-        ❌ 検索中にエラーが発生しました<br>
-        <small>${error.message}</small>
-      </div>`;
-    searchResult.classList.add('show');
+    const existing = content.dataset.listenerAdded;
+    if (existing) content.removeEventListener('click', handleSearchResultButtonClick);
+    content.addEventListener('click', handleSearchResultButtonClick);
+    content.dataset.listenerAdded = 'true';
+  } catch (err) {
+    console.error('検索エラー:', err);
+    content.innerHTML = `<div class="search-error">❌ 検索中にエラーが発生しました<br><small>${err.message}</small></div>`;
+    resBox.classList.add('show');
   } finally {
-    searchBtn.disabled = false;
-    searchBtn.classList.remove('loading');
-    btnText.textContent = originalText;
+    btn.disabled = false; btn.classList.remove('loading'); btnText.textContent = originalText;
   }
 }
-
-// 検索結果のボタンクリック
-async function handleSearchResultButtonClick(event) {
-  if (event.target.id === 'correction-from-search') {
-    await handleCorrectionFromSearch('found');
-  } else if (event.target.id === 'correction-from-search-new') {
-    await handleCorrectionFromSearch('not_found');
-  }
+async function handleSearchResultButtonClick(e) {
+  if (e.target.id === 'correction-from-search') await handleCorrectionFromSearch('found');
+  else if (e.target.id === 'correction-from-search-new') await handleCorrectionFromSearch('not_found');
 }
+async function handleCorrectionFromSearch(type='found') {
+  const categoryInput = $('#category');
+  if (!categoryInput.value) { alert('カテゴリーを選択してください'); return; }
 
-// 検索結果からの修正送信処理
-async function handleCorrectionFromSearch(type = 'found') {
-  const categoryInput = document.getElementById('category');
-  if (!categoryInput.value) {
-    alert('カテゴリーを選択してください');
-    return;
-  }
+  const dateValue = $("#date").value;
+  const nameValue = $("#name").value;
+  const lenderValue = $("#lender").value;
+  const borrowerValue = $("#borrower").value;
+  const itemValue = $("#item").value;
+  const categoryValue = $("#category").value;
+  const amountValue = parseInt(convertToHalfWidthNumber($("#amount").value)).toLocaleString('ja-JP');
 
-  const dateValue = document.getElementById("date").value;
-  const nameValue = document.getElementById("name").value;
-  const lenderValue = document.getElementById("lender").value;
-  const borrowerValue = document.getElementById("borrower").value;
-  const itemValue = document.getElementById("item").value;
-  const categoryValue = document.getElementById("category").value;
-  const amountValue = parseInt(convertToHalfWidthNumber(document.getElementById("amount").value)).toLocaleString('ja-JP');
-
-  const confirmMessage =
-    type === 'found'
-      ? `🔍 逆取引データが見つかりました！
+  const msg = (type==='found')
+    ? `🔍 逆取引データが見つかりました！
 
 現在入力されているデータを修正として送信しますか？
 
@@ -274,7 +232,7 @@ async function handleCorrectionFromSearch(type = 'found') {
 💵 ¥${amountValue}
 
 🔥 修正フラグ: ✏️修正 が自動的に付与されます`
-      : `❓ 逆取引データは見つかりませんでした
+    : `❓ 逆取引データは見つかりませんでした
 
 それでも現在のデータを修正として送信しますか？
 
@@ -286,76 +244,86 @@ async function handleCorrectionFromSearch(type = 'found') {
 
 🔥 修正フラグ: ✏️修正 が自動的に付与されます`;
 
-  if (confirm(confirmMessage)) {
-    const searchResult = document.getElementById('search-result');
-    if (searchResult) searchResult.classList.remove('show');
+  if (confirm(msg)) {
+    $('#search-result')?.classList.remove('show');
     await submitData({ isCorrection: true, correctionOnly: true, correctionMark: "✏️修正" });
   }
 }
 
-// 共通の送信処理（★借主メールの2段階を追加）
+/* =========================
+   送信（ここが今回の要！）
+   - no-cors をやめ、レスポンス(JSON)を読んでから
+     📧 送信中 → 📧 送信済み を出す
+========================= */
 async function submitData(options = {}) {
-  const { isCorrection = false, correctionOnly = false, correctionMark = "" } = options;
+  const { isCorrection=false, correctionOnly=false, correctionMark="" } = options;
 
-  const statusDisplay = document.getElementById('status-display');
+  const statusDisplay = $('#status-display');
   const submitBtn = document.querySelector('.submit-btn:not(.search-btn)');
   const btnText = submitBtn.querySelector('.btn-text');
   const originalText = submitBtn.dataset.originalText || btnText.textContent;
   submitBtn.dataset.originalText = originalText;
 
-  const categoryInput = document.getElementById('category');
-  const categoryOptions = document.querySelectorAll('.category-option');
-  const form = document.getElementById('loanForm');
+  const categoryInput = $('#category');
+  const categoryOptions = $$('.category-option');
+  const form = $('#loanForm');
 
   hideMessages();
   resetSteps();
 
-  if (!categoryInput.value) {
-    alert('カテゴリーを選択してください');
-    return;
-  }
+  if (!categoryInput.value) { alert('カテゴリーを選択してください'); return; }
+  if (!checkLenderBorrowerMatch()) return;
 
   submitBtn.disabled = true;
   submitBtn.classList.add('loading');
   btnText.textContent = correctionOnly ? '修正送信中...' : '送信中...';
-
-  if (statusDisplay) statusDisplay.classList.add('show');
+  statusDisplay?.classList.add('show');
 
   try {
     // 1) 検証
     await showStep('step-validation', correctionOnly ? '📋 修正データを検証中...' : '📋 データを検証中...');
-    await delay(400);
+    await delay(300);
     completeStep('step-validation', `✅ ${correctionOnly ? '修正データ' : 'データ'}検証完了`);
 
-    // 2) 送信
+    // 2) GASへ送信（← ここでレスポンスを読む）
     await showStep('step-sending', `📤 ${correctionOnly ? '修正データ' : ''}スプレッドシートに送信中...`);
-    await fetch(GAS_URL, {
+
+    const payload = {
+      date: $("#date").value,
+      name: $("#name").value,
+      lender: $("#lender").value,
+      borrower: $("#borrower").value,
+      category: $("#category").value,
+      item: $("#item").value,
+      amount: convertToHalfWidthNumber($("#amount").value),
+      isCorrection: isCorrection,
+      ...(correctionOnly ? { correctionOnly: true, correctionMark: correctionMark || "✏️修正", sendType: "CORRECTION" } : {})
+    };
+
+    const res = await fetch(GAS_URL, {
       method: "POST",
-      mode: "no-cors",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date: document.getElementById("date").value,
-        name: document.getElementById("name").value,
-        lender: document.getElementById("lender").value,
-        borrower: document.getElementById("borrower").value,
-        category: document.getElementById("category").value,
-        item: document.getElementById("item").value,
-        amount: convertToHalfWidthNumber(document.getElementById("amount").value),
-        isCorrection: isCorrection,
-        ...(correctionOnly ? { correctionOnly: true, correctionMark: correctionMark || "✏️修正", sendType: "CORRECTION" } : {})
-      })
+      body: JSON.stringify(payload)
     });
-    await delay(250);
+
+    let data = {};
+    try { data = await res.json(); } catch { /* 非JSONの保険 */ }
+
+    if (!(res.ok && data && data.status === 'SUCCESS')) {
+      // GASが失敗なら UIも失敗扱い（送信済みは出さない）
+      throw new Error(data?.message || `サーバーエラー (HTTP ${res.status})`);
+    }
+
     completeStep('step-sending', `✅ ${correctionOnly ? '修正データ' : ''}送信完了`);
 
     // 3) 挿入（概念表示）
     await showStep('step-inserting', `💾 ${correctionOnly ? '修正データ' : ''}を挿入中...`);
-    await delay(600);
+    await delay(400);
     completeStep('step-inserting', `✅ ${correctionOnly ? '修正データ' : ''}挿入完了`);
 
-    // 4) ★ 借主メール：送信中 → 送信済み（UI演出のみ）
+    // 4) ★ 借主メール：本当に成功した時だけ表示
     await showStep('step-mailing', '📧 借主へメール送信中...');
-    await delay(500);
+    await delay(250);
     completeStep('step-mailing', '📧 借主へメール送信中...完了');
 
     await showStep('step-mailed', '📧 借主へメール送信済み');
@@ -363,53 +331,54 @@ async function submitData(options = {}) {
 
     // 5) バックアップ（概念表示）
     await showStep('step-backup', '🔄 バックアップを作成中...');
-    await delay(600);
+    await delay(400);
     completeStep('step-backup', '✅ バックアップ作成完了');
 
     // 6) 完了
     await showStep('step-complete', `🎉 ${correctionOnly ? '修正送信' : 'すべての処理'}が完了しました！`);
     completeStep('step-complete', `🎉 ${correctionOnly ? '修正送信' : '送信'}完了！`);
 
-    // 成功メッセージ
+    // 成功トースト & リセット
     setTimeout(() => {
       submitBtn.classList.remove('loading');
       btnText.textContent = originalText;
       submitBtn.disabled = false;
 
-      const message = document.getElementById('successMessage');
-      if (message) {
-        message.textContent = correctionOnly ? '✅ 修正データの送信が完了しました！' : '✅ 送信完了しました！';
-        message.classList.add('show');
-        setTimeout(() => message.classList.remove('show'), 3000);
+      const msg = $('#successMessage');
+      if (msg) {
+        msg.textContent = correctionOnly ? '✅ 修正データの送信が完了しました！' : '✅ 送信完了しました！';
+        msg.classList.add('show');
+        setTimeout(() => msg.classList.remove('show'), 2800);
       }
 
       form.reset();
-      document.getElementById('date').valueAsDate = new Date();
+      $('#date').valueAsDate = new Date();
       categoryOptions.forEach(opt => opt.classList.remove('selected'));
-      if (statusDisplay) statusDisplay.classList.remove('show');
-    }, 400);
+      statusDisplay?.classList.remove('show');
+    }, 350);
 
   } catch (error) {
     console.error('送信エラー:', error);
 
-    const activeStep = document.querySelector('.status-step.active');
-    if (activeStep) {
-      activeStep.classList.remove('active');
-      activeStep.classList.add('error');
-      activeStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
+    const active = document.querySelector('.status-step.active');
+    if (active) {
+      active.classList.remove('active');
+      active.classList.add('error');
+      const label = active.querySelector('span:last-child');
+      if (label) label.textContent = '❌ エラーが発生しました';
     }
 
     submitBtn.classList.remove('loading');
     btnText.textContent = originalText;
     submitBtn.disabled = false;
 
-    const errorMessage = document.getElementById('errorMessage');
-    if (errorMessage) {
-      errorMessage.textContent = `❌ ${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`;
-      errorMessage.classList.add('show');
+    const errMsg = $('#errorMessage');
+    if (errMsg) {
+      errMsg.textContent = `❌ ${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`;
+      errMsg.classList.add('show');
       setTimeout(() => {
-        errorMessage.classList.remove('show');
-        if (statusDisplay) statusDisplay.classList.remove('show');
+        errMsg.classList.remove('show');
+        $('#status-display')?.classList.remove('show');
       }, 5000);
     } else {
       alert(`${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`);
@@ -417,63 +386,59 @@ async function submitData(options = {}) {
   }
 }
 
-// DOM要素の初期化
+/* =========================
+   DOM準備
+========================= */
 function initializeElements() {
   // 今日の日付
-  const dateEl = document.getElementById('date');
-  if (dateEl) dateEl.valueAsDate = new Date();
+  const dateEl = $('#date');
+  if (dateEl && !dateEl.value) dateEl.valueAsDate = new Date();
 
-  // カテゴリー
-  const categoryOptions = document.querySelectorAll('.category-option');
-  const categoryInput = document.getElementById('category');
+  // カテゴリー選択
+  const categoryOptions = $$('.category-option');
+  const categoryInput = $('#category');
   categoryOptions.forEach(option => {
     option.addEventListener('click', () => {
-      categoryOptions.forEach(opt => opt.classList.remove('selected'));
+      categoryOptions.forEach(o => o.classList.remove('selected'));
       option.classList.add('selected');
       categoryInput.value = option.dataset.value;
     });
   });
 
   // 金額フォーマット
-  const amountInput = document.getElementById('amount');
+  const amountInput = $('#amount');
   amountInput.addEventListener('input', (e) => {
-    let value = e.target.value;
-    value = convertToHalfWidthNumber(value);
-    e.target.value = value;
+    e.target.value = convertToHalfWidthNumber(e.target.value);
   });
   amountInput.addEventListener('blur', (e) => {
-    let value = e.target.value;
-    if (value) value = parseInt(value).toLocaleString('ja-JP');
-    e.target.value = value;
+    let v = e.target.value;
+    if (v) v = parseInt(v).toLocaleString('ja-JP');
+    e.target.value = v;
   });
   amountInput.addEventListener('focus', (e) => {
-    let value = e.target.value;
-    if (value) value = value.replace(/,/g, '');
-    e.target.value = value;
+    e.target.value = e.target.value?.replace(/,/g, '') || '';
   });
 
-  // 貸主/借主のバリデーション
-  const lenderSelect = document.getElementById("lender");
-  const borrowerSelect = document.getElementById("borrower");
-
-  let lenderBorrowerErrorDiv = document.getElementById("lender-borrower-error");
-  if (!lenderBorrowerErrorDiv) {
-    lenderBorrowerErrorDiv = document.createElement('div');
-    lenderBorrowerErrorDiv.id = 'lender-borrower-error';
-    lenderBorrowerErrorDiv.style.color = '#e53e3e';
-    lenderBorrowerErrorDiv.style.fontSize = '0.875rem';
-    lenderBorrowerErrorDiv.style.marginTop = '8px';
-    lenderBorrowerErrorDiv.style.display = 'none';
-    const borrowerFormGroup = borrowerSelect.closest('.form-group');
-    if (borrowerFormGroup) borrowerFormGroup.appendChild(lenderBorrowerErrorDiv);
+  // 貸主/借主エラー表示挿入
+  const borrowerSelect = $("#borrower");
+  let errorDiv = $("#lender-borrower-error");
+  if (!errorDiv && borrowerSelect) {
+    errorDiv = document.createElement('div');
+    errorDiv.id = 'lender-borrower-error';
+    errorDiv.style.color = '#e53e3e';
+    errorDiv.style.fontSize = '0.875rem';
+    errorDiv.style.marginTop = '8px';
+    errorDiv.style.display = 'none';
+    const grp = borrowerSelect.closest('.form-group');
+    grp?.appendChild(errorDiv);
   }
 
-  if (lenderSelect) lenderSelect.addEventListener('change', checkLenderBorrowerMatch);
-  if (borrowerSelect) borrowerSelect.addEventListener('change', checkLenderBorrowerMatch);
+  $("#lender")?.addEventListener('change', checkLenderBorrowerMatch);
+  $("#borrower")?.addEventListener('change', checkLenderBorrowerMatch);
   checkLenderBorrowerMatch();
 
   // フォーム送信
-  const form = document.getElementById('loanForm');
+  const form = $('#loanForm');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!checkLenderBorrowerMatch()) return;
@@ -481,18 +446,17 @@ function initializeElements() {
   });
 
   // 逆取引検索
-  const searchBtn = document.getElementById('search-btn');
-  searchBtn?.addEventListener('click', async (e) => {
+  $('#search-btn')?.addEventListener('click', async (e) => {
     e.preventDefault();
     await searchReverseTransaction();
   });
 }
 
-// 初期化
 function initialize() {
   populateShops();
   initializeElements();
 }
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initialize);
 } else {
