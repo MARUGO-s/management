@@ -560,28 +560,39 @@
       </div>
 
       <!-- 状態表示エリア -->
-      <div class="status-display" id="status-display">
-        <div class="status-step" id="step-validation">
-          <span class="status-icon">📋</span>
-          <span>データを検証中...</span>
-        </div>
-        <div class="status-step" id="step-sending">
-          <span class="status-icon">📤</span>
-          <span>スプレッドシートに送信中...</span>
-        </div>
-        <div class="status-step" id="step-inserting">
-          <span class="status-icon">💾</span>
-          <span>データを挿入中...</span>
-        </div>
-        <div class="status-step" id="step-backup">
-          <span class="status-icon">🔄</span>
-          <span>バックアップを作成中...</span>
-        </div>
-        <div class="status-step" id="step-complete">
-          <span class="status-icon">✅</span>
-          <span>送信完了！</span>
-        </div>
-      </div>
+     <div class="status-display" id="status-display">
+  <div class="status-step" id="step-validation">
+    <span class="status-icon">📋</span>
+    <span>データを検証中...</span>
+  </div>
+  <div class="status-step" id="step-sending">
+    <span class="status-icon">📤</span>
+    <span>スプレッドシートに送信中...</span>
+  </div>
+  <div class="status-step" id="step-inserting">
+    <span class="status-icon">💾</span>
+    <span>データを挿入中...</span>
+  </div>
+  <div class="status-step" id="step-backup">
+    <span class="status-icon">🔄</span>
+    <span>バックアップを作成中...</span>
+  </div>
+
+  <!-- 借主へのメール送信ステップ追加 -->
+  <div class="status-step" id="step-mailing">
+    <span class="status-icon">📧</span>
+    <span>借主へメール送信中...</span>
+  </div>
+  <div class="status-step" id="step-mailed">
+    <span class="status-icon">📧</span>
+    <span>借主へメール送信済み</span>
+  </div>
+
+  <div class="status-step" id="step-complete">
+    <span class="status-icon">✅</span>
+    <span>送信完了！</span>
+  </div>
+</div>
 
       <div class="button-group">
         <button type="submit" class="submit-btn">
