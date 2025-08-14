@@ -313,31 +313,53 @@
     .error-message.show {
       transform: translateX(0);
     }
-
-    .status-display {
-      margin: 20px 0;
-      padding: 20px;
-      border-radius: 16px;
-      background: rgba(74, 85, 104, 0.05);
-      border: 2px solid rgba(74, 85, 104, 0.1);
+    
+    /* 状態表示ポップアップのスタイル */
+    #status-popup-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
       display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+      backdrop-filter: blur(5px);
+    }
+
+    #status-popup {
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      max-width: 400px;
+      width: 90%;
       text-align: center;
+      animation: popupSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      opacity: 0;
+      transform: translateY(20px);
     }
 
-    .status-display.show {
-      display: block;
-      animation: statusSlideIn 0.4s ease-out;
-    }
-
-    @keyframes statusSlideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
+    @keyframes popupSlideIn {
       to {
         opacity: 1;
         transform: translateY(0);
       }
+    }
+
+    #status-popup h3 {
+      color: #2d3748;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      animation: pulse 1s infinite alternate;
+    }
+    
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.05); }
     }
 
     .status-step {
@@ -367,12 +389,19 @@
       opacity: 1;
       color: #e53e3e;
     }
+    
+    .status-step.final-completed {
+      opacity: 1;
+      color: #38a169;
+      transform: scale(1.1);
+      font-size: 1.2rem;
+    }
 
     .status-icon {
       margin-right: 8px;
       font-size: 16px;
     }
-
+    
     .mini-loading-spinner {
       display: inline-block;
       width: 16px;
@@ -400,25 +429,21 @@
         font-size: 2rem;
       }
 
-      /* スマートフォンでもカテゴリーを横並び（3列）で表示 */
       .category-grid {
         grid-template-columns: repeat(3, 1fr);
         gap: 8px;
       }
 
-      /* モバイルではカテゴリーボタンのサイズを調整 */
       .category-option {
         padding: 10px 8px;
         font-size: 0.8rem;
         border-radius: 6px;
       }
 
-      /* 貸主・借主もモバイルで横並び、ギャップを小さく */
       .form-row {
         gap: 10px;
       }
 
-      /* モバイルでのフォント調整 */
       .form-row .form-group label {
         font-size: 0.8rem;
       }
@@ -443,6 +468,14 @@
       .button-group {
         flex-direction: column;
         gap: 10px;
+      }
+      
+      #status-popup {
+        padding: 20px;
+      }
+
+      #status-popup h3 {
+        font-size: 1.2rem;
       }
     }
 
@@ -559,30 +592,6 @@
         </div>
       </div>
 
-      <!-- 状態表示エリア -->
-      <div class="status-display" id="status-display">
-        <div class="status-step" id="step-validation">
-          <span class="status-icon">📋</span>
-          <span>データを検証中...</span>
-        </div>
-        <div class="status-step" id="step-sending">
-          <span class="status-icon">📤</span>
-          <span>スプレッドシートに送信中...</span>
-        </div>
-        <div class="status-step" id="step-inserting">
-          <span class="status-icon">💾</span>
-          <span>データを挿入中...</span>
-        </div>
-        <div class="status-step" id="step-backup">
-          <span class="status-icon">🔄</span>
-          <span>バックアップを作成中...</span>
-        </div>
-        <div class="status-step" id="step-complete">
-          <span class="status-icon">✅</span>
-          <span>送信完了！</span>
-        </div>
-      </div>
-
       <div class="button-group">
         <button type="submit" class="submit-btn">
           <span class="loading"></span>
@@ -592,6 +601,32 @@
     </form>
     <div class="data-link-container">
       <a href="https://marugo-s.github.io/management/data/marugo.html" class="data-link-btn">📊 データを見る</a>
+    </div>
+  </div>
+
+  <div id="status-popup-overlay">
+    <div id="status-popup">
+      <h3 id="popup-title"></h3>
+      <div class="status-step" id="step-validation">
+        <span class="status-icon">📋</span>
+        <span>データを検証中...</span>
+      </div>
+      <div class="status-step" id="step-sending">
+        <span class="status-icon">📤</span>
+        <span>スプレッドシートに送信中...</span>
+      </div>
+      <div class="status-step" id="step-inserting">
+        <span class="status-icon">💾</span>
+        <span>データを挿入中...</span>
+      </div>
+      <div class="status-step" id="step-backup">
+        <span class="status-icon">🔄</span>
+        <span>バックアップを作成中...</span>
+      </div>
+      <div class="status-step" id="step-complete">
+        <span class="status-icon">✅</span>
+        <span>送信完了！</span>
+      </div>
     </div>
   </div>
 
