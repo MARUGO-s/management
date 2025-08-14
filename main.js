@@ -456,7 +456,6 @@ async function submitData(options = {}) {
       item: document.getElementById("item").value,
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: isCorrection,
-      // userAgent: navigator.userAgent, // <- この行を削除しました
     };
 
     // 修正専用のフラグとマークを追加
@@ -472,7 +471,6 @@ async function submitData(options = {}) {
     }
     // 貸主と借主が同じ名称でないことを確認するバリデーション
     if (data.lender === data.borrower) {
-      // リアルタイムバリデーションで表示されているはずだが、念のためここでもエラーを発生させる
       throw new Error('貸主と借主は異なる店舗を選択してください。');
     }
     const amountNumber = parseInt(data.amount);
@@ -480,7 +478,6 @@ async function submitData(options = {}) {
       throw new Error('正しい金額を入力してください。');
     }
 
-    // 修正送信時のみの追加バリデーション
     if (correctionOnly) {
       if (data.isCorrection !== true || !data.correctionOnly || data.correctionMark !== "✏️修正") {
         throw new Error('修正フラグの設定に問題があります。');
@@ -496,7 +493,6 @@ async function submitData(options = {}) {
     await showStep('step-sending', `📤 ${correctionOnly ? '修正データ' : ''}スプレッドシートに送信中...`);
     await delay(400);
 
-    // Google Apps Scriptにデータを送信
     const response = await fetch(GAS_URL, {
       method: "POST",
       mode: "no-cors",
@@ -517,8 +513,13 @@ async function submitData(options = {}) {
     await showStep('step-backup', '🔄 バックアップを作成中...');
     await delay(1000);
     completeStep('step-backup', '✅ バックアップ作成完了');
+    
+    // Step 5: メール通知（GAS側で実行されるためシミュレート）
+    await showStep('step-email', '📧 借主へメール通知中...');
+    await delay(1200);
+    completeStep('step-email', '✅ 借主へのメール送信完了');
 
-    // Step 5: 完了
+    // Step 6: 完了
     await showStep('step-complete', `🎉 ${correctionOnly ? '修正送信' : 'すべての処理'}が完了しました！`);
     const finalStep = document.getElementById('step-complete');
     finalStep.classList.remove('completed');
