@@ -46,11 +46,18 @@ function convertToHalfWidthNumber(value) {
   return converted;
 }
 
-// プログレスステップを表示する関数
+// プログレスステップを表示する関数 (ポップアップ対応)
 async function showStep(stepId, message) {
+  const popupOverlay = document.getElementById('status-popup-overlay');
+  const popupTitle = document.getElementById('popup-title');
   const step = document.getElementById(stepId);
   const activeSteps = document.querySelectorAll('.status-step.active');
   
+  if (popupOverlay.style.display === 'none' || popupOverlay.style.display === '') {
+    popupOverlay.style.display = 'flex';
+    popupTitle.textContent = '📨 送信処理中...';
+  }
+
   // 前のステップを完了状態にする
   activeSteps.forEach(s => {
     s.classList.remove('active');
@@ -70,7 +77,7 @@ async function showStep(stepId, message) {
   step.dataset.originalIcon = originalIcon;
 }
 
-// プログレスステップを完了状態にする関数
+// プログレスステップを完了状態にする関数 (ポップアップ対応)
 function completeStep(stepId, message) {
   const step = document.getElementById(stepId);
   step.classList.remove('active');
@@ -84,11 +91,15 @@ function completeStep(stepId, message) {
   }
 }
 
-// 全てのプログレスステップをリセットする関数
+// 全てのプログレスステップをリセットする関数 (ポップアップ対応)
 function resetSteps() {
   const steps = document.querySelectorAll('.status-step');
   steps.forEach(step => {
-    step.classList.remove('active', 'completed', 'error');
+    step.classList.remove('active', 'completed', 'error', 'final-completed');
+    const icon = step.querySelector('.status-icon');
+    if (step.dataset.originalIcon) {
+      icon.textContent = step.dataset.originalIcon;
+    }
   });
 }
 
@@ -103,6 +114,11 @@ function hideMessages() {
   const searchResult = document.getElementById('search-result');
   if (searchResult) {
     searchResult.classList.remove('show');
+  }
+  // ポップアップも非表示にする
+  const popupOverlay = document.getElementById('status-popup-overlay');
+  if (popupOverlay) {
+    popupOverlay.style.display = 'none';
   }
 }
 
@@ -132,7 +148,7 @@ function checkLenderBorrowerMatch() {
   }
 }
 
-// 逆取引検索機能
+// 逆取引検索機能 (この機能は変更しない)
 async function searchReverseTransaction() {
   const searchBtn = document.getElementById('search-btn');
   const searchResult = document.getElementById('search-result');
@@ -396,7 +412,8 @@ async function handleCorrectionFromSearch(type = 'found') {
 async function submitData(options = {}) {
   const { isCorrection = false, correctionOnly = false, correctionMark = "" } = options;
 
-  const statusDisplay = document.getElementById('status-display');
+  const popupOverlay = document.getElementById('status-popup-overlay');
+  const popupTitle = document.getElementById('popup-title');
   const submitBtn = document.querySelector('.submit-btn:not(.search-btn)');
   const btnText = submitBtn.querySelector('.btn-text');
   const originalText = submitBtn.dataset.originalText || btnText.textContent;
@@ -421,17 +438,14 @@ async function submitData(options = {}) {
   submitBtn.classList.add('loading');
   btnText.textContent = correctionOnly ? '修正送信中...' : '送信中...';
   
-  // 状態表示を開始
-  if (statusDisplay) {
-    statusDisplay.classList.add('show');
-  }
+  // 状態表示ポップアップを開始
+  popupOverlay.style.display = 'flex';
+  popupTitle.textContent = correctionOnly ? '📝 修正データ送信中...' : '📨 送信処理中...';
 
   try {
     // Step 1: データ検証
-    if (statusDisplay) {
-      await showStep('step-validation', correctionOnly ? '📋 修正データを検証中...' : '📋 データを検証中...');
-      await delay(600);
-    }
+    await showStep('step-validation', correctionOnly ? '📋 修正データを検証中...' : '📋 データを検証中...');
+    await delay(600);
 
     const data = {
       date: document.getElementById("date").value,
@@ -476,13 +490,11 @@ async function submitData(options = {}) {
       console.log('=== 通常送信データ（詳細） ===', data);
     }
 
-    if (statusDisplay) {
-      completeStep('step-validation', `✅ ${correctionOnly ? '修正データ' : 'データ'}検証完了`);
+    completeStep('step-validation', `✅ ${correctionOnly ? '修正データ' : 'データ'}検証完了`);
 
-      // Step 2: 送信開始
-      await showStep('step-sending', `📤 ${correctionOnly ? '修正データ' : ''}スプレッドシートに送信中...`);
-      await delay(400);
-    }
+    // Step 2: 送信開始
+    await showStep('step-sending', `📤 ${correctionOnly ? '修正データ' : ''}スプレッドシートに送信中...`);
+    await delay(400);
 
     // Google Apps Scriptにデータを送信
     const response = await fetch(GAS_URL, {
@@ -494,26 +506,30 @@ async function submitData(options = {}) {
       body: JSON.stringify(data)
     });
 
-    if (statusDisplay) {
-      completeStep('step-sending', `✅ ${correctionOnly ? '修正データ' : ''}送信完了`);
+    completeStep('step-sending', `✅ ${correctionOnly ? '修正データ' : ''}送信完了`);
 
-      // Step 3: データ挿入（GAS側で実行されるためシミュレート）
-      await showStep('step-inserting', `💾 ${correctionOnly ? '修正データ' : ''}を挿入中...`);
-      await delay(800);
-      completeStep('step-inserting', `✅ ${correctionOnly ? '修正データ' : ''}挿入完了`);
+    // Step 3: データ挿入（GAS側で実行されるためシミュレート）
+    await showStep('step-inserting', `💾 ${correctionOnly ? '修正データ' : ''}を挿入中...`);
+    await delay(800);
+    completeStep('step-inserting', `✅ ${correctionOnly ? '修正データ' : ''}挿入完了`);
 
-      // Step 4: バックアップ作成（GAS側で実行されるためシミュレート）
-      await showStep('step-backup', '🔄 バックアップを作成中...');
-      await delay(1000);
-      completeStep('step-backup', '✅ バックアップ作成完了');
+    // Step 4: バックアップ作成（GAS側で実行されるためシミュレート）
+    await showStep('step-backup', '🔄 バックアップを作成中...');
+    await delay(1000);
+    completeStep('step-backup', '✅ バックアップ作成完了');
 
-      // Step 5: 完了
-      await showStep('step-complete', `🎉 ${correctionOnly ? '修正送信' : 'すべての処理'}が完了しました！`);
-      completeStep('step-complete', `🎉 ${correctionOnly ? '修正送信' : '送信'}完了！`);
-    }
-
+    // Step 5: 完了
+    await showStep('step-complete', `🎉 ${correctionOnly ? '修正送信' : 'すべての処理'}が完了しました！`);
+    const finalStep = document.getElementById('step-complete');
+    finalStep.classList.remove('completed');
+    finalStep.classList.add('final-completed');
+    popupTitle.textContent = '🎉 完了！';
+    
     // 成功処理
     setTimeout(() => {
+      // ポップアップを非表示にする
+      popupOverlay.style.display = 'none';
+
       // ローディング状態終了
       submitBtn.classList.remove('loading');
       btnText.textContent = originalText;
@@ -532,44 +548,48 @@ async function submitData(options = {}) {
       categoryOptions.forEach(opt => opt.classList.remove('selected'));
       document.getElementById('date').valueAsDate = new Date();
       
-      if (statusDisplay) {
-        statusDisplay.classList.remove('show');
-      }
-    }, statusDisplay ? 500 : 1000);
+    }, 2000);
 
   } catch (error) {
     console.error('送信エラー:', error);
     
     // エラー状態を表示
-    if (statusDisplay) {
-      const activeStep = document.querySelector('.status-step.active');
-      if (activeStep) {
-        activeStep.classList.remove('active');
-        activeStep.classList.add('error');
-        activeStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
-      }
+    const activeStep = document.querySelector('.status-step.active');
+    if (activeStep) {
+      activeStep.classList.remove('active');
+      activeStep.classList.add('error');
+      activeStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
+    } else {
+      // どのステップもアクティブでなかった場合（検証エラーなど）
+      const validationStep = document.getElementById('step-validation');
+      validationStep.classList.add('error');
+      validationStep.querySelector('span:last-child').textContent = '❌ エラーが発生しました';
     }
-
+    popupTitle.textContent = '❌ エラーが発生しました';
+    
     // エラー処理
     submitBtn.classList.remove('loading');
     btnText.textContent = originalText;
     submitBtn.disabled = false;
 
-    // エラーメッセージ表示
-    const errorMessage = document.getElementById('errorMessage');
-    if (errorMessage) {
-      errorMessage.textContent = `❌ ${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`;
-      errorMessage.classList.add('show');
+    // ポップアップをしばらく表示してから閉じる
+    setTimeout(() => {
+      popupOverlay.style.display = 'none';
       
-      setTimeout(() => {
-        errorMessage.classList.remove('show');
-        if (statusDisplay) {
-          statusDisplay.classList.remove('show');
-        }
-      }, 5000);
-    } else {
-      alert(`${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`);
-    }
+      // エラーメッセージをポップアップとは別に表示
+      const errorMessage = document.getElementById('errorMessage');
+      if (errorMessage) {
+        errorMessage.textContent = `❌ ${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`;
+        errorMessage.classList.add('show');
+        
+        setTimeout(() => {
+          errorMessage.classList.remove('show');
+        }, 5000);
+      } else {
+        alert(`${correctionOnly ? '修正送信' : '送信'}エラー: ${error.message}`);
+      }
+      
+    }, 3000);
   }
 }
 
@@ -666,10 +686,13 @@ function initializeElements() {
 
   // 逆取引検索処理
   const searchBtn = document.getElementById('search-btn');
-  searchBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    await searchReverseTransaction();
-  });
+  // search-btn要素が存在する場合のみリスナーを追加する
+  if (searchBtn) {
+    searchBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await searchReverseTransaction();
+    });
+  }
 }
 
 // 初期化処理
