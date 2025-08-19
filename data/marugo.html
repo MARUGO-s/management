@@ -77,9 +77,9 @@
                 <th onclick="sortTable(1)">タイプ</th>
                 <th onclick="sortTable(2)">相手先</th>
                 <th onclick="sortTable(3)">品目</th>
-                <th onclick="sortTable(4)">個/本</th>
-                <th onclick="sortTable(5)">単価</th>
-                <th onclick="sortTable(6)">カテゴリー</th>
+                <th onclick="sortTable(4)">カテゴリー</th>
+                <th onclick="sortTable(5)">個/本</th>
+                <th onclick="sortTable(6)">単価</th>
                 <th onclick="sortTable(7)">金額</th>
                 <th onclick="sortTable(8)">入力者</th>
                 <th onclick="sortTable(9)">修正</th>
@@ -185,10 +185,10 @@ function sortTable(columnIndex) {
         const bText = b.cells[columnIndex].textContent.trim();
         let comparison = 0;
         
-        // ▼▼▼ 変更点: ソート対象の数値列に「単価」(5)を追加し、「金額」を(7)に更新 ▼▼▼
+        // ▼▼▼ 変更点: ソート対象の数値列のインデックスを更新 ▼▼▼
         if (columnIndex === 0) { // 日付
             comparison = new Date(aText) - new Date(bText);
-        } else if (columnIndex === 4 || columnIndex === 5 || columnIndex === 7) { // 個/本, 単価, 金額
+        } else if (columnIndex === 5 || columnIndex === 6 || columnIndex === 7) { // 個/本, 単価, 金額
             const numA = parseFloat(aText.replace(/[¥,]/g, '')) || 0;
             const numB = parseFloat(bText.replace(/[¥,]/g, '')) || 0;
             comparison = numA - numB;
@@ -228,7 +228,6 @@ class GoogleSheetsAPIAnalyzer {
     async connectToGoogleSheets() {
         this.log('Google Sheets API に接続中...', 'loading');
         try {
-            // ▼▼▼ 変更点: 読み込む範囲をK列まで拡張 ▼▼▼
             const range = `${this.sheetName}!A:K`; 
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${range}?key=${this.apiKey}`;
             const response = await fetch(url);
@@ -252,7 +251,7 @@ class GoogleSheetsAPIAnalyzer {
             if (lender) this.stores.add(lender);
             if (borrower) this.stores.add(borrower);
 
-            // ▼▼▼ 変更点: 新しい列の定義に合わせてデータをマッピング ▼▼▼
+            // スプレッドシートの列の順番通りにデータを取得
             return {
                 date: (row[0] || '').split(' ')[0], // A列: 日付
                 name: row[1] || '',                 // B列: 名前
@@ -260,7 +259,7 @@ class GoogleSheetsAPIAnalyzer {
                 borrower: borrower,                 // D列: 借主
                 category: row[4] || '',             // E列: カテゴリー
                 item: row[5] || '',                 // F列: 品目
-                quantity: parseFloat(String(row[6] || '1').replace(/,/g, '')),  // G列: 個/本
+                quantity: parseFloat(String(row[6] || '0').replace(/,/g, '')),  // G列: 個/本
                 unitPrice: parseFloat(String(row[7] || '0').replace(/,/g, '')), // H列: 単価
                 amount: parseFloat(String(row[8] || '0').replace(/,/g, '')),    // I列: 金額
                 inputDate: row[9] || '',            // J列: 入力日時
@@ -301,7 +300,7 @@ class GoogleSheetsAPIAnalyzer {
             return;
         }
 
-        // ▼▼▼ 変更点: テーブル行に「単価」のセルを追加 ▼▼▼
+        // ▼▼▼ 変更点: テーブル行のセルの順番を修正 ▼▼▼
         tbody.innerHTML = this.searchResults.map(row => {
             const isLender = row.lender === store;
             const type = !store ? '貸借' : (isLender ? '貸出' : '借入');
@@ -313,9 +312,9 @@ class GoogleSheetsAPIAnalyzer {
                 <td><span class="type-tag type-${type}">${type}</span></td>
                 <td>${counterpart}</td>
                 <td>${row.item}</td>
+                <td>${row.category}</td>
                 <td>${row.quantity || ''}</td>
                 <td class="amount">¥${(row.unitPrice || 0).toLocaleString()}</td>
-                <td>${row.category}</td>
                 <td class="amount ${amountClass}">¥${(row.amount || 0).toLocaleString()}</td>
                 <td>${row.name}</td>
                 <td>${row.correction}</td>
@@ -347,7 +346,7 @@ class GoogleSheetsAPIAnalyzer {
         const confirmBtn = document.getElementById('modal-confirm-btn');
         const cancelBtn = document.getElementById('modal-cancel-btn');
 
-        // ▼▼▼ 変更点: 確認モーダルに「単価」を追加 ▼▼▼
+        // ▼▼▼ 変更点: 確認モーダルの表示順を修正 ▼▼▼
         msgContainer.innerHTML = `
             <p>以下のデータを逆取引として修正しますか？</p>
             <div class="correction-details-grid">
@@ -355,8 +354,8 @@ class GoogleSheetsAPIAnalyzer {
                 <div class="grid-item-label">入力者:</div><div class="grid-item-value">${data.name}</div>
                 <div class="grid-item-label">貸主:</div><div class="grid-item-value">${data.lender}</div>
                 <div class="grid-item-label">借主:</div><div class="grid-item-value">${data.borrower}</div>
-                <div class="grid-item-label">カテゴリー:</div><div class="grid-item-value">${data.category}</div>
                 <div class="grid-item-label">品目:</div><div class="grid-item-value">${data.item}</div>
+                <div class="grid-item-label">カテゴリー:</div><div class="grid-item-value">${data.category}</div>
                 <div class="grid-item-label">個/本:</div><div class="grid-item-value">${data.quantity}</div>
                 <div class="grid-item-label">単価:</div><div class="grid-item-value">¥${(data.unitPrice || 0).toLocaleString()}</div>
                 <div class="grid-item-label">金額:</div><div class="grid-item-value">¥${(data.amount || 0).toLocaleString()}</div>
@@ -391,14 +390,14 @@ class GoogleSheetsAPIAnalyzer {
     
     exportResults() {
         if (this.searchResults.length === 0) { alert('エクスポートするデータがありません'); return; }
-        // ▼▼▼ 変更点: CSVエクスポートに「単価」を追加 ▼▼▼
+        // ▼▼▼ 変更点: CSVエクスポートの列の順番を修正 ▼▼▼
         const csv = Papa.unparse(this.searchResults.map(r => ({
             '日付': r.date,
             '名前': r.name,
             '貸主': r.lender,
             '借主': r.borrower,
-            'カテゴリー': r.category,
             '品目': r.item,
+            'カテゴリー': r.category,
             '個/本': r.quantity,
             '単価': r.unitPrice,
             '金額': r.amount,
