@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>逆取引の作成</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="styles-form.css" rel="stylesheet">
+  <link rel="icon" href="favicon-v2.ico" type="image/x-icon">
+
+  <style>
+    /* === フォーム全体のコンテナ === */
+    .confirmation-form-container {
+      margin-top: 1.5rem;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 1.25rem;
+      background-color: #fdfdfd;
+    }
+
+    /* === 無効化された入力欄（確認項目）のスタイル === */
+    select:disabled, input:disabled {
+      color: #333 !important; /* 文字を濃くする */
+      -webkit-text-fill-color: #333;
+      opacity: 1;
+      background: #f0f0f0; /* 背景色を少し変えて「表示用」であることを示す */
+      border: 1px solid #ddd;
+      cursor: not-allowed;
+    }
+    
+    /* === 名前入力欄のハイライト === */
+    .name-highlight {
+      border-left: .3rem solid #6aa84f;
+      padding-left: .6rem;
+      background: rgba(106, 168, 79, 0.06);
+      border-radius: .4rem;
+      margin-top: 2rem; /* 送信ボタンとの間に少しスペースを設ける */
+    }
+
+    /* === 送信中ポップアップのスタイル (変更なし) === */
+    #submit-overlay.overlay--submit { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(33, 37, 41, 0.55); z-index: 9999; backdrop-filter: blur(1px); }
+    #submit-overlay.overlay--submit[aria-hidden="false"] { display: flex; }
+    .submit-modal { background: #fff; color: #222; border-radius: 14px; padding: 20px 24px; width: min(92vw, 420px); box-shadow: 0 10px 30px rgba(0,0,0,.2); text-align: center; font-size: 15px; line-height: 1.6; }
+    @media (prefers-color-scheme: dark) { .submit-modal { background: #1f1f1f; color: #eee; } }
+    .submit-modal .spinner { width: 40px; height: 40px; margin: 6px auto 12px; border: 3px solid rgba(0,0,0,.15); border-top-color: currentColor; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .submit-modal .modal-title { font-weight: 700; margin: 0 0 4px; letter-spacing: .02em; }
+    .submit-modal .modal-sub { opacity: .8; font-size: .92em; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-section">
+      <a href="data/marugo.html" class="back-btn" id="back-btn">← 戻る</a>
+      <h2>🔄 逆取引の作成</h2>
+      <p class="subtitle">以下の内容で逆取引を作成します。<br>担当者名を入力して送信してください。</p>
+    </div>
+
+    <div id="original-data-grid" style="display: none;"></div>
+
+    <div class="confirmation-form-container">
+      <form id="correctionForm">
+        <div class="form-group">
+          <label for="date">📅 日付</label>
+          <input type="date" id="date" required disabled>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+              <label for="lender">📤 貸主 (逆転後)</label>
+              <select id="lender" required disabled></select>
+          </div>
+          <div class="form-group">
+              <label for="borrower">📥 借主 (逆転後)</label>
+              <select id="borrower" required disabled></select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>🏷️ カテゴリー</label>
+          <div class="category-grid">
+            <div class="category-option disabled" data-value="食材">🍎 食材</div>
+            <div class="category-option disabled" data-value="飲料">🥤 飲料</div>
+            <div class="category-option disabled" data-value="その他">📦 その他</div>
+          </div>
+          <input type="hidden" id="category" required>
+        </div>
+
+        <div class="form-group">
+          <label for="item">📝 品目</label>
+          <input type="text" id="item" required disabled>
+        </div>
+        
+        <div class="form-group">
+          <label for="quantity">🔢 個/本</label>
+          <input type="text" id="quantity" required disabled>
+        </div>
+
+        <div class="form-group">
+          <label for="amount">💵 金額</label>
+          <div class="amount-input">
+            <input type="text" id="amount" required disabled>
+          </div>
+        </div>
+
+        <div class="form-group name-highlight" id="name-form-group">
+          <label for="name">👤 担当者名</label>
+         <input type="text" id="name" required placeholder="あなたの名前を入力" autofocus>
+        </div>
+  
+        <div class="button-group">
+          <button type="submit" class="submit-btn">
+            <span class="loading"></span>
+            <span class="btn-text">✅ この内容で作成・送信</span>
+          </button>
+          <button type="button" class="submit-btn cancel-btn" onclick="history.back()">
+            <span class="btn-text">❌ キャンセル</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="success-message" id="successMessage"></div>
+  <div class="error-message" id="errorMessage"></div>
+  
+  <script src="correction.js"></script>
+
+  <div id="submit-overlay" class="overlay--submit" aria-hidden="true" role="dialog" aria-label="送信中">
+    <div class="submit-modal" role="document">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="modal-title">逆修正データ送信中…</p>
+      <p class="modal-sub">画面を閉じずにお待ちください</p>
+    </div>
+  </div>
+
+</body>
+</html>
