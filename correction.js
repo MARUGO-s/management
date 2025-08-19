@@ -19,25 +19,21 @@ function populateShops() {
 }
 
 function loadOriginalData() {
-    // 1) sessionStorage から取得
     const savedData = sessionStorage.getItem('correctionData');
     if (savedData) {
         try {
             originalData = JSON.parse(savedData);
             return true;
-        }
-        catch (e) {
-            console.error("元データの解析に失敗:", e);
+        } catch (e) {
+            console.error("SessionStorageからのデータ解析に失敗:", e);
         }
     }
-    // 2) URLクエリ (?d=...) からのフォールバック
     const params = new URLSearchParams(location.search);
     const d = params.get('d');
     if (d) {
         try {
             const json = decodeURIComponent(escape(atob(decodeURIComponent(d))));
             originalData = JSON.parse(json);
-            // セッションにも入れておく（以降の遷移で使えるように）
             sessionStorage.setItem('correctionData', JSON.stringify(originalData));
             return true;
         } catch (e) {
@@ -52,15 +48,14 @@ function displayOriginalData() {
     const grid = document.getElementById('original-data-grid');
     const formattedAmount = `¥${parseInt(originalData.amount || 0).toLocaleString('ja-JP')}`;
     
-    // ★修正: 元データ表示に「個/本」を追加
     grid.innerHTML = `
-        <div class="original-data-item"><span>📅 日付:</span><span>${originalData.date || '不明'}</span></div>
-        <div class="original-data-item"><span>👤 入力者:</span><span>${originalData.name || '不明'}</span></div>
-        <div class="original-data-item"><span>📤 貸主:</span><span>${originalData.lender || '不明'}</span></div>
-        <div class="original-data-item"><span>📥 借主:</span><span>${originalData.borrower || '不明'}</span></div>
-        <div class="original-data-item"><span>📝 品目:</span><span>${originalData.item || '不明'}</span></div>
-        <div class="original-data-item"><span>🔢 個/本:</span><span>${originalData.quantity || '不明'}</span></div>
-        <div class="original-data-item" style="grid-column: 1 / -1;"><span>💵 金額:</span><span>${formattedAmount}</span></div>
+        <div class="original-data-label">日付:</div><div class="original-data-value">${originalData.date || '不明'}</div>
+        <div class="original-data-label">入力者:</div><div class="original-data-value">${originalData.name || '不明'}</div>
+        <div class="original-data-label">貸主:</div><div class="original-data-value">${originalData.lender || '不明'}</div>
+        <div class="original-data-label">借主:</div><div class="original-data-value">${originalData.borrower || '不明'}</div>
+        <div class="original-data-label">品目:</div><div class="original-data-value">${originalData.item || '不明'}</div>
+        <div class="original-data-label">個/本:</div><div class="original-data-value">${originalData.quantity || '不明'}</div>
+        <div class="original-data-label">金額:</div><div class="original-data-value">${formattedAmount}</div>
     `;
 }
 
@@ -71,7 +66,7 @@ function autoFillReverseData() {
     document.getElementById('borrower').value = originalData.lender || '';
     document.getElementById('category').value = originalData.category || '';
     document.getElementById('item').value = originalData.item || '';
-    document.getElementById('quantity').value = originalData.quantity || ''; // ★追加
+    document.getElementById('quantity').value = originalData.quantity || '';
     document.getElementById('amount').value = `¥${parseInt(originalData.amount || 0).toLocaleString('ja-JP')}`;
     
     document.querySelectorAll('.category-option').forEach(opt => {
@@ -79,6 +74,22 @@ function autoFillReverseData() {
             opt.classList.add('selected');
         }
     });
+}
+
+function showPopup(title, message, isError = false) {
+    const popup = document.getElementById('status-popup-overlay');
+    document.getElementById('popup-title').textContent = title;
+    document.getElementById('popup-message').innerHTML = message;
+    popup.style.display = 'flex';
+    if(isError) {
+        document.getElementById('status-popup').style.borderColor = '#e53e3e';
+    } else {
+        document.getElementById('status-popup').style.borderColor = '#38a169';
+    }
+}
+
+function hidePopup() {
+    document.getElementById('status-popup-overlay').style.display = 'none';
 }
 
 async function submitCorrectionData(event) {
@@ -89,8 +100,8 @@ async function submitCorrectionData(event) {
     
     submitBtn.disabled = true;
     btnText.textContent = '送信中...';
+    showPopup('📨 送信中', '<div class="auto-login-spinner"></div><p>修正データを送信しています...</p>');
 
-    // ★修正: 送信データに `quantity` を追加
     const data = {
         date: document.getElementById("date").value,
         name: document.getElementById("name").value,
@@ -106,7 +117,8 @@ async function submitCorrectionData(event) {
     };
 
     if (!data.name) {
-        alert('名前を入力してください。');
+        showPopup('❌ 入力エラー', '修正者名を入力してください。', true);
+        setTimeout(hidePopup, 3000);
         submitBtn.disabled = false;
         btnText.textContent = originalText;
         return;
@@ -119,26 +131,21 @@ async function submitCorrectionData(event) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
         });
-
-        const successMsg = document.getElementById('successMessage');
-        successMsg.textContent = '✅ 修正データが正常に送信されました！';
-        successMsg.classList.add('show');
-
+        
+        showPopup('✅ 送信完了', '修正データが正常に送信されました！<br>1.5秒後に自動で確認画面に戻ります。');
+        
         setTimeout(() => {
+            hidePopup();
             if (confirm('送信完了しました。分析ページに戻りますか？')) {
                 window.location.href = document.getElementById('back-btn').href;
             }
-            successMsg.classList.remove('show');
             submitBtn.disabled = false;
             btnText.textContent = originalText;
         }, 1500);
 
     } catch (error) {
-        console.error('送信エラー:', error);
-        const errorMsg = document.getElementById('errorMessage');
-        errorMsg.textContent = `❌ 送信エラー: ${error.message}`;
-        errorMsg.classList.add('show');
-        setTimeout(() => errorMsg.classList.remove('show'), 5000);
+        showPopup('❌ 送信エラー', `エラーが発生しました: ${error.message}`, true);
+        setTimeout(hidePopup, 5000);
         submitBtn.disabled = false;
         btnText.textContent = originalText;
     }
