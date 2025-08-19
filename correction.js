@@ -1,4 +1,3 @@
-
 // === 送信中ポップアップ制御 ===
 function showSubmitOverlay() {
   const el = document.getElementById('submit-overlay');
@@ -30,29 +29,13 @@ function populateShops() {
 }
 
 function loadOriginalData() {
-    // 1) sessionStorage から取得
     const savedData = sessionStorage.getItem('correctionData');
     if (savedData) {
         try {
             originalData = JSON.parse(savedData);
             return true;
-        }
-        catch (e) {
-            console.error("元データの解析に失敗:", e);
-        }
-    }
-    // 2) URLクエリ (?d=...) からのフォールバック
-    const params = new URLSearchParams(location.search);
-    const d = params.get('d');
-    if (d) {
-        try {
-            const json = decodeURIComponent(escape(atob(decodeURIComponent(d))));
-            originalData = JSON.parse(json);
-            // セッションにも入れておく（以降の遷移で使えるように）
-            sessionStorage.setItem('correctionData', JSON.stringify(originalData));
-            return true;
         } catch (e) {
-            console.error("URLパラメータの解析に失敗:", e);
+            console.error("元データの解析に失敗:", e);
         }
     }
     return false;
@@ -61,16 +44,19 @@ function loadOriginalData() {
 function displayOriginalData() {
     if (!originalData) return;
     const grid = document.getElementById('original-data-grid');
+    const formattedUnitPrice = `¥${parseInt(originalData.unitPrice || 0).toLocaleString('ja-JP')}`;
     const formattedAmount = `¥${parseInt(originalData.amount || 0).toLocaleString('ja-JP')}`;
     
-    // ★修正: 元データ表示に「個/本」を追加
+    // ▼▼▼ 変更点: 元データ表示に「単価」を追加 ▼▼▼
     grid.innerHTML = `
         <div class="original-data-item"><span>📅 日付:</span><span>${originalData.date || '不明'}</span></div>
         <div class="original-data-item"><span>👤 入力者:</span><span>${originalData.name || '不明'}</span></div>
         <div class="original-data-item"><span>📤 貸主:</span><span>${originalData.lender || '不明'}</span></div>
         <div class="original-data-item"><span>📥 借主:</span><span>${originalData.borrower || '不明'}</span></div>
         <div class="original-data-item"><span>📝 品目:</span><span>${originalData.item || '不明'}</span></div>
+        <div class="original-data-item"><span>🏷️ カテゴリー:</span><span>${originalData.category || '不明'}</span></div>
         <div class="original-data-item"><span>🔢 個/本:</span><span>${originalData.quantity || '不明'}</span></div>
+        <div class="original-data-item"><span>＠ 単価:</span><span>${formattedUnitPrice}</span></div>
         <div class="original-data-item amount-row" style="grid-column: 1 / -1;"><span>💵 金額:</span><span>${formattedAmount}</span></div>
     `;
 }
@@ -82,7 +68,10 @@ function autoFillReverseData() {
     document.getElementById('borrower').value = originalData.lender || '';
     document.getElementById('category').value = originalData.category || '';
     document.getElementById('item').value = originalData.item || '';
-    document.getElementById('quantity').value = originalData.quantity || ''; // ★追加
+    document.getElementById('quantity').value = originalData.quantity || '';
+    
+    // ▼▼▼ 変更点: フォームに「単価」と「金額」を自動入力 ▼▼▼
+    document.getElementById('unitPrice').value = `¥${parseInt(originalData.unitPrice || 0).toLocaleString('ja-JP')}`;
     document.getElementById('amount').value = `¥${parseInt(originalData.amount || 0).toLocaleString('ja-JP')}`;
     
     document.querySelectorAll('.category-option').forEach(opt => {
@@ -97,14 +86,13 @@ async function submitCorrectionData(event) {
     const submitBtn = event.target.querySelector('button[type="submit"]');
     const btnText = submitBtn.querySelector('.btn-text');
     const originalText = btnText.textContent;
-    // Persist name for next time
     try { const nm = document.getElementById('name')?.value?.trim(); if (nm) localStorage.setItem('userName', nm); } catch (_) {}
     
     submitBtn.disabled = true;
     btnText.textContent = '送信中...';
     showSubmitOverlay();
 
-    // ★修正: 送信データに `quantity` を追加
+    // ▼▼▼ 変更点: 送信データに `unitPrice` を追加 ▼▼▼
     const data = {
         date: document.getElementById("date").value,
         name: document.getElementById("name").value,
@@ -112,11 +100,11 @@ async function submitCorrectionData(event) {
         borrower: document.getElementById("borrower").value,
         category: document.getElementById("category").value,
         item: document.getElementById("item").value,
-        quantity: document.getElementById("quantity").value,
+        quantity: String(originalData.quantity || '0'),
+        unitPrice: String(originalData.unitPrice || '0'),
         amount: String(originalData.amount || '0'),
         isCorrection: true,
-        correctionOnly: true,
-        originalRowIndex: originalData.originalRowIndex
+        correctionMark: "✏️修正(逆取引)" // 修正の種別を明確化
     };
 
     if (!data.name) {
@@ -146,7 +134,7 @@ async function submitCorrectionData(event) {
             successMsg.classList.remove('show');
             submitBtn.disabled = false;
             hideSubmitOverlay();
-        btnText.textContent = originalText;
+            btnText.textContent = originalText;
         }, 1500);
 
     } catch (error) {
@@ -167,17 +155,16 @@ document.addEventListener('DOMContentLoaded', () => {
         displayOriginalData();
         autoFillReverseData();
 
-    // Prefill and focus the name field
     const nameInput = document.getElementById('name');
     if (nameInput) {
-        const saved = localStorage.getItem('userName');
-        if (saved && !nameInput.value) nameInput.value = saved;
-        // Use rAF to ensure focus after layout paints
-        requestAnimationFrame(() => { try { nameInput.focus(); nameInput.select(); } catch (_) {} });
+        try {
+            const saved = localStorage.getItem('userName');
+            if (saved && !nameInput.value) nameInput.value = saved;
+            requestAnimationFrame(() => { nameInput.focus(); nameInput.select(); });
+        } catch (_) {}
     }
 
-}
-        else {
+    } else {
         alert("修正対象のデータが見つかりません。分析ページからやり直してください。");
         document.getElementById('correctionForm').style.display = 'none';
     }
