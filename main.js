@@ -463,6 +463,7 @@ async function submitData(options = {}) {
       borrower: document.getElementById("borrower").value,
       category: document.getElementById("category").value,
       item: document.getElementById("item").value,
+      quantity: document.getElementById("quantity").value,
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: isCorrection,
     };
@@ -475,7 +476,7 @@ async function submitData(options = {}) {
     }
 
     // 共通のバリデーション
-    if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.amount) {
+    if (!data.date || !data.name || !data.lender || !data.borrower || !data.category || !data.item || !data.quantity || !data.amount) {
       throw new Error('すべての必須項目を入力してください。');
     }
     // 貸主と借主が同じ名称でないことを確認するバリデーション
@@ -626,10 +627,22 @@ function initializeElements() {
     });
   });
 
+  // 「個/本」入力の自動フォーマット（半角・全角対応）
+  const quantityInput = document.getElementById('quantity');
+  quantityInput.addEventListener('input', (e) => {
+    let value = e.target.value;
+    // 全角数字を半角数字に変換
+    value = value.replace(/[０-９]/g, function(s) {
+        return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+    });
+    // 数字以外の文字を削除
+    value = value.replace(/[^0-9]/g, '');
+    e.target.value = value;
+  });
+
   // 金額入力の自動フォーマット（半角・全角対応）
   const amountInput = document.getElementById('amount');
   
-
   // 金額入力フィールドがフォーカスを失った時にカンマ区切りで表示
   amountInput.addEventListener('blur', (e) => {
     let value = e.target.value;
