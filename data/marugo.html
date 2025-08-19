@@ -33,6 +33,7 @@
   <main id="main-app" style="display: none;">
     <header class="header">
       <h1>📊 店舗別貸借分析システム</h1>
+      <p style="font-size: 0.8em; color: #888;">バージョン: 2.0</p>
       <a href="../index.html" class="home-btn">🏠 入力フォームへ</a>
     </header>
 
@@ -84,7 +85,7 @@
                 <th onclick="sortTable(8)">入力者</th>
                 <th onclick="sortTable(9)">修正</th>
               </tr>
-              </thead>
+            </thead>
             <tbody id="details-table">
               </tbody>
           </table>
@@ -111,7 +112,7 @@
 <script>
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 //
-//              店舗別貸借分析システム - JavaScript
+//              店舗別貸借分析システム - JavaScript (v2.0)
 //
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
@@ -185,7 +186,7 @@ function sortTable(columnIndex) {
         const bText = b.cells[columnIndex].textContent.trim();
         let comparison = 0;
         
-        // ▼▼▼ 変更点: ソート対象の数値列のインデックスを更新 ▼▼▼
+        // 正しい表示順: 5:個/本, 6:単価, 7:金額
         if (columnIndex === 0) { // 日付
             comparison = new Date(aText) - new Date(bText);
         } else if (columnIndex === 5 || columnIndex === 6 || columnIndex === 7) { // 個/本, 単価, 金額
@@ -253,17 +254,17 @@ class GoogleSheetsAPIAnalyzer {
 
             // スプレッドシートの列の順番通りにデータを取得
             return {
-                date: (row[0] || '').split(' ')[0], // A列: 日付
-                name: row[1] || '',                 // B列: 名前
-                lender: lender,                     // C列: 貸主
-                borrower: borrower,                 // D列: 借主
-                category: row[4] || '',             // E列: カテゴリー
-                item: row[5] || '',                 // F列: 品目
-                quantity: parseFloat(String(row[6] || '0').replace(/,/g, '')),  // G列: 個/本
-                unitPrice: parseFloat(String(row[7] || '0').replace(/,/g, '')), // H列: 単価
-                amount: parseFloat(String(row[8] || '0').replace(/,/g, '')),    // I列: 金額
-                inputDate: row[9] || '',            // J列: 入力日時
-                correction: row[10] || '',          // K列: 修正
+                date: (row[0] || '').split(' ')[0], // A列
+                name: row[1] || '',                 // B列
+                lender: lender,                     // C列
+                borrower: borrower,                 // D列
+                category: row[4] || '',             // E列
+                item: row[5] || '',                 // F列
+                quantity: parseFloat(String(row[6] || '0').replace(/,/g, '')),  // G列
+                unitPrice: parseFloat(String(row[7] || '0').replace(/,/g, '')), // H列
+                amount: parseFloat(String(row[8] || '0').replace(/,/g, '')),    // I列
+                inputDate: row[9] || '',            // J列
+                correction: row[10] || '',          // K列
                 originalRowIndex: index + 2
             };
         }).filter(row => row.date && (row.lender || row.borrower));
@@ -299,8 +300,8 @@ class GoogleSheetsAPIAnalyzer {
             tbody.innerHTML = '<tr><td colspan="10" class="no-results">該当データがありません</td></tr>';
             return;
         }
-
-        // ▼▼▼ 変更点: テーブル行のセルの順番を修正 ▼▼▼
+        
+        // 表示したい順番 (品目 -> カテゴリ -> 個/本 -> 単価 -> 金額) に合わせてセルの内容を生成
         tbody.innerHTML = this.searchResults.map(row => {
             const isLender = row.lender === store;
             const type = !store ? '貸借' : (isLender ? '貸出' : '借入');
@@ -346,7 +347,7 @@ class GoogleSheetsAPIAnalyzer {
         const confirmBtn = document.getElementById('modal-confirm-btn');
         const cancelBtn = document.getElementById('modal-cancel-btn');
 
-        // ▼▼▼ 変更点: 確認モーダルの表示順を修正 ▼▼▼
+        // 表示したい順番に合わせてモーダルの内容を生成
         msgContainer.innerHTML = `
             <p>以下のデータを逆取引として修正しますか？</p>
             <div class="correction-details-grid">
@@ -390,7 +391,8 @@ class GoogleSheetsAPIAnalyzer {
     
     exportResults() {
         if (this.searchResults.length === 0) { alert('エクスポートするデータがありません'); return; }
-        // ▼▼▼ 変更点: CSVエクスポートの列の順番を修正 ▼▼▼
+        
+        // 表示したい順番に合わせてCSVの列を生成
         const csv = Papa.unparse(this.searchResults.map(r => ({
             '日付': r.date,
             '名前': r.name,
