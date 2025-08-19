@@ -104,7 +104,7 @@ async function submitCorrectionData(event) {
         unitPrice: String(originalData.unitPrice || '0'),
         amount: String(originalData.amount || '0'),
         isCorrection: true,
-        correctionMark: "✏️修正(逆取引)" // 修正の種別を明確化
+        correctionMark: "✏️修正" // 修正の種別を明確化
     };
 
     if (!data.name) {
