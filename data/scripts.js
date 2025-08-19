@@ -1,36 +1,35 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // テーブルを囲むスクロール可能なコンテナ要素を取得
   const scrollContainer = document.getElementById('scrollable-area');
-  const scrollHint = document.getElementById('scroll-hint');
 
-  if (scrollContainer && scrollHint) {
-    if (scrollContainer.scrollWidth <= scrollContainer.clientWidth) {
-      scrollHint.style.display = 'none';
-      return;
-    }
-
-    const onScroll = () => {
-      scrollHint.style.display = 'none';
-      scrollContainer.removeEventListener('scroll', onScroll);
-    };
-
-    scrollContainer.addEventListener('scroll', onScroll);
+  // 要素が見つからなければ、ここで処理を終了
+  if (!scrollContainer) {
+    return;
   }
-});
 
-document.addEventListener('DOMContentLoaded', () => {
-  const scrollHint = document.getElementById('scroll-hint');
+  // もしコンテナが中身より広く、スクロールが不要な場合はアイコンを隠して終了
+  if (scrollContainer.scrollWidth <= scrollContainer.clientWidth) {
+    scrollContainer.classList.add('hidden');
+    return;
+  }
 
-  if (!scrollHint) return;
+  // 30秒後にアイコンを非表示にするタイマーを設定
+  const hideTimer = setTimeout(hideHint, 30000);
 
-  const hideScrollHint = () => {
-    setTimeout(() => {
-      scrollHint.style.display = 'none';
-    }, 40000);
-  };
+  // アイコンを非表示にし、関連するイベントをすべて解除する関数
+  function hideHint() {
+    scrollContainer.classList.add('hidden'); // CSSの .hidden クラスを適用
+    clearTimeout(hideTimer); // タイマーを停止
+    // 一度実行されたら不要になるイベントリスナーを解除
+    scrollContainer.removeEventListener('scroll', hideHint);
+    document.querySelectorAll('button').forEach(btn => {
+      btn.removeEventListener('click', hideHint);
+    });
+  }
 
-  // すべてのボタンに対してクリックイベントを設定
-  const buttons = document.querySelectorAll('button');
-  buttons.forEach(btn => {
-    btn.addEventListener('click', hideScrollHint);
+  // スクロールされた時、または何かのボタンがクリックされた時にアイコンを即座に非表示にする
+  scrollContainer.addEventListener('scroll', hideHint, { once: true });
+  document.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', hideHint, { once: true });
   });
 });
