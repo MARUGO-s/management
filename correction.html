@@ -4,40 +4,32 @@
   <meta charset="UTF-8">
   <title>逆取引修正フォーム</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="styles-form.css" rel="stylesheet">
+  <link href="styles.css" rel="stylesheet">
   <link rel="icon" href="favicon-v2.ico" type="image/x-icon">
 </head>
 <body>
   <div class="container">
-    <div class="header-section">
-      <a href="data/marugo.html" class="back-btn" id="back-btn">← 戻る</a>
-      <h2>✏️ 逆取引修正</h2>
+    <header class="header">
+      <a href="marugo.html" class="home-btn" id="back-btn" style="position: static; transform: none;">← 分析ページへ戻る</a>
+      <h1>✏️ 逆取引修正</h1>
       <p class="subtitle">選択されたデータの逆取引を送信します</p>
-    </div>
+    </header>
 
-    <div class="original-data-section" id="original-data-section">
+    <div class="original-data-section">
       <div class="original-data-header">📋 元のデータ</div>
       <div class="original-data-grid" id="original-data-grid">
         </div>
     </div>
 
-    <div class="correction-notice">
-      <div class="correction-notice-header">🔄 逆取引として送信</div>
-      <div class="correction-notice-text">
-        貸主と借主を入れ替えて修正データとして送信します。<br>
-        自動的に「✏️修正」マークが付与されます。
-      </div>
-    </div>
-
     <form id="correctionForm">
       <div class="form-group">
-        <label for="date">📅 日付</label>
+        <label for="date">📅 日付 (修正不可)</label>
         <input type="date" id="date" required disabled>
       </div>
 
-      <div class="form-group name-highlight" id="name-form-group">
-        <label for="name">📋 名前</label>
-       <input type="text" id="name" required placeholder="あなたの名前を入力">
+      <div class="form-group name-highlight">
+        <label for="name">👤 修正者名 (あなたの名前)</label>
+       <input type="text" id="name" required placeholder="あなたの名前を入力してください">
       </div>
       
       <div class="form-row">
@@ -52,7 +44,7 @@
       </div>
 
       <div class="form-group">
-        <label>🏷️ カテゴリー</label>
+        <label>🏷️ カテゴリー (修正不可)</label>
         <div class="category-grid">
           <div class="category-option disabled" data-value="食材">🍎 食材</div>
           <div class="category-option disabled" data-value="飲料">🥤 飲料</div>
@@ -62,17 +54,17 @@
       </div>
 
       <div class="form-group">
-        <label for="item">📝 品目</label>
+        <label for="item">📝 品目 (修正不可)</label>
         <input type="text" id="item" required disabled>
       </div>
       
       <div class="form-group">
-        <label for="quantity">🔢 個/本</label>
+        <label for="quantity">🔢 個/本 (修正不可)</label>
         <input type="text" id="quantity" required disabled>
       </div>
 
       <div class="form-group">
-        <label for="amount">💵 金額</label>
+        <label for="amount">💵 金額 (修正不可)</label>
         <div class="amount-input">
           <input type="text" id="amount" required disabled>
         </div>
@@ -83,15 +75,16 @@
           <span class="loading"></span>
           <span class="btn-text">✏️ 修正データを送信</span>
         </button>
-        <button type="button" class="submit-btn cancel-btn" onclick="history.back()">
-          <span class="btn-text">❌ キャンセル</span>
-        </button>
       </div>
     </form>
   </div>
 
-  <div class="success-message" id="successMessage"></div>
-  <div class="error-message" id="errorMessage"></div>
+  <div id="status-popup-overlay">
+    <div id="status-popup">
+        <h3 id="popup-title"></h3>
+        <div id="popup-message"></div>
+    </div>
+  </div>
 
   <script src="correction.js"></script>
 </body>
