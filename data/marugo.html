@@ -73,17 +73,18 @@
           <table id="results-table">
             <thead>
               <tr>
-                <th>日付</th>
-                <th>タイプ</th>
-                <th>相手先</th>
-                <th>品目</th>
-                <th>個/本</th>
-                <th>カテゴリー</th>
-                <th>金額</th>
-                <th>入力者</th>
-                <th>修正</th>
+                <th onclick="sortTable(0)">日付</th>
+                <th onclick="sortTable(1)">タイプ</th>
+                <th onclick="sortTable(2)">相手先</th>
+                <th onclick="sortTable(3)">品目</th>
+                <th onclick="sortTable(4)">個/本</th>
+                <th onclick="sortTable(5)">単価</th>
+                <th onclick="sortTable(6)">カテゴリー</th>
+                <th onclick="sortTable(7)">金額</th>
+                <th onclick="sortTable(8)">入力者</th>
+                <th onclick="sortTable(9)">修正</th>
               </tr>
-            </thead>
+              </thead>
             <tbody id="details-table">
               </tbody>
           </table>
@@ -183,14 +184,15 @@ function sortTable(columnIndex) {
         const aText = a.cells[columnIndex].textContent.trim();
         const bText = b.cells[columnIndex].textContent.trim();
         let comparison = 0;
-        // 日付(0), 個/本(4), 金額(6) は数値・日付としてソート
-        if (columnIndex === 0) {
+        
+        // ▼▼▼ 変更点: ソート対象の数値列に「単価」(5)を追加し、「金額」を(7)に更新 ▼▼▼
+        if (columnIndex === 0) { // 日付
             comparison = new Date(aText) - new Date(bText);
-        } else if (columnIndex === 4 || columnIndex === 6) {
+        } else if (columnIndex === 4 || columnIndex === 5 || columnIndex === 7) { // 個/本, 単価, 金額
             const numA = parseFloat(aText.replace(/[¥,]/g, '')) || 0;
             const numB = parseFloat(bText.replace(/[¥,]/g, '')) || 0;
             comparison = numA - numB;
-        } else {
+        } else { // その他テキスト
             comparison = aText.localeCompare(bText, 'ja');
         }
         return direction === 'asc' ? comparison : -comparison;
@@ -226,7 +228,8 @@ class GoogleSheetsAPIAnalyzer {
     async connectToGoogleSheets() {
         this.log('Google Sheets API に接続中...', 'loading');
         try {
-            const range = `${this.sheetName}!A:J`; 
+            // ▼▼▼ 変更点: 読み込む範囲をK列まで拡張 ▼▼▼
+            const range = `${this.sheetName}!A:K`; 
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${range}?key=${this.apiKey}`;
             const response = await fetch(url);
             if (!response.ok) throw new Error(`API接続エラー: ${response.status}`);
@@ -249,6 +252,7 @@ class GoogleSheetsAPIAnalyzer {
             if (lender) this.stores.add(lender);
             if (borrower) this.stores.add(borrower);
 
+            // ▼▼▼ 変更点: 新しい列の定義に合わせてデータをマッピング ▼▼▼
             return {
                 date: (row[0] || '').split(' ')[0], // A列: 日付
                 name: row[1] || '',                 // B列: 名前
@@ -256,10 +260,11 @@ class GoogleSheetsAPIAnalyzer {
                 borrower: borrower,                 // D列: 借主
                 category: row[4] || '',             // E列: カテゴリー
                 item: row[5] || '',                 // F列: 品目
-                quantity: parseFloat(String(row[6] || '1').replace(/,/g, '')), // G列: 個/本
-                amount: parseFloat(String(row[7] || '0').replace(/,/g, '')),   // H列: 金額
-                inputDate: row[8] || '',            // I列: 入力日時
-                correction: row[9] || '',           // J列: 修正
+                quantity: parseFloat(String(row[6] || '1').replace(/,/g, '')),  // G列: 個/本
+                unitPrice: parseFloat(String(row[7] || '0').replace(/,/g, '')), // H列: 単価
+                amount: parseFloat(String(row[8] || '0').replace(/,/g, '')),    // I列: 金額
+                inputDate: row[9] || '',            // J列: 入力日時
+                correction: row[10] || '',          // K列: 修正
                 originalRowIndex: index + 2
             };
         }).filter(row => row.date && (row.lender || row.borrower));
@@ -292,10 +297,11 @@ class GoogleSheetsAPIAnalyzer {
         const store = document.getElementById('store-name').value;
         
         if (this.searchResults.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="no-results">該当データがありません</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="no-results">該当データがありません</td></tr>';
             return;
         }
 
+        // ▼▼▼ 変更点: テーブル行に「単価」のセルを追加 ▼▼▼
         tbody.innerHTML = this.searchResults.map(row => {
             const isLender = row.lender === store;
             const type = !store ? '貸借' : (isLender ? '貸出' : '借入');
@@ -308,8 +314,9 @@ class GoogleSheetsAPIAnalyzer {
                 <td>${counterpart}</td>
                 <td>${row.item}</td>
                 <td>${row.quantity || ''}</td>
+                <td class="amount">¥${(row.unitPrice || 0).toLocaleString()}</td>
                 <td>${row.category}</td>
-                <td class="amount ${amountClass}">¥${row.amount.toLocaleString()}</td>
+                <td class="amount ${amountClass}">¥${(row.amount || 0).toLocaleString()}</td>
                 <td>${row.name}</td>
                 <td>${row.correction}</td>
             </tr>`;
@@ -318,7 +325,6 @@ class GoogleSheetsAPIAnalyzer {
     }
 
     addRowClickEvents() {
-        // tbody 全体に1回だけイベント委譲（再描画・ソート後も有効）
         const tbody = document.getElementById('details-table');
         if (!tbody || tbody.__rowClickBound) return;
         tbody.__rowClickBound = true;
@@ -334,17 +340,14 @@ class GoogleSheetsAPIAnalyzer {
 
     showCorrectionConfirm(data) {
         const modal = document.getElementById('confirm-modal-overlay');
-        
-        // 先にポップアップを表示する
         modal.classList.remove('hidden');
         modal.classList.add('show');
 
-        // その他の要素を取得
         const msgContainer = document.getElementById('confirm-modal-message');
         const confirmBtn = document.getElementById('modal-confirm-btn');
         const cancelBtn = document.getElementById('modal-cancel-btn');
 
-        // ポップアップの内容を生成
+        // ▼▼▼ 変更点: 確認モーダルに「単価」を追加 ▼▼▼
         msgContainer.innerHTML = `
             <p>以下のデータを逆取引として修正しますか？</p>
             <div class="correction-details-grid">
@@ -355,13 +358,13 @@ class GoogleSheetsAPIAnalyzer {
                 <div class="grid-item-label">カテゴリー:</div><div class="grid-item-value">${data.category}</div>
                 <div class="grid-item-label">品目:</div><div class="grid-item-value">${data.item}</div>
                 <div class="grid-item-label">個/本:</div><div class="grid-item-value">${data.quantity}</div>
-                <div class="grid-item-label">金額:</div><div class="grid-item-value">¥${data.amount.toLocaleString()}</div>
+                <div class="grid-item-label">単価:</div><div class="grid-item-value">¥${(data.unitPrice || 0).toLocaleString()}</div>
+                <div class="grid-item-label">金額:</div><div class="grid-item-value">¥${(data.amount || 0).toLocaleString()}</div>
                 <div class="grid-item-label">入力日時:</div><div class="grid-item-value">${data.inputDate}</div>
                 <div class="grid-item-label">既存の修正:</div><div class="grid-item-value">${data.correction || 'なし'}</div>
             </div>
         `;
         
-        // ボタンの動作を設定
         confirmBtn.onclick = () => {
             modal.classList.remove('show');
             modal.classList.add('hidden');
@@ -376,9 +379,7 @@ class GoogleSheetsAPIAnalyzer {
     
     redirectToCorrectionPage(data) {
         try {
-            // セッション（同一タブ）
             sessionStorage.setItem('correctionData', JSON.stringify(data));
-            // URLクエリにも埋め込む（新規タブ/リロード対策）
             const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(data)))));
             const to = (location.pathname.includes('/data/')) ? '../correction.html?d=' + encoded : 'correction.html?d=' + encoded;
             window.location.href = to;
@@ -390,7 +391,20 @@ class GoogleSheetsAPIAnalyzer {
     
     exportResults() {
         if (this.searchResults.length === 0) { alert('エクスポートするデータがありません'); return; }
-        const csv = Papa.unparse(this.searchResults.map(r => ({'日付': r.date,'名前': r.name,'貸主': r.lender,'借主': r.borrower,'カテゴリー': r.category,'品目': r.item,'個/本': r.quantity,'金額': r.amount,'入力日時': r.inputDate,'修正': r.correction})));
+        // ▼▼▼ 変更点: CSVエクスポートに「単価」を追加 ▼▼▼
+        const csv = Papa.unparse(this.searchResults.map(r => ({
+            '日付': r.date,
+            '名前': r.name,
+            '貸主': r.lender,
+            '借主': r.borrower,
+            'カテゴリー': r.category,
+            '品目': r.item,
+            '個/本': r.quantity,
+            '単価': r.unitPrice,
+            '金額': r.amount,
+            '入力日時': r.inputDate,
+            '修正': r.correction
+        })));
         const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
