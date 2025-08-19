@@ -256,7 +256,7 @@ class GoogleSheetsAPIAnalyzer {
                 borrower: borrower,                 // D列: 借主
                 category: row[4] || '',             // E列: カテゴリー
                 item: row[5] || '',                 // F列: 品目
-                quantity: parseFloat(String(row[6] || '0').replace(/,/g, '')), // G列: 個/本
+                quantity: parseFloat(String(row[6] || '1').replace(/,/g, '')), // G列: 個/本
                 amount: parseFloat(String(row[7] || '0').replace(/,/g, '')),   // H列: 金額
                 inputDate: row[8] || '',            // I列: 入力日時
                 correction: row[9] || '',           // J列: 修正
@@ -329,8 +329,6 @@ class GoogleSheetsAPIAnalyzer {
             if (Number.isNaN(index)) return;
             const selected = this.data && this.data.find(d => d.originalRowIndex === index);
             if (selected) this.showCorrectionConfirm(selected);
-        });
-    });
         });
     }
 
