@@ -334,6 +334,7 @@ async function submitData(options = {}) {
     await showStep('step-validation', correctionOnly ? '📋 修正データを検証中...' : '📋 データを検証中...');
     await delay(600);
 
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 変更箇所 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     const data = {
       date: document.getElementById("date").value,
       name: document.getElementById("name").value,
@@ -341,10 +342,12 @@ async function submitData(options = {}) {
       borrower: document.getElementById("borrower").value,
       category: document.getElementById("category").value,
       item: document.getElementById("item").value,
-      quantity: document.getElementById("quantity").value,
+      quantity: convertToHalfWidthNumber(document.getElementById("quantity").value),
+      unitPrice: convertToHalfWidthNumber(document.getElementById("unitPrice").value), // この行を追加
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: isCorrection,
     };
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 変更箇所 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     if (correctionOnly) {
       data.correctionOnly = true;
