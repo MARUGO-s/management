@@ -8,7 +8,7 @@ function hideSubmitOverlay() {
   if (el) { el.style.display = 'none'; el.setAttribute('aria-hidden','true'); }
 }
 
-const GAS_URL = "https://script.google.com/macros/s/AKfycbw73jkEAmiCKzEk5nwpQlcd0PWx33aYLsrsm_aK-w1GNH6uaIG-8EDELVRF0JfIJYEt/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyz-noG3mrAKauRG2H4Otzyn78MYIaoOghEUnNou1oY_BBkQNpFUG11V-oUb-gswHEh/exec";
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
