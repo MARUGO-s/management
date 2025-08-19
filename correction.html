@@ -16,13 +16,26 @@
       padding: 1.25rem;
       background-color: #fdfdfd;
     }
+    /* === 元データ表示グリッド === */
+    #original-data-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px 16px;
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+    }
+    .original-data-item { font-size: 0.9em; color: #333; }
+    .original-data-item span:first-child { font-weight: 600; color: #555; margin-right: 8px;}
+    .original-data-item.amount-row { font-size: 1.1em; font-weight: bold; }
 
     /* === 無効化された入力欄（確認項目）のスタイル === */
     select:disabled, input:disabled {
-      color: #333 !important; /* 文字を濃くする */
+      color: #333 !important;
       -webkit-text-fill-color: #333;
       opacity: 1;
-      background: #f0f0f0; /* 背景色を少し変えて「表示用」であることを示す */
+      background: #f0f0f0;
       border: 1px solid #ddd;
       cursor: not-allowed;
     }
@@ -33,17 +46,20 @@
       padding-left: .6rem;
       background: rgba(106, 168, 79, 0.06);
       border-radius: .4rem;
-      margin-top: 2rem; /* 送信ボタンとの間に少しスペースを設ける */
+      margin-top: 2rem;
     }
+    .cancel-btn { background: #6c757d; }
+    .subtitle { font-size: 0.95em; color: #555; text-align: center; }
+    .header-section { margin-bottom: 1rem; text-align: center; position: relative; }
+    .back-btn { position: absolute; left: 0; top: 50%; transform: translateY(-50%); text-decoration: none; color: #333; background: #f0f0f0; padding: 8px 12px; border-radius: 8px;}
 
-    /* === 送信中ポップアップのスタイル (変更なし) === */
-    #submit-overlay.overlay--submit { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(33, 37, 41, 0.55); z-index: 9999; backdrop-filter: blur(1px); }
-    #submit-overlay.overlay--submit[aria-hidden="false"] { display: flex; }
-    .submit-modal { background: #fff; color: #222; border-radius: 14px; padding: 20px 24px; width: min(92vw, 420px); box-shadow: 0 10px 30px rgba(0,0,0,.2); text-align: center; font-size: 15px; line-height: 1.6; }
-    @media (prefers-color-scheme: dark) { .submit-modal { background: #1f1f1f; color: #eee; } }
+    /* === 送信中ポップアップのスタイル === */
+    #submit-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(33, 37, 41, 0.55); z-index: 9999; backdrop-filter: blur(1px); }
+    #submit-overlay[aria-hidden="false"] { display: flex; }
+    .submit-modal { background: #fff; color: #222; border-radius: 14px; padding: 20px 24px; width: min(92vw, 420px); box-shadow: 0 10px 30px rgba(0,0,0,.2); text-align: center; }
     .submit-modal .spinner { width: 40px; height: 40px; margin: 6px auto 12px; border: 3px solid rgba(0,0,0,.15); border-top-color: currentColor; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .submit-modal .modal-title { font-weight: 700; margin: 0 0 4px; letter-spacing: .02em; }
+    .submit-modal .modal-title { font-weight: 700; margin: 0 0 4px; }
     .submit-modal .modal-sub { opacity: .8; font-size: .92em; margin: 0; }
   </style>
 </head>
@@ -55,7 +71,7 @@
       <p class="subtitle">以下の内容で逆取引を作成します。<br>担当者名を入力して送信してください。</p>
     </div>
 
-    <div id="original-data-grid" style="display: none;"></div>
+    <div id="original-data-grid"></div>
 
     <div class="confirmation-form-container">
       <form id="correctionForm">
@@ -90,18 +106,22 @@
           <input type="text" id="item" required disabled>
         </div>
         
-        <div class="form-group">
-          <label for="quantity">🔢 個/本</label>
-          <input type="text" id="quantity" required disabled>
-        </div>
-
-        <div class="form-group">
-          <label for="amount">💵 金額</label>
-          <div class="amount-input">
-            <input type="text" id="amount" required disabled>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="quantity">🔢 個/本</label>
+            <input type="text" id="quantity" required disabled>
+          </div>
+          <div class="form-group">
+            <label for="unitPrice">＠ 単価</label>
+            <input type="text" id="unitPrice" required disabled>
           </div>
         </div>
-
+        <div class="form-group">
+            <label for="amount">💵 金額</label>
+            <div class="amount-input">
+                <input type="text" id="amount" required disabled>
+            </div>
+        </div>
         <div class="form-group name-highlight" id="name-form-group">
           <label for="name">👤 担当者名</label>
          <input type="text" id="name" required placeholder="あなたの名前を入力" autofocus>
