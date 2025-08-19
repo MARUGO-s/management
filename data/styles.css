@@ -705,10 +705,10 @@ th.amount,
 .scroll-hint::before {
     content: '';
     position: absolute;
-    top: 60px;          /* ★変更：アイコンを下に移動 */
-    right: 40px;         /* ★変更：右端から少し内側に移動 */
-    width: 80px;         /* ★変更：アイコンを小さくして見やすく */
-    height: 80px;        /* ★変更 */
+    top: 60px;
+    right: 40px;
+    width: 80px;
+    height: 80px;
     background-image: url('finger.png');
     background-size: contain;
     background-repeat: no-repeat;
@@ -865,6 +865,10 @@ th.amount,
 
     .auto-login-card {
         padding: 30px 20px;
+    }
+
+    .scroll-hint::before {
+        display: none !important;
     }
 }
 
@@ -1068,10 +1072,6 @@ th.amount,
     .type-tag {
         animation: none !important;
     }
-
-    #scroll-hint {
-        display: block;
-    }
 }
 
 /* ================================
@@ -1107,7 +1107,7 @@ th.amount,
         font-size: 1.1rem !important;
     }
 
-    #scroll-hint {
+    .scroll-hint::before {
         display: none !important;
     }
 }
