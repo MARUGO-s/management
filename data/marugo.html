@@ -332,9 +332,6 @@ class GoogleSheetsAPIAnalyzer {
         });
     }
 
-    // ★★★ 修正箇所 ★★★
-    // ポップアップを表示する処理を関数の最初に移動しました。
-    // これにより、万が一他の処理でエラーが発生しても、ポップアップは確実に表示されるようになります。
     showCorrectionConfirm(data) {
         const modal = document.getElementById('confirm-modal-overlay');
         
