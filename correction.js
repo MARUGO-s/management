@@ -22,8 +22,13 @@ function loadOriginalData() {
     // 1) sessionStorage から取得
     const savedData = sessionStorage.getItem('correctionData');
     if (savedData) {
-        try { originalData = JSON.parse(savedData); return true; }
-        catch (e) { console.error("元データの解析に失敗:", e); }
+        try {
+            originalData = JSON.parse(savedData);
+            return true;
+        }
+        catch (e) {
+            console.error("元データの解析に失敗:", e);
+        }
     }
     // 2) URLクエリ (?d=...) からのフォールバック
     const params = new URLSearchParams(location.search);
@@ -37,12 +42,6 @@ function loadOriginalData() {
             return true;
         } catch (e) {
             console.error("URLパラメータの解析に失敗:", e);
-        }
-    }
-    return false;
-} catch (e) {
-            console.error("元データの解析に失敗:", e);
-            return false;
         }
     }
     return false;
