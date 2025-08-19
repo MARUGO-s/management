@@ -9,15 +9,30 @@
 <script defer src="obfuscated.js"></script>
 
 <style>
+  /* 単価の列を右寄せにし、フォントを調整（太字にはしない） */
+  #results-table td.unit-price {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+    font-weight: normal; /* 太字を解除 */
+  }
+
   /* スマートフォン表示 (幅767px以下) のテーブルを調整 */
   @media screen and (max-width: 767px) {
-    /* 単価と金額の列のスタイルを上書きして、数字が途切れないようにする */
+    /* 金額の列のスタイルを上書きして、数字が途切れないようにする */
     #results-table td.amount {
       font-size: 12px !important;      /* フォントサイズを小さくして確実に適用 */
       overflow: visible !important;     /* 文字がはみ出ても表示させる */
       text-overflow: clip !important;   /* 「...」による省略を無効化 */
       white-space: nowrap !important;   /* 折り返しを防ぐ */
       padding: 8px 4px;                 /* 横の余白を少し詰める */
+    }
+    /* 単価の列も同様に調整 */
+    #results-table td.unit-price {
+        font-size: 12px !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: nowrap !important;
+        padding: 8px 4px;
     }
   }
 </style>
@@ -320,7 +335,7 @@ class GoogleSheetsAPIAnalyzer {
             const counterpart = !store ? `${row.lender} → ${row.borrower}` : (isLender ? row.borrower : row.lender);
             const amountClass = !store ? '' : (isLender ? 'positive' : 'negative');
             
-            // ▼▼▼ 変更点: 「単価」のセルに 'amount' クラスを追加 ▼▼▼
+            // ▼▼▼ 変更点: 「単価」のセルから 'amount' クラスを削除 ▼▼▼
             return `<tr class="data-row" data-row-index="${row.originalRowIndex}" title="クリックして修正">
                 <td>${row.date}</td>
                 <td><span class="type-tag type-${type}">${type}</span></td>
@@ -328,7 +343,7 @@ class GoogleSheetsAPIAnalyzer {
                 <td>${row.item}</td>
                 <td>${row.category}</td>
                 <td>${row.quantity || ''}</td>
-                <td class="amount unit-price">¥${(row.unitPrice || 0).toLocaleString()}</td>
+                <td class="unit-price">¥${(row.unitPrice || 0).toLocaleString()}</td>
                 <td class="amount ${amountClass}">¥${(row.amount || 0).toLocaleString()}</td>
                 <td>${row.name}</td>
                 <td>${row.correction}</td>
