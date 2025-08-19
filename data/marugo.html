@@ -7,6 +7,20 @@
 <link href="styles.css" rel="stylesheet"/>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 <script defer src="obfuscated.js"></script>
+
+<style>
+  /* スマートフォン表示 (幅767px以下) のテーブルを調整 */
+  @media screen and (max-width: 767px) {
+    /* 単価と金額の列のスタイルを上書きして、数字が途切れないようにする */
+    #results-table td.amount {
+      font-size: 12px !important;      /* フォントサイズを小さくして確実に適用 */
+      overflow: visible !important;     /* 文字がはみ出ても表示させる */
+      text-overflow: clip !important;   /* 「...」による省略を無効化 */
+      white-space: nowrap !important;   /* 折り返しを防ぐ */
+      padding: 8px 4px;                 /* 横の余白を少し詰める */
+    }
+  }
+</style>
 </head>
 <body>
 
@@ -33,7 +47,6 @@
   <main id="main-app" style="display: none;">
     <header class="header">
       <h1>📊 店舗別貸借分析システム</h1>
-      <p style="font-size: 0.8em; color: #888;">バージョン: 2.0</p>
       <a href="../index.html" class="home-btn">🏠 入力フォームへ</a>
     </header>
 
@@ -112,7 +125,7 @@
 <script>
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 //
-//              店舗別貸借分析システム - JavaScript (v2.0)
+//              店舗別貸借分析システム - JavaScript
 //
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
@@ -301,13 +314,13 @@ class GoogleSheetsAPIAnalyzer {
             return;
         }
         
-        // 表示したい順番 (品目 -> カテゴリ -> 個/本 -> 単価 -> 金額) に合わせてセルの内容を生成
         tbody.innerHTML = this.searchResults.map(row => {
             const isLender = row.lender === store;
             const type = !store ? '貸借' : (isLender ? '貸出' : '借入');
             const counterpart = !store ? `${row.lender} → ${row.borrower}` : (isLender ? row.borrower : row.lender);
             const amountClass = !store ? '' : (isLender ? 'positive' : 'negative');
             
+            // ▼▼▼ 変更点: 「単価」のセルに 'amount' クラスを追加 ▼▼▼
             return `<tr class="data-row" data-row-index="${row.originalRowIndex}" title="クリックして修正">
                 <td>${row.date}</td>
                 <td><span class="type-tag type-${type}">${type}</span></td>
@@ -315,7 +328,7 @@ class GoogleSheetsAPIAnalyzer {
                 <td>${row.item}</td>
                 <td>${row.category}</td>
                 <td>${row.quantity || ''}</td>
-                <td class="amount">¥${(row.unitPrice || 0).toLocaleString()}</td>
+                <td class="amount unit-price">¥${(row.unitPrice || 0).toLocaleString()}</td>
                 <td class="amount ${amountClass}">¥${(row.amount || 0).toLocaleString()}</td>
                 <td>${row.name}</td>
                 <td>${row.correction}</td>
@@ -347,7 +360,6 @@ class GoogleSheetsAPIAnalyzer {
         const confirmBtn = document.getElementById('modal-confirm-btn');
         const cancelBtn = document.getElementById('modal-cancel-btn');
 
-        // 表示したい順番に合わせてモーダルの内容を生成
         msgContainer.innerHTML = `
             <p>以下のデータを逆取引として修正しますか？</p>
             <div class="correction-details-grid">
@@ -392,7 +404,6 @@ class GoogleSheetsAPIAnalyzer {
     exportResults() {
         if (this.searchResults.length === 0) { alert('エクスポートするデータがありません'); return; }
         
-        // 表示したい順番に合わせてCSVの列を生成
         const csv = Papa.unparse(this.searchResults.map(r => ({
             '日付': r.date,
             '名前': r.name,
