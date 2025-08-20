@@ -199,6 +199,7 @@
       position: relative;
     }
 
+    /* 🔥 名前入力フィールド強調スタイル */
     .form-group.name-highlight {
       position: relative;
       padding: 8px;
@@ -277,6 +278,7 @@
       }
     }
 
+    /* 名前入力完了時のアニメーション */
     .form-group.name-completed {
       animation: nameFieldComplete 0.6s ease-out;
       background: linear-gradient(135deg, 
@@ -318,6 +320,7 @@
       }
     }
 
+    /* モバイル対応 */
     @media (max-width: 768px) {
       .form-group.name-highlight::after {
         right: -180px;
@@ -348,6 +351,7 @@
       letter-spacing: 0.5px;
     }
 
+    /* 名前ラベルの特別スタイル */
     .name-highlight label {
       color: #d69e2e;
       font-weight: 700;
@@ -374,6 +378,7 @@
       font-family: inherit;
     }
 
+    /* 名前入力フィールドの特別スタイル */
     .name-highlight input {
       border-color: #d69e2e;
       background: rgba(255, 255, 255, 0.95);
@@ -397,6 +402,7 @@
       }
     }
 
+    /* 無効化された入力フィールドのスタイル */
     input:disabled, select:disabled {
       background: #e9e9e9;
       color: #888;
@@ -442,6 +448,7 @@
       font-weight: 500;
     }
 
+    /* 無効化されたカテゴリーオプションのスタイル */
     .category-option.disabled {
         background: #e9e9e9;
         color: #888;
@@ -467,6 +474,7 @@
       color: white;
     }
 
+    /* 選択された無効カテゴリーのスタイル */
     .category-option.selected.disabled {
         background: linear-gradient(135deg, #b7791f, #a67f3f);
         color: white;
@@ -711,6 +719,7 @@
       display: none;
     }
 
+    /* エラー表示用のスタイル */
     .error-notice {
       background: linear-gradient(135deg, #ffe8e8 0%, #ffcccb 100%);
       border: 2px solid #ff6b6b;
@@ -738,6 +747,7 @@
       line-height: 1.4;
     }
 
+    /* デバッグ情報用のスタイル */
     .debug-section {
       position: fixed;
       bottom: 10px;
@@ -805,6 +815,14 @@
       }
     }
   </style>
+
+<link rel="icon" href="favicon-v2.ico" type="image/x-icon">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180x180-v2.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512x512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16x16.png">  
+<link rel="manifest" href="site-v2.webmanifest">
   
 </head>
 <body>
@@ -823,6 +841,7 @@
       <p class="subtitle">選択されたデータの逆取引を送信します</p>
     </div>
 
+    <!-- エラー通知 -->
     <div class="error-notice" id="error-notice">
       <div class="error-notice-header">⚠️ データ読み込みエラー</div>
       <div class="error-notice-text" id="error-notice-text">
@@ -831,14 +850,17 @@
       </div>
     </div>
 
+    <!-- 元データ表示セクション -->
     <div class="original-data-section" id="original-data-section">
       <div class="original-data-header">
         📋 元のデータ
       </div>
       <div class="original-data-grid" id="original-data-grid">
-        </div>
+        <!-- 元データがここに表示されます -->
+      </div>
     </div>
 
+    <!-- 修正通知 -->
     <div class="correction-notice">
       <div class="correction-notice-header">🔄 逆取引として送信</div>
       <div class="correction-notice-text">
@@ -894,6 +916,7 @@
         </div>
       </div>
 
+      <!-- 状態表示エリア -->
       <div class="status-display" id="status-display">
         <div class="status-step" id="step-validation">
           <span class="status-icon">📋</span>
@@ -937,39 +960,132 @@
     ❌ 送信に失敗しました
   </div>
 
+  <!-- デバッグ機能 -->
   <button class="debug-toggle" onclick="toggleDebug()">🐛 Debug</button>
   <div class="debug-section" id="debug-section">
     <div id="debug-content">デバッグ情報を読み込み中...</div>
   </div>
 
   <script>
+    // デバッグ機能
     function toggleDebug() {
       const debugSection = document.getElementById('debug-section');
       debugSection.style.display = debugSection.style.display === 'none' ? 'block' : 'none';
+      updateDebugInfo();
     }
 
+    function updateDebugInfo() {
+      const debugContent = document.getElementById('debug-content');
+      const sessionData = sessionStorage.getItem('correctionData');
+      const localData = localStorage.getItem('correctionData');
+      const urlData = new URLSearchParams(window.location.search).get('data');
+      
+      const info = {
+        'URL': window.location.href,
+        'Referrer': document.referrer,
+        'sessionStorage keys': Object.keys(sessionStorage),
+        'localStorage keys': Object.keys(localStorage),
+        'sessionStorage correctionData': sessionData ? 'あり（' + sessionData.length + '文字）' : 'なし',
+        'localStorage correctionData': localData ? 'あり（' + localData.length + '文字）' : 'なし',
+        'URL parameter data': urlData ? 'あり（' + urlData.length + '文字）' : 'なし',
+        'Timestamp': new Date().toISOString()
+      };
+      
+      debugContent.innerHTML = Object.entries(info)
+        .map(([key, value]) => `<div><strong>${key}:</strong> ${JSON.stringify(value)}</div>`)
+        .join('');
+    }
+
+    // 初期化処理でデバッグ情報とエラー制御
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('=== correction.html 初期化開始 ===');
+      updateDebugInfo();
+      
+      // データ読み込み状況を確認
+      const hasSessionData = sessionStorage.getItem('correctionData');
+      const hasLocalData = localStorage.getItem('correctionData');
+      const hasUrlData = new URLSearchParams(window.location.search).get('data');
+      
+      console.log('データ読み込み状況:', {
+        sessionStorage: hasSessionData ? '有り' : '無し',
+        localStorage: hasLocalData ? '有り' : '無し',
+        urlParams: hasUrlData ? '有り' : '無し'
+      });
+      
+      // エラー表示の制御
+      if (!hasSessionData && !hasLocalData && !hasUrlData) {
+        console.log('データが見つからないためエラー表示');
+        document.getElementById('error-notice').classList.add('show');
+        document.getElementById('original-data-section').style.display = 'none';
+        document.getElementById('correctionForm').style.display = 'none';
+        
+        // 自動的に戻るための処理
+        setTimeout(() => {
+          const backBtn = document.getElementById('back-btn');
+          console.log('自動リダイレクト実行');
+          if (backBtn && backBtn.href) {
+            window.location.href = backBtn.href;
+          } else if (document.referrer) {
+            history.back();
+          } else {
+            // フォールバックパス
+            const possiblePaths = ['data/marugo.html', '../data/marugo.html', 'marugo.html'];
+            window.location.href = possiblePaths[0];
+          }
+        }, 3000);
+      } else {
+        console.log('データが見つかったため通常の初期化を実行');
+        document.getElementById('error-notice').style.display = 'none';
+        document.getElementById('original-data-section').style.display = 'block';
+        document.getElementById('correctionForm').style.display = 'block';
+        
+        // 🔥 名前入力アニメーション制御
+        setupNameInputAnimation();
+      }
+    });
+
+    // 🔥 名前入力アニメーション設定
     function setupNameInputAnimation() {
       const nameInput = document.getElementById('name');
       const nameFormGroup = document.getElementById('name-form-group');
+      
       if (!nameInput || !nameFormGroup) return;
+      
+      // 入力監視
       nameInput.addEventListener('input', () => {
         if (nameInput.value.trim().length > 0) {
+          // 入力がある場合は完了状態に
           nameFormGroup.classList.remove('name-highlight');
           nameFormGroup.classList.add('name-completed');
-          setTimeout(() => nameFormGroup.classList.remove('name-completed'), 3000);
+          
+          // 3秒後にアニメーションをリセット
+          setTimeout(() => {
+            nameFormGroup.classList.remove('name-completed');
+          }, 3000);
         } else {
+          // 入力が空の場合は強調状態に戻す
           nameFormGroup.classList.remove('name-completed');
           nameFormGroup.classList.add('name-highlight');
         }
       });
-      nameInput.addEventListener('focus', () => nameFormGroup.classList.add('name-highlight'));
-      nameInput.addEventListener('blur', () => {
-        if (nameInput.value.trim().length === 0) nameFormGroup.classList.add('name-highlight');
+      
+      // フォーカス時の特別処理
+      nameInput.addEventListener('focus', () => {
+        nameFormGroup.classList.add('name-highlight');
       });
-      setTimeout(() => nameFormGroup.classList.add('name-highlight'), 1000);
+      
+      // ブラー時の処理
+      nameInput.addEventListener('blur', () => {
+        if (nameInput.value.trim().length === 0) {
+          nameFormGroup.classList.add('name-highlight');
+        }
+      });
+      
+      // 初期状態で強調アニメーションを開始
+      setTimeout(() => {
+        nameFormGroup.classList.add('name-highlight');
+      }, 1000);
     }
-    
-    document.addEventListener('DOMContentLoaded', setupNameInputAnimation);
   </script>
 
   <script src="correction.js"></script>
