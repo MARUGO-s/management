@@ -55,7 +55,7 @@ function displayOriginalData() {
         <div class="original-data-item"><span>📥 借主:</span><span>${originalData.borrower || '不明'}</span></div>
         <div class="original-data-item"><span>📝 品目:</span><span>${originalData.item || '不明'}</span></div>
         <div class="original-data-item"><span>🏷️ カテゴリー:</span><span>${originalData.category || '不明'}</span></div>
-        <div class="original-data-item"><span>🔢 個/本:</span><span>${originalData.quantity || '不明'}</span></div>
+        <div class="original-data-item"><span>🔢 個/本/kg:</span><span>${originalData.quantity || '不明'}</span></div>
         <div class="original-data-item"><span>＠ 単価:</span><span>${formattedUnitPrice}</span></div>
         <div class="original-data-item amount-row" style="grid-column: 1 / -1;"><span>💵 金額:</span><span>${formattedAmount}</span></div>
     `;
