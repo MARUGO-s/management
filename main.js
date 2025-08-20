@@ -244,7 +244,7 @@ async function searchReverseTransaction() {
             <div class="match-details-row"><span class="match-details-label">📦 品目：</span><span class="match-details-value">${matchData.item}</span></div>
     
             <!-- 追加：個/本 と ＠単価 -->
-            <div class="match-details-row"><span class="match-details-label">🔢 個/本：</span>
+            <div class="match-details-row"><span class="match-details-label">🔢 個/本/kg：</span>
               <span class="match-details-value">${matchData.quantity.toLocaleString('ja-JP')}</span></div>
             <div class="match-details-row"><span class="match-details-label">＠ 単価：</span>
               <span class="match-details-value">¥${matchData.unitPrice.toLocaleString('ja-JP')}</span></div>
