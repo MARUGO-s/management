@@ -731,8 +731,6 @@ tr:hover {
         padding: 15px;
     }
 
-    /* ▼▼▼【ここから修正】▼▼▼ */
-    
     /* --- ヘッダー --- */
     .header {
         display: flex;
@@ -741,7 +739,7 @@ tr:hover {
         padding: 10px 0;
         margin-bottom: 20px;
         gap: 10px;
-        position: static; /* position: relativeをリセット */
+        position: static;
     }
 
     .header h1 {
@@ -749,7 +747,7 @@ tr:hover {
         margin: 0;
         text-align: center;
         flex-grow: 1;
-        order: 2; /* 表示順：中央 */
+        order: 2;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -757,57 +755,60 @@ tr:hover {
 
     .home-btn,
     .logout-btn {
-        position: static; /* position: fixedを解除 */
+        position: static;
         padding: 8px 12px;
         font-size: 12px;
         z-index: auto;
-        flex-shrink: 0; /* ボタンが縮まないようにする */
+        flex-shrink: 0;
     }
 
     .home-btn {
-        order: 1; /* 表示順：左 */
+        order: 1;
     }
 
     .logout-btn {
-        order: 3; /* 表示順：右 */
+        order: 3;
     }
+
+    /* ▼▼▼【ここから修正】▼▼▼ */
 
     /* --- 検索フォーム --- */
     .search-form {
-        display: grid;
-        grid-template-columns: 1fr 1fr; /* 日付用に2列 */
-        gap: 15px;
+        display: flex; /* Flexboxに変更 */
+        flex-wrap: wrap; /* 折り返しを許可 */
+        justify-content: space-between; /* 両端揃え */
+        row-gap: 15px; /* 縦の隙間 */
+        grid-template-columns: none; /* grid設定をリセット */
     }
 
-    .search-form .form-group:nth-child(1) {
-        grid-column: 1 / 2; /* 開始日 */
-    }
+    /* 日付入力欄 */
+    .search-form .form-group:nth-child(1),
     .search-form .form-group:nth-child(2) {
-        grid-column: 2 / 3; /* 終了日 */
-    }
-    .search-form .form-group:nth-child(3) {
-        grid-column: 1 / -1; /* 店舗名 (全体幅) */
-    }
-    .search-form .form-group:nth-child(4) {
-        grid-column: 1 / -1; /* ボタン群 (全体幅) */
+        width: calc(50% - 7.5px); /* 隙間を考慮して幅を約50%に */
+        margin-bottom: 0;
     }
 
+    /* 店舗名とボタン群 */
+    .search-form .form-group:nth-child(3),
+    .search-form .form-group:nth-child(4) {
+        width: 100%; /* 全幅に設定 */
+    }
+    
     .button-group {
         display: flex;
-        flex-wrap: wrap; /* ボタンを折り返す設定 */
+        flex-wrap: wrap;
         gap: 10px;
         justify-content: space-between;
     }
 
     .search-btn, .correction-search-btn {
-        flex-grow: 1; /* 2つのボタンで幅を分け合う */
-        min-width: calc(50% - 5px); /* 最小幅をギャップ考慮で設定 */
-        padding: 12px 5px;
+        flex: 1; /* 2つのボタンで利用可能なスペースを分け合う */
+        min-width: calc(50% - 5px);
+        margin: 0;
     }
 
     .all-data-btn {
-        flex-basis: 100%; /* 全幅を指定 */
-        padding: 12px 5px;
+        flex-basis: 100%; /* 常に全幅を確保 */
     }
 
     /* --- サマリーカード --- */
@@ -821,22 +822,23 @@ tr:hover {
     }
 
     .summary-card h3 {
-        font-size: 0.75rem;
+        font-size: clamp(0.6rem, 2.5vw, 0.75rem); /* 画面幅に応じてフォントサイズを可変に */
     }
 
     .summary-card .value {
-        font-size: 1.4rem;
-        word-wrap: break-word; /* はみ出る場合に改行 */
+        font-size: clamp(1rem, 5vw, 1.4rem); /* 画面幅に応じてフォントサイズを可変に */
+        word-wrap: break-word;
     }
 
     .summary-card .breakdown {
-        font-size: 0.7rem;
+        font-size: clamp(0.5rem, 2.2vw, 0.7rem); /* 画面幅に応じてフォントサイズを可変に */
     }
+    
+    /* ▲▲▲【ここまで修正】▲▲▲ */
     
     /* --- データテーブル --- */
     th, td {
         padding: 8px 10px;
         font-size: 12px !important;
     }
-    /* ▲▲▲【ここまで修正】▲▲▲ */
 }
