@@ -72,7 +72,7 @@ function convertToHalfWidthNumber(value) {
   if (!value) return '';
   
   // 全角数字を半角数字に変換
-  let converted = value.replace(/[０-９]/g, function(s) {
+  let converted = value.toString().replace(/[０-９]/g, function(s) {
     return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
   });
   
@@ -219,6 +219,9 @@ function displayOriginalData() {
   const formattedAmount = originalData.amount ? 
     `¥${parseInt(originalData.amount).toLocaleString('ja-JP')}` : 
     originalData.originalAmount || '不明';
+
+  const formattedUnitPrice = originalData.unitPrice ?
+    `¥${parseInt(convertToHalfWidthNumber(originalData.unitPrice)).toLocaleString('ja-JP')}` : '不明';
   
   originalDataGrid.innerHTML = `
     <div class="original-data-item">
@@ -244,6 +247,14 @@ function displayOriginalData() {
     <div class="original-data-item">
       <span class="original-data-label">📝 品目:</span>
       <span class="original-data-value">${originalData.item || '不明'}</span>
+    </div>
+    <div class="original-data-item">
+      <span class="original-data-label">📦 個/本/g:</span>
+      <span class="original-data-value">${originalData.quantity || '不明'}</span>
+    </div>
+    <div class="original-data-item">
+      <span class="original-data-label">💰 単価:</span>
+      <span class="original-data-value">${formattedUnitPrice}</span>
     </div>
     <div class="original-data-item" style="grid-column: 1 / -1;">
       <span class="original-data-label">💵 金額:</span>
@@ -271,6 +282,11 @@ function autoFillReverseData() {
   document.getElementById('category').value = originalData.category || '';
   document.getElementById('item').value = originalData.item || '';
   
+  document.getElementById('quantity').value = originalData.quantity || '';
+  const unitPriceValue = originalData.unitPrice ? 
+    parseInt(convertToHalfWidthNumber(originalData.unitPrice)).toLocaleString('ja-JP') : '';
+  document.getElementById('unitPrice').value = unitPriceValue;
+  
   const amountValue = originalData.amount ? 
     parseInt(originalData.amount).toLocaleString('ja-JP') : '';
   document.getElementById('amount').value = amountValue;
@@ -289,6 +305,8 @@ function autoFillReverseData() {
     borrower: document.getElementById('borrower').value,
     category: document.getElementById('category').value,
     item: document.getElementById('item').value,
+    quantity: document.getElementById('quantity').value,
+    unitPrice: document.getElementById('unitPrice').value,
     amount: document.getElementById('amount').value
   });
 }
@@ -431,6 +449,8 @@ async function submitCorrectionData() {
       borrower: document.getElementById("borrower").value,
       category: document.getElementById("category").value,
       item: document.getElementById("item").value,
+      quantity: document.getElementById("quantity").value,
+      unitPrice: convertToHalfWidthNumber(document.getElementById("unitPrice").value),
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: true,
       correctionOnly: true, // 🔥 修正専用送信として明確に指定
