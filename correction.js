@@ -45,7 +45,7 @@ function updateDebugDisplay() {
 }
 
 // 店舗データでプルダウンのオプションを設定
-function populateShs() {
+function populateShops() {
   const lenderSelect = document.getElementById("lender");
   const borrowerSelect = document.getElementById("borrower");
 
@@ -72,7 +72,7 @@ function convertToHalfWidthNumber(value) {
   if (!value) return '';
   
   // 全角数字を半角数字に変換
-  let converted = value.replace(/[０-９]/g, function(s) {
+  let converted = value.toString().replace(/[０-９]/g, function(s) {
     return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
   });
   
@@ -219,6 +219,9 @@ function displayOriginalData() {
   const formattedAmount = originalData.amount ? 
     `¥${parseInt(originalData.amount).toLocaleString('ja-JP')}` : 
     originalData.originalAmount || '不明';
+
+  const formattedUnitPrice = originalData.unitPrice ?
+    `¥${parseInt(convertToHalfWidthNumber(originalData.unitPrice)).toLocaleString('ja-JP')}` : '不明';
   
   originalDataGrid.innerHTML = `
     <div class="original-data-item">
@@ -244,6 +247,14 @@ function displayOriginalData() {
     <div class="original-data-item">
       <span class="original-data-label">📝 品目:</span>
       <span class="original-data-value">${originalData.item || '不明'}</span>
+    </div>
+    <div class="original-data-item">
+      <span class="original-data-label">📦 個/本/g:</span>
+      <span class="original-data-value">${originalData.quantity || '不明'}</span>
+    </div>
+    <div class="original-data-item">
+      <span class="original-data-label">💰 単価:</span>
+      <span class="original-data-value">${formattedUnitPrice}</span>
     </div>
     <div class="original-data-item" style="grid-column: 1 / -1;">
       <span class="original-data-label">💵 金額:</span>
@@ -271,6 +282,11 @@ function autoFillReverseData() {
   document.getElementById('category').value = originalData.category || '';
   document.getElementById('item').value = originalData.item || '';
   
+  document.getElementById('quantity').value = originalData.quantity || '';
+  const unitPriceValue = originalData.unitPrice ? 
+    parseInt(convertToHalfWidthNumber(originalData.unitPrice)).toLocaleString('ja-JP') : '';
+  document.getElementById('unitPrice').value = unitPriceValue;
+  
   const amountValue = originalData.amount ? 
     parseInt(originalData.amount).toLocaleString('ja-JP') : '';
   document.getElementById('amount').value = amountValue;
@@ -289,6 +305,8 @@ function autoFillReverseData() {
     borrower: document.getElementById('borrower').value,
     category: document.getElementById('category').value,
     item: document.getElementById('item').value,
+    quantity: document.getElementById('quantity').value,
+    unitPrice: document.getElementById('unitPrice').value,
     amount: document.getElementById('amount').value
   });
 }
@@ -305,12 +323,10 @@ function showProgressStep(stepId) {
   
   stepOrder.forEach((id, index) => {
     const step = document.getElementById(id);
-    if(step) { // 要素が存在するか確認
-      if (index < currentIndex) {
-        step.classList.add('completed');
-      } else if (index === currentIndex) {
-        step.classList.add('active');
-      }
+    if (index < currentIndex) {
+      step.classList.add('completed');
+    } else if (index === currentIndex) {
+      step.classList.add('active');
     }
   });
   
@@ -325,10 +341,8 @@ function hideProgress() {
 
 function showProgressError(stepId) {
   const step = document.getElementById(stepId);
-  if(step) { // 要素が存在するか確認
-    step.classList.remove('active');
-    step.classList.add('error');
-  }
+  step.classList.remove('active');
+  step.classList.add('error');
 }
 
 // GAS接続テスト関数
@@ -402,7 +416,7 @@ async function testGASConnection() {
   }
 }
 
-// 修正データを送信（表示ロジック修正版）
+// 修正データを送信（CORS対応強化版）
 async function submitCorrectionData() {
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn):not([onclick])');
   const btnText = submitBtn.querySelector('.btn-text');
@@ -410,6 +424,7 @@ async function submitCorrectionData() {
 
   addDebugLog('=== 修正データ送信開始 ===');
 
+  // バリデーション
   const categoryInput = document.getElementById('category');
   if (!categoryInput.value) {
     addDebugLog('バリデーションエラー: カテゴリーが未選択');
@@ -417,13 +432,16 @@ async function submitCorrectionData() {
     return;
   }
 
+  // ボタンを無効化
   submitBtn.disabled = true;
   submitBtn.classList.add('loading');
   btnText.textContent = '送信中...';
-  
-  const statusDisplay = document.getElementById('status-display');
 
   try {
+    // ステップ1: データ検証
+    showProgressStep('step-validation');
+    await delay(500);
+
     const data = {
       date: document.getElementById("date").value,
       name: document.getElementById("name").value,
@@ -431,14 +449,19 @@ async function submitCorrectionData() {
       borrower: document.getElementById("borrower").value,
       category: document.getElementById("category").value,
       item: document.getElementById("item").value,
+      quantity: document.getElementById("quantity").value,
+      unitPrice: convertToHalfWidthNumber(document.getElementById("unitPrice").value),
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: true,
-      correctionOnly: true,
+      correctionOnly: true, // 🔥 修正専用送信として明確に指定
       correctionMark: "✏️修正",
       sendType: "CORRECTION",
-      originalRowIndex: originalData.originalRowIndex
+      originalRowIndex: originalData.originalRowIndex // 🔥 追加: 元のデータの行番号を送信
     };
 
+    addDebugLog('送信データ準備完了', data);
+
+    // バリデーション
     const validationErrors = [];
     if (!data.date) validationErrors.push('日付');
     if (!data.name) validationErrors.push('名前');
@@ -447,7 +470,7 @@ async function submitCorrectionData() {
     if (!data.category) validationErrors.push('カテゴリー');
     if (!data.item) validationErrors.push('品目');
     if (!data.amount) validationErrors.push('金額');
-    if (!data.originalRowIndex) validationErrors.push('元の行番号');
+    if (!data.originalRowIndex) validationErrors.push('元の行番号'); // 🔥 追加: 行番号のバリデーション
 
     if (validationErrors.length > 0) {
       throw new Error(`以下の項目が入力されていません: ${validationErrors.join(', ')}`);
@@ -462,33 +485,11 @@ async function submitCorrectionData() {
       throw new Error('正しい金額を入力してください。');
     }
 
-    addDebugLog('送信データ準備完了', data);
     addDebugLog('バリデーション完了', { valid: true });
 
-    // ▼▼▼ 表示ロジック修正 ▼▼▼
-    const formattedAmount = data.amount ? 
-        `¥${parseInt(data.amount).toLocaleString('ja-JP')}` : '不明';
-      
-    statusDisplay.innerHTML = `
-      <div class="original-data-header" style="justify-content: center; margin-bottom: 15px; font-size: 16px;">
-        📤 送信データ
-      </div>
-      <div class="original-data-grid" style="font-size: 14px; gap: 8px; grid-template-columns: 1fr;">
-        <div class="original-data-item"><span>📅 日付:</span><span>${data.date || '不明'}</span></div>
-        <div class="original-data-item"><span>👤 名前:</span><span>${data.name || '不明'}</span></div>
-        <div class="original-data-item"><span>📤 貸主:</span><span>${data.lender || '不明'}</span></div>
-        <div class="original-data-item"><span>📥 借主:</span><span>${data.borrower || '不明'}</span></div>
-        <div class="original-data-item"><span>🏷️ カテゴリー:</span><span>${data.category || '不明'}</span></div>
-        <div class="original-data-item"><span>📝 品目:</span><span>${data.item || '不明'}</span></div>
-        <div class="original-data-item"><span>💵 金額:</span><span>${formattedAmount}</span></div>
-      </div>
-      <div style="text-align: center; margin-top: 15px; font-weight: 600; color: #b7791f;">
-        <div class="mini-loading-spinner" style="vertical-align: middle;"></div>
-        <span>送信中...</span>
-      </div>
-    `;
-    statusDisplay.classList.add('show');
-    // ▲▲▲ 表示ロジック修正 ▲▲▲
+    // ステップ2: データ送信
+    showProgressStep('step-sending');
+    await delay(500);
 
     addDebugLog('GAS送信開始', {
       url: GAS_URL,
@@ -496,17 +497,24 @@ async function submitCorrectionData() {
       data: data
     });
 
+    // 🔥 改良されたCORS対応送信
     let sendSuccess = false;
     let responseData = null;
     let sendError = null;
 
+    // 方法1: 通常のfetchを試行（CORS完全対応）
     try {
       addDebugLog('通常fetchを試行中...');
+      
       const response = await fetch(GAS_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify(data)
       });
+
       addDebugLog('通常fetch成功', {
         status: response.status,
         statusText: response.statusText,
@@ -514,13 +522,16 @@ async function submitCorrectionData() {
         type: response.type,
         headers: Object.fromEntries(response.headers.entries())
       });
+
       if (response.ok) {
         try {
           const responseText = await response.text();
           addDebugLog('レスポンステキスト取得成功', responseText);
+          
           if (responseText.trim()) {
             responseData = JSON.parse(responseText);
             addDebugLog('JSON解析成功', responseData);
+            
             if (responseData.status === 'SUCCESS') {
               sendSuccess = true;
               addDebugLog('✅ 送信成功確認');
@@ -529,11 +540,13 @@ async function submitCorrectionData() {
               addDebugLog('❌ サーバーエラー', responseData);
             }
           } else {
+            // 空のレスポンスでもステータスが200なら成功とみなす
             sendSuccess = true;
             addDebugLog('✅ 空のレスポンスだが200なので成功');
           }
         } catch (parseError) {
           addDebugLog('レスポンス解析エラー', parseError);
+          // ステータスが200なら解析エラーでも成功とみなす
           if (response.status === 200) {
             sendSuccess = true;
             addDebugLog('✅ 解析エラーだが200なので成功とみなす');
@@ -543,22 +556,31 @@ async function submitCorrectionData() {
         sendError = `HTTPエラー: ${response.status} ${response.statusText}`;
         addDebugLog('❌ HTTPエラー', { status: response.status, statusText: response.statusText });
       }
+
     } catch (fetchError) {
       addDebugLog('通常fetchエラー', fetchError);
+      
+      // 方法2: no-corsモードでフォールバック送信
       try {
         addDebugLog('no-corsモードでフォールバック送信...');
+        
         const corsResponse = await fetch(GAS_URL, {
           method: "POST",
           mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify(data)
         });
+
         addDebugLog('no-cors送信完了', {
           status: corsResponse.status,
           statusText: corsResponse.statusText,
           ok: corsResponse.ok,
           type: corsResponse.type
         });
+
+        // no-corsでは詳細レスポンスが分からないが、送信は完了している
         sendSuccess = true;
         responseData = {
           status: 'SUCCESS',
@@ -566,43 +588,80 @@ async function submitCorrectionData() {
           note: 'レスポンス詳細は確認できませんが、データは送信されました'
         };
         addDebugLog('✅ no-cors送信完了（詳細不明だが送信済み）');
+
       } catch (corsError) {
         addDebugLog('❌ no-cors送信もエラー', corsError);
         sendError = `送信エラー: ${corsError.message}`;
       }
     }
 
+    // ステップ3: データ挿入
+    showProgressStep('step-inserting');
+    await delay(1000);
+
+    // ステップ4: バックアップ
+    showProgressStep('step-backup');
+    await delay(500);
+
+    // ステップ5: 完了
+    showProgressStep('step-complete');
+    await delay(500);
+
+    // 🔥 結果判定と表示
     if (sendSuccess) {
       addDebugLog('✅ 全体処理成功', responseData);
       
-      statusDisplay.innerHTML = `<div class="status-step completed" style="opacity: 1; transform: scale(1.05);"><span class="status-icon">✅</span><span>修正送信完了！</span></div>`;
+      // シンプルな成功メッセージ
+      const successMessage = '✅ 修正データの送信が完了しました。';
 
+      // 成功メッセージ表示
       const successMsg = document.getElementById('successMessage');
-      successMsg.textContent = '✅ 修正データの送信が完了しました。';
+      successMsg.textContent = successMessage;
       successMsg.classList.add('show');
       
-      setTimeout(() => successMsg.classList.remove('show'), 5000);
+      setTimeout(() => {
+        successMsg.classList.remove('show');
+      }, 5000);
 
+      // フォームリセット
       document.getElementById('correctionForm').reset();
       const categoryOptions = document.querySelectorAll('.category-option');
       categoryOptions.forEach(opt => opt.classList.remove('selected'));
       
-      setTimeout(() => hideProgress(), 2000);
+      // プログレス非表示
+      setTimeout(() => {
+        hideProgress();
+      }, 2000);
       
       addDebugLog('送信完了処理終了');
       
+      // 戻る確認
       setTimeout(() => {
+        // confirm() の代わりにカスタムモーダルを使用することを検討してください
         if (confirm('修正データの送信が完了しました。元のページに戻りますか？')) {
+          // 🔥 修正: marugo.htmlページを強制リロードして戻る
           const currentPath = window.location.pathname;
-          let marugoUrl = currentPath.includes('/data/') ? '../data/marugo.html' : 'data/marugo.html';
+          let marugoUrl;
+          
+          if (currentPath.includes('/data/')) {
+            marugoUrl = '../data/marugo.html';
+          } else {
+            marugoUrl = 'data/marugo.html';
+          }
+          
           addDebugLog('marugo.htmlにリロードして戻る', { url: marugoUrl });
+          
+          // 強制リロードのため、タイムスタンプを追加
           const timestamp = new Date().getTime();
           window.location.href = `${marugoUrl}?refresh=${timestamp}`;
         }
       }, 3000);
+
     } else {
+      // 送信失敗
       throw new Error(sendError || '送信に失敗しました');
     }
+
   } catch (error) {
     addDebugLog('送信エラー', {
       message: error.message,
@@ -610,13 +669,13 @@ async function submitCorrectionData() {
       stack: error.stack
     });
     
-    // ▼▼▼ エラー表示ロジック修正 ▼▼▼
-    statusDisplay.innerHTML = `<div style="color: #e53e3e; font-weight: 600; text-align: center;">❌ 送信エラー: ${error.message}</div>`;
-    if(!statusDisplay.classList.contains('show')) {
-      statusDisplay.classList.add('show');
+    // エラーが発生したステップを表示
+    const activeStep = document.querySelector('.status-step.active');
+    if (activeStep) {
+      showProgressError(activeStep.id);
     }
-    // ▲▲▲ エラー表示ロジック修正 ▲▲▲
     
+    // エラーメッセージ表示
     const errorMessage = document.getElementById('errorMessage');
     errorMessage.textContent = `❌ 送信エラー: ${error.message}`;
     errorMessage.classList.add('show');
@@ -626,12 +685,12 @@ async function submitCorrectionData() {
       hideProgress();
     }, 5000);
   } finally {
+    // ボタン状態を復元
     submitBtn.disabled = false;
     submitBtn.classList.remove('loading');
     btnText.textContent = originalText;
   }
 }
-
 
 // DOM要素の初期化
 function initializeElements() {
