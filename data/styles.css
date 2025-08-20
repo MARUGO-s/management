@@ -493,19 +493,21 @@ body {
 }
 
 /* ================================
-   テーブルスタイル（全デバイス共通）
+   テーブルスタイル（PC表示）
    ================================ */
 table {
     font-size: 12px;
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed; 
 }
 
 th, td {
-    padding: 12px 15px;
+    padding: 10px 8px; 
     margin: 0;
     text-align: left;
-    white-space: nowrap;
+    word-break: break-word; 
+    vertical-align: middle; 
 }
 
 th {
@@ -513,7 +515,7 @@ th {
     font-weight: 600;
     color: #374151;
     border-bottom: 2px solid #e5e7eb;
-    font-size: 14px;
+    font-size: 13px; 
     text-transform: uppercase;
     letter-spacing: 0.5px;
     cursor: pointer;
@@ -547,8 +549,7 @@ th.sort-desc::after {
 
 td {
     border-bottom: 1px solid #f0f0f0;
-    vertical-align: middle;
-    font-size: 14px;
+    font-size: 13px; 
 }
 
 tr:hover {
@@ -570,8 +571,36 @@ tr:hover {
     transform: scale(0.99);
 }
 
+
 /* ================================
-   金額列スタイル（全デバイス共通）
+   テーブル列の幅と表示設定 (PC)
+   ================================ */
+#results-table th:nth-child(1) { width: 9%; }  /* 日付 */
+#results-table th:nth-child(2) { width: 7%; }  /* タイプ */
+#results-table th:nth-child(3) { width: 17%; } /* 相手先 */
+#results-table th:nth-child(4) { width: 20%; } /* 品目 */
+#results-table th:nth-child(5) { width: 10%; } /* カテゴリー */
+#results-table th:nth-child(6) { width: 7%; }  /* 個/本/g */
+#results-table th:nth-child(7) { width: 8%; }  /* 単価 */
+#results-table th:nth-child(8) { width: 9%; }  /* 金額 */
+#results-table th:nth-child(9) { width: 8%; }  /* 入力者 */
+#results-table th:nth-child(10){ width: 5%; }  /* 修正 */
+
+/* --- 数字列のスタイル (PC) --- */
+#results-table th:nth-child(6),
+#results-table td:nth-child(6),
+#results-table th:nth-child(7),
+#results-table td:nth-child(7),
+#results-table th:nth-child(8),
+#results-table td:nth-child(8) {
+    text-align: right;
+    white-space: nowrap; 
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+
+/* ================================
+   金額列スタイル
    ================================ */
 .amount {
     text-align: right !important;
@@ -598,6 +627,7 @@ tr:hover {
     font-weight: 600;
     text-transform: uppercase;
     animation: wipe-in 0.6s ease-out;
+    white-space: nowrap; /* タグが改行されないように */
 }
 
 .type-貸出 {
@@ -770,28 +800,24 @@ tr:hover {
         order: 3;
     }
 
-    /* ▼▼▼【ここから修正】▼▼▼ */
-
     /* --- 検索フォーム --- */
     .search-form {
-        display: flex; /* Flexboxに変更 */
-        flex-wrap: wrap; /* 折り返しを許可 */
-        justify-content: space-between; /* 両端揃え */
-        row-gap: 15px; /* 縦の隙間 */
-        grid-template-columns: none; /* grid設定をリセット */
+        display: flex; 
+        flex-wrap: wrap; 
+        justify-content: space-between; 
+        row-gap: 15px; 
+        grid-template-columns: none; 
     }
 
-    /* 日付入力欄 */
     .search-form .form-group:nth-child(1),
     .search-form .form-group:nth-child(2) {
-        width: calc(50% - 7.5px); /* 隙間を考慮して幅を約50%に */
+        width: calc(50% - 7.5px); 
         margin-bottom: 0;
     }
 
-    /* 店舗名とボタン群 */
     .search-form .form-group:nth-child(3),
     .search-form .form-group:nth-child(4) {
-        width: 100%; /* 全幅に設定 */
+        width: 100%; 
     }
     
     .button-group {
@@ -802,18 +828,18 @@ tr:hover {
     }
 
     .search-btn, .correction-search-btn {
-        flex: 1; /* 2つのボタンで利用可能なスペースを分け合う */
+        flex: 1; 
         min-width: calc(50% - 5px);
         margin: 0;
     }
 
     .all-data-btn {
-        flex-basis: 100%; /* 常に全幅を確保 */
+        flex-basis: 100%; 
     }
 
     /* --- サマリーカード --- */
     .summary-cards {
-        grid-template-columns: 1fr 1fr; /* 常に2列表示 */
+        grid-template-columns: 1fr 1fr; 
         gap: 10px;
     }
 
@@ -822,23 +848,29 @@ tr:hover {
     }
 
     .summary-card h3 {
-        font-size: clamp(0.6rem, 2.5vw, 0.75rem); /* 画面幅に応じてフォントサイズを可変に */
+        font-size: clamp(0.6rem, 2.5vw, 0.75rem); 
     }
 
     .summary-card .value {
-        font-size: clamp(1rem, 5vw, 1.4rem); /* 画面幅に応じてフォントサイズを可変に */
+        font-size: clamp(1rem, 5vw, 1.4rem); 
         word-wrap: break-word;
     }
 
     .summary-card .breakdown {
-        font-size: clamp(0.5rem, 2.2vw, 0.7rem); /* 画面幅に応じてフォントサイズを可変に */
+        font-size: clamp(0.5rem, 2.2vw, 0.7rem); 
     }
     
-    /* ▲▲▲【ここまで修正】▲▲▲ */
-    
-    /* --- データテーブル --- */
+    /* --- データテーブル (★スマホ表示最終修正) --- */
+    /* ▼▼▼【ここから変更】▼▼▼ */
+
+    /* テーブルレイアウトを内容に応じて自動調整するように変更 */
+    #results-table {
+        table-layout: auto; /* ★列幅を内容に応じて自動調整 */
+    }
+
     th, td {
-        padding: 8px 10px;
-        font-size: 12px !important;
+        white-space: nowrap; /* ★全てのセルで折り返しを禁止し、1行表示を徹底 */
     }
+    
+    /* ▲▲▲【ここまで変更】▲▲▲ */
 }
