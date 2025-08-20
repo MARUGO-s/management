@@ -730,8 +730,10 @@ tr:hover {
     .container {
         padding: 15px;
     }
-    
+
     /* ▼▼▼【ここから修正】▼▼▼ */
+    
+    /* --- ヘッダー --- */
     .header {
         display: flex;
         justify-content: space-between;
@@ -769,10 +771,72 @@ tr:hover {
     .logout-btn {
         order: 3; /* 表示順：右 */
     }
-    /* ▲▲▲【ここまで修正】▲▲▲ */
+
+    /* --- 検索フォーム --- */
+    .search-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr; /* 日付用に2列 */
+        gap: 15px;
+    }
+
+    .search-form .form-group:nth-child(1) {
+        grid-column: 1 / 2; /* 開始日 */
+    }
+    .search-form .form-group:nth-child(2) {
+        grid-column: 2 / 3; /* 終了日 */
+    }
+    .search-form .form-group:nth-child(3) {
+        grid-column: 1 / -1; /* 店舗名 (全体幅) */
+    }
+    .search-form .form-group:nth-child(4) {
+        grid-column: 1 / -1; /* ボタン群 (全体幅) */
+    }
+
+    .button-group {
+        display: flex;
+        flex-wrap: wrap; /* ボタンを折り返す設定 */
+        gap: 10px;
+        justify-content: space-between;
+    }
+
+    .search-btn, .correction-search-btn {
+        flex-grow: 1; /* 2つのボタンで幅を分け合う */
+        min-width: calc(50% - 5px); /* 最小幅をギャップ考慮で設定 */
+        padding: 12px 5px;
+    }
+
+    .all-data-btn {
+        flex-basis: 100%; /* 全幅を指定 */
+        padding: 12px 5px;
+    }
+
+    /* --- サマリーカード --- */
+    .summary-cards {
+        grid-template-columns: 1fr 1fr; /* 常に2列表示 */
+        gap: 10px;
+    }
+
+    .summary-card {
+        padding: 15px 10px;
+    }
+
+    .summary-card h3 {
+        font-size: 0.75rem;
+    }
+
+    .summary-card .value {
+        font-size: 1.4rem;
+        word-wrap: break-word; /* はみ出る場合に改行 */
+    }
+
+    .summary-card .breakdown {
+        font-size: 0.7rem;
+    }
     
+    /* --- データテーブル --- */
     th, td {
         padding: 8px 10px;
         font-size: 12px !important;
     }
+    /* ▲▲▲【ここまで修正】▲▲▲ */
 }
