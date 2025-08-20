@@ -841,7 +841,6 @@
       <p class="subtitle">選択されたデータの逆取引を送信します</p>
     </div>
 
-    <!-- エラー通知 -->
     <div class="error-notice" id="error-notice">
       <div class="error-notice-header">⚠️ データ読み込みエラー</div>
       <div class="error-notice-text" id="error-notice-text">
@@ -850,17 +849,14 @@
       </div>
     </div>
 
-    <!-- 元データ表示セクション -->
     <div class="original-data-section" id="original-data-section">
       <div class="original-data-header">
         📋 元のデータ
       </div>
       <div class="original-data-grid" id="original-data-grid">
-        <!-- 元データがここに表示されます -->
-      </div>
+        </div>
     </div>
 
-    <!-- 修正通知 -->
     <div class="correction-notice">
       <div class="correction-notice-header">🔄 逆取引として送信</div>
       <div class="correction-notice-text">
@@ -910,13 +906,24 @@
       </div>
 
       <div class="form-group">
+        <label for="quantity">📦 個/本/g</label>
+        <input type="text" id="quantity" placeholder="個/本/g" disabled>
+      </div>
+
+      <div class="form-group">
+        <label for="unitPrice">💰 単価</label>
+        <div class="amount-input">
+          <input type="text" id="unitPrice" placeholder="単価" disabled>
+        </div>
+      </div>
+
+      <div class="form-group">
         <label for="amount">💵 金額</label>
         <div class="amount-input">
           <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric" placeholder="金額を入力" disabled>
         </div>
       </div>
 
-      <!-- 状態表示エリア -->
       <div class="status-display" id="status-display">
         <div class="status-step" id="step-validation">
           <span class="status-icon">📋</span>
@@ -960,7 +967,6 @@
     ❌ 送信に失敗しました
   </div>
 
-  <!-- デバッグ機能 -->
   <button class="debug-toggle" onclick="toggleDebug()">🐛 Debug</button>
   <div class="debug-section" id="debug-section">
     <div id="debug-content">デバッグ情報を読み込み中...</div>
