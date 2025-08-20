@@ -14,52 +14,62 @@
       border: 1px solid #ddd;
       border-radius: 12px;
       padding: 1.25rem;
-      background-color: #fdfdfd;
+      background: #fff;
     }
-    /* === 元データ表示グリッド === */
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { margin-bottom: 12px; }
+    label { font-weight: 600; display: block; margin-bottom: 4px; }
+    input[type="text"], input[type="date"], select {
+      width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 8px;
+      background: #fff; font-size: 16px;
+    }
+    .name-highlight input { background: #fff8db; }
+    .category-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+    .category-option { padding: 8px; border: 1px solid #ced4da; border-radius: 8px; text-align: center; }
+    .category-option.selected { background: #d7f3ff; border-color: #6cc3ff; }
+    .category-option.disabled { pointer-events: none; opacity: .7; }
+
+    .amount-input { display: flex; align-items: center; gap: 12px; }
+
+    /* オリジナルデータ（上部グリッド）は非表示指定（既存仕様維持） */
     #original-data-grid {
-      /* ▼▼▼ この部分を削除 ▼▼▼ */
-      /* display: grid; */
-      /* grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); */
-      /* gap: 10px 16px; */
-      /* background: #f8f9fa; */
-      /* padding: 1rem; */
-      /* border-radius: 8px; */
-      /* margin-bottom: 1.5rem; */
-      display: none; /* 非表示にする */
+      display: none;
     }
     .original-data-item { font-size: 0.9em; color: #333; }
     .original-data-item span:first-child { font-weight: 600; color: #555; margin-right: 8px;}
     .original-data-item.amount-row { font-size: 1.1em; font-weight: bold; }
 
-    /* === 無効化された入力欄（確認項目）のスタイル === */
     select:disabled, input:disabled {
-      color: #333 !important;
-      -webkit-text-fill-color: #333;
-      opacity: 1;
-      background: #f0f0f0;
-      border: 1px solid #ddd;
-      cursor: not-allowed;
+      color: #333 !important
     }
 
-    /* === 名前入力欄のハイライト === */
-    .name-highlight {
-      border-left: .3rem solid #6aa84f;
-      padding-left: .6rem;
-      background: rgba(106, 168, 79, 0.06);
-      border-radius: .4rem;
-      margin-top: 2rem;
-    }
-    .cancel-btn { background: #6c757d; }
-    .subtitle { font-size: 0.95em; color: #555; text-align: center; }
-    .header-section { margin-bottom: 1rem; text-align: center; position: relative; }
-    .back-btn { position: absolute; left: 0; top: 50%; transform: translateY(-50%); text-decoration: none; color: #333; background: #f0f0f0; padding: 8px 12px; border-radius: 8px;}
+    .header-section { display:flex; align-items:center; gap:12px; }
+    .back-btn { text-decoration:none; color:#007bff; font-weight:600; }
+    .subtitle { margin: 0; opacity:.8; }
 
-    /* === 送信中ポップアップのスタイル === */
-    #submit-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(33, 37, 41, 0.55); z-index: 9999; backdrop-filter: blur(1px); }
-    #submit-overlay.show { display: flex; }
-    .submit-modal { background: #fff; color: #222; border-radius: 14px; padding: 20px 24px; width: min(92vw, 420px); box-shadow: 0 10px 30px rgba(0,0,0,.2); text-align: center; }
-    .submit-modal .spinner { width: 40px; height: 40px; margin: 6px auto 12px; border: 3px solid rgba(0,0,0,.15); border-top-color: currentColor; border-radius: 50%; animation: spin 1s linear infinite; }
+    .submit-btn {
+      width: 100%; padding: 12px 16px; border: none; border-radius: 10px;
+      background: #0d6efd; color: #fff; font-size: 16px; cursor: pointer;
+      display:flex; align-items:center; justify-content:center; gap:8px;
+    }
+    .submit-btn:disabled { opacity:.6; cursor:not-allowed; }
+    .btn-icon { font-size: 1.1em; }
+    .btn-text { font-weight: 700; }
+
+    /* 送信中オーバーレイ（既存） */
+    .overlay--submit {
+      position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      display: none; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .submit-modal {
+      background: #fff; padding: 20px; border-radius: 12px; text-align: center; min-width: 260px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    }
+    .spinner {
+      width: 36px; height: 36px; border: 4px solid #ddd; border-top-color: #0d6efd;
+      border-radius: 50%; margin: 0 auto 10px; animation: spin 1s linear infinite;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
     .submit-modal .modal-title { font-weight: 700; margin: 0 0 4px; }
     .submit-modal .modal-sub { opacity: .8; font-size: .92em; margin: 0; }
@@ -118,6 +128,7 @@
             <input type="text" id="unitPrice" required disabled>
           </div>
         </div>
+
         <div class="form-group">
             <label for="amount">💵 金額</label>
             <div class="amount-input">
@@ -125,26 +136,25 @@
             </div>
         </div>
 
+        <!-- 🧾 追加：スプレッドシートの対象行（表示のみ／ここだけ追加） -->
+        <div class="form-group">
+          <label for="rowIndex">🧾 対象行（スプレッドシート）</label>
+          <input type="text" id="rowIndex" readonly>
+        </div>
 
         <div class="form-group name-highlight" id="name-form-group">
           <label for="name">👤 担当者名</label>
-         <input type="text" id="name" required placeholder="あなたの名前を入力" autofocus>
+          <input type="text" id="name" placeholder="例）山田 太郎" required>
         </div>
 
-        <div class="button-group">
-          <button type="submit" class="submit-btn">
-            <span class="loading"></span>
-            <span class="btn-text">✅ この内容で作成・送信</span>
-          </button>
-          <button type="button" class="submit-btn cancel-btn" onclick="history.back()">
-            <span class="btn-text">❌ キャンセル</span>
-          </button>
-        </div>
+        <button type="submit" class="submit-btn" id="submit-btn">
+          <span class="btn-icon">📤</span>
+          <span class="btn-text">この内容で送信</span>
+        </button>
       </form>
     </div>
   </div>
 
-  <div class="success-message" id="successMessage"></div>
   <div class="error-message" id="errorMessage"></div>
 
   <script src="correction.js"></script>
