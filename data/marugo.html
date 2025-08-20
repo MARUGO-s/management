@@ -21,6 +21,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-top: 10px;
   }
   .toggle-label {
     font-size: 14px;
@@ -46,88 +47,68 @@
   input:checked + .slider { background-color: #4caf50; }
   input:checked + .slider:before { transform: translateX(24px); }
 
-  /* テーブルの見た目微調整（既存に影響を与えない程度） */
-  #results-table td, #results-table th {
-    padding: 8px 4px;                 /* 横の余白を少し詰める */
-  }
-  /* 単価の */
 </style>
 </head>
 <body>
   <div class="container">
-    <header>
+    <div class="header">
       <h1>店舗別貸借分析</h1>
-      <p class="subtitle">CSV/スプレッドシートを読み込み、店舗間の貸借データを分析します</p>
-    </header>
+    </div>
 
-    <section class="filter-section">
-      <div class="cards-grid">
-
-        <div class="card">
-          <h2>条件設定</h2>
-          <form id="filter-form" class="filter-form">
-            <div class="form-group">
-              <label for="start-date">開始日</label>
-              <input type="date" id="start-date">
-            </div>
-            <div class="form-group">
-              <label for="end-date">終了日</label>
-              <input type="date" id="end-date">
-            </div>
-            <div class="form-group" style="grid-column: 1 / -1;">
-              <label for="store-name">店舗名</label>
-              <select id="store-name">
-                <option value="">店舗を選択（任意）</option>
-              </select>
-            </div>
-            <div class="button-group">
-              <button type="submit" class="btn-primary" id="analyze-btn">分析する</button>
-              <button type="button" class="btn-secondary" id="reset-btn">リセット</button>
-            </div>
-
-            <div class="options-row">
-              <div class="toggle-wrapper">
-                <span class="toggle-label">金額の降順で表示</span>
-                <label class="switch">
-                  <input type="checkbox" id="sort-desc">
-                  <span class="slider"></span>
-                </label>
-              </div>
-
-              <div class="toggle-wrapper">
-                <span class="toggle-label">同一借主内でカテゴリー別集計</span>
-                <label class="switch">
-                  <input type="checkbox" id="group-by-category">
-                  <span class="slider"></span>
-                </label>
-              </div>
-            </div>
-
-          </form>
+    <section class="search-section">
+      <form id="filter-form" class="search-form">
+        <div class="form-group">
+          <label for="start-date">開始日</label>
+          <input type="date" id="start-date">
+        </div>
+        <div class="form-group">
+          <label for="end-date">終了日</label>
+          <input type="date" id="end-date">
+        </div>
+        <div class="form-group">
+          <label for="store-name">店舗名</label>
+          <select id="store-name">
+            <option value="">店舗を選択（任意）</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="csv-file">ファイル読み込み</label>
+          <input type="file" id="csv-file" accept=".csv" />
+          <button type="button" id="load-gsheet-btn" class="all-data-btn" style="width:100%; margin-top: 8px;">スプレッドシートから読込</button>
         </div>
 
-        <div class="card">
-          <h2>ファイル読み込み</h2>
-          <div class="upload-area">
-            <input type="file" id="csv-file" accept=".csv" />
-            <button type="button" id="load-gsheet-btn" class="btn-secondary">スプレッドシートから読込</button>
+        <div class="button-group">
+          <button type="submit" class="search-btn" id="analyze-btn">分析する</button>
+          <button type="button" class="all-data-btn" id="reset-btn">リセット</button>
+        </div>
+
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <div class="toggle-wrapper">
+            <span class="toggle-label">金額の降順で表示</span>
+            <label class="switch">
+              <input type="checkbox" id="sort-desc">
+              <span class="slider"></span>
+            </label>
           </div>
-          <p class="hint">
-            ※ CSVはヘッダー行付き、UTF-8推奨。<br/>
-            ※ スプレッドシートからの読込は事前にGASの公開URL連携が必要です。
-          </p>
+          <div class="toggle-wrapper">
+            <span class="toggle-label">同一借主内でカテゴリー別集計</span>
+            <label class="switch">
+              <input type="checkbox" id="group-by-category">
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
-
-      </div>
+      </form>
     </section>
 
-    <section class="results-section">
-      <div class="card">
-        <div class="results-header">
-          <h2>分析結果</h2>
+    <section class="results-section" style="display: block;">
+      <div class="details-section">
+        <div class="details-header">
+          <h3>分析結果</h3>
           <div class="actions">
-            <button id="export-btn" class="btn-secondary">CSVエクスポート</button>
-            <button id="clear-results-btn" class="btn-secondary">結果クリア</button>
+            <button id="export-btn" class="export-btn" style="padding: 8px 16px; font-size: 14px;">CSVエクスポート</button>
+            <button id="clear-results-btn" class="retry-btn" style="padding: 8px 16px; font-size: 14px;">結果クリア</button>
           </div>
         </div>
 
@@ -143,28 +124,25 @@
                 <th>品目</th>
                 <th>個/本/kg</th>
                 <th class="unit-price">単価</th>
-                <th>金額</th>
+                <th class="amount">金額</th>
                 <th>入力日時</th>
                 <th>修正</th>
               </tr>
             </thead>
             <tbody id="results-body">
-              <!-- データ行が入る -->
-            </tbody>
+              </tbody>
           </table>
         </div>
-
       </div>
     </section>
 
-    <!-- 修正確認モーダル -->
-    <div id="correction-modal" class="modal" aria-hidden="true" role="dialog">
+    <div id="correction-modal" class="modal-overlay" aria-hidden="true" role="dialog">
       <div class="modal-content" role="document">
-        <h3>逆取引として修正</h3>
+        <h3 class="modal-title">逆取引として修正</h3>
         <div id="correction-message"></div>
         <div class="modal-actions">
-          <button id="confirm-correction-btn" class="btn-primary">この内容で修正ページへ</button>
-          <button id="cancel-correction-btn" class="btn-secondary">キャンセル</button>
+          <button id="confirm-correction-btn" class="modal-btn confirm">この内容で修正ページへ</button>
+          <button id="cancel-correction-btn" class="modal-btn cancel">キャンセル</button>
         </div>
       </div>
     </div>
@@ -191,7 +169,6 @@ class MarugoAnalyzer {
   }
 
   analyze() {
-    // obfuscated.js 側が実処理（パース＆表示）を担当
     if (typeof window.__marugoAnalyze === 'function') {
       window.__marugoAnalyze();
     } else {
@@ -232,7 +209,7 @@ class MarugoAnalyzer {
 
     const data = rowData || {};
     msgContainer.innerHTML = `
-        <p>以下のデータを逆取引として修正しますか？</p>
+        <p style="text-align: center; color: #6b7280; margin: 6px 0 14px; font-size: 14px;">以下のデータを逆取引として修正しますか？</p>
         <div class="correction-details-grid">
             <div class="grid-item-label">日付:</div><div class="grid-item-value">${data.date}</div>
             <div class="grid-item-label">入力者:</div><div class="grid-item-value">${data.name}</div>
@@ -247,14 +224,14 @@ class MarugoAnalyzer {
             <div class="grid-item-label">既存の修正:</div><div class="grid-item-value">${data.correction || 'なし'}</div>
         </div>
     `;
+    modal.classList.add('show');
     modal.setAttribute('aria-hidden', 'false');
-    modal.style.display = 'flex';
   }
 
   closeCorrectionModal() {
     const modal = document.getElementById('correction-modal');
+    modal.classList.remove('show');
     modal.setAttribute('aria-hidden', 'true');
-    modal.style.display = 'none';
   }
 
   goCorrection() {
@@ -263,23 +240,29 @@ class MarugoAnalyzer {
     this.redirectToCorrectionPage(data);
   }
 
-  /* ←← ここだけ前回版に差し替え（rowIndex 同梱＋相対パス修正） →→ */
   redirectToCorrectionPage(data) {
-        try {
-            // 行番号(rowIndex)を同梱
-            const enriched = { ...data, rowIndex: data.originalRowIndex };
-            sessionStorage.setItem('correctionData', JSON.stringify(enriched));
-            const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(enriched)))));
-            const to = (location.pathname.includes('/data/')) ? '../correction.html?d=' + encoded : 'correction.html?d=' + encoded;
-            window.location.href = to;
-        } catch (e) {
-            console.error('redirectToCorrectionPage error:', e);
-            alert('遷移時にエラーが発生しました。もう一度お試しください。');
-        }
+    try {
+      const enriched = { ...data, rowIndex: data.originalRowIndex };
+      sessionStorage.setItem('correctionData', JSON.stringify(enriched));
+      const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(enriched)))));
+      const to = (location.pathname.includes('/data/')) ? '../correction.html?d=' + encoded : 'correction.html?d=' + encoded;
+      window.location.href = to;
+    } catch (e) {
+      console.error('redirectToCorrectionPage error:', e);
+      alert('遷移時にエラーが発生しました。もう一度お試しください。');
     }
-
+  }
 }
-window.addEventListener('DOMContentLoaded', () => new MarugoAnalyzer());
+window.addEventListener('DOMContentLoaded', () => {
+  const analyzer = new MarugoAnalyzer();
+  // モーダルの外側クリックで閉じるイベント
+  const modal = document.getElementById('correction-modal');
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      analyzer.closeCorrectionModal();
+    }
+  });
+});
 </script>
 
 </body>
