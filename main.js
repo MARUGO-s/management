@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyW6L1Lfn7c9y6EBFYXt1qZf9g0hisy5EnM9r2QdEMitT6wzMm_-wj3UmEq6Hu6_j-4/exec"; // Google Apps ScriptのURL
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzoNdSDNW4RmsbydJUsHsgAaJmGKvzcc8_bA_XHXBf3Ee-ltRxLwhzzYVpU3NdCnK2d/exec"; // Google Apps ScriptのURL
 const shops = [ // 店舗名のリスト
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -243,7 +243,6 @@ async function searchReverseTransaction() {
             <div class="match-details-row"><span class="match-details-label">📂 カテゴリー：</span><span class="match-details-value">${matchData.category}</span></div>
             <div class="match-details-row"><span class="match-details-label">📦 品目：</span><span class="match-details-value">${matchData.item}</span></div>
     
-            <!-- 追加：個/本 と ＠単価 -->
             <div class="match-details-row"><span class="match-details-label">🔢 個/本/kg：</span>
               <span class="match-details-value">${matchData.quantity.toLocaleString('ja-JP')}</span></div>
             <div class="match-details-row"><span class="match-details-label">＠ 単価：</span>
@@ -353,7 +352,6 @@ async function submitData(options = {}) {
     await showStep('step-validation', correctionOnly ? '📋 修正データを検証中...' : '📋 データを検証中...');
     await delay(600);
 
-    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 変更箇所 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     const data = {
       date: document.getElementById("date").value,
       name: document.getElementById("name").value,
@@ -362,11 +360,10 @@ async function submitData(options = {}) {
       category: document.getElementById("category").value,
       item: document.getElementById("item").value,
       quantity: convertToHalfWidthNumber(document.getElementById("quantity").value),
-      unitPrice: convertToHalfWidthNumber(document.getElementById("unitPrice").value), // この行を追加
+      unitPrice: convertToHalfWidthNumber(document.getElementById("unitPrice").value),
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: isCorrection,
     };
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 変更箇所 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     if (correctionOnly) {
       data.correctionOnly = true;
@@ -484,9 +481,19 @@ function initializeElements() {
   [quantityInput, unitPriceInput].forEach(input => {
       input.addEventListener('input', (e) => {
           let value = e.target.value;
+          // 全角数字を半角に変換
           value = value.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+          // 数字以外を削除
           value = value.replace(/[^0-9]/g, '');
           e.target.value = value;
+          
+          // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 変更箇所 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+          // もし単価(unitPrice)が入力され、かつ数量(quantity)が空欄または0の場合、数量に1を自動入力
+          if (e.target.id === 'unitPrice' && (quantityInput.value === '' || quantityInput.value === '0')) {
+              quantityInput.value = '1';
+          }
+          // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 変更箇所 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+          
           calculateAmount(); // 計算を実行
       });
        // フォーカスが外れた時にカンマ区切りで表示
