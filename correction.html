@@ -849,7 +849,7 @@
       </div>
     </div>
 
-    <div class="original-data-section" id="original-data-section">
+    <div class="original-data-section" id="original-data-section" style="display: none;">
       <div class="original-data-header">
         📋 元のデータ
       </div>
@@ -906,18 +906,6 @@
       </div>
 
       <div class="form-group">
-        <label for="quantity">📦 個/本/g</label>
-        <input type="text" id="quantity" placeholder="個/本/g" disabled>
-      </div>
-
-      <div class="form-group">
-        <label for="unitPrice">💰 単価</label>
-        <div class="amount-input">
-          <input type="text" id="unitPrice" placeholder="単価" disabled>
-        </div>
-      </div>
-
-      <div class="form-group">
         <label for="amount">💵 金額</label>
         <div class="amount-input">
           <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric" placeholder="金額を入力" disabled>
@@ -925,27 +913,7 @@
       </div>
 
       <div class="status-display" id="status-display">
-        <div class="status-step" id="step-validation">
-          <span class="status-icon">📋</span>
-          <span>修正データを検証中...</span>
         </div>
-        <div class="status-step" id="step-sending">
-          <span class="status-icon">📤</span>
-          <span>修正データをスプレッドシートに送信中...</span>
-        </div>
-        <div class="status-step" id="step-inserting">
-          <span class="status-icon">💾</span>
-          <span>修正データを挿入中...</span>
-        </div>
-        <div class="status-step" id="step-backup">
-          <span class="status-icon">🔄</span>
-          <span>バックアップを作成中...</span>
-        </div>
-        <div class="status-step" id="step-complete">
-          <span class="status-icon">✅</span>
-          <span>修正送信完了！</span>
-        </div>
-      </div>
 
       <div class="button-group">
         <button type="submit" class="submit-btn">
