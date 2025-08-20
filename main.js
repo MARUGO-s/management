@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwB5beugBiPvXJmTu0T9XGDH8w86BBPrIyDe32zeoo6aJOKV6vvUChN3N8-A-PsXCQ/exec; // Google Apps ScriptのURL
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzoNdSDNW4RmsbydJUsHsgAaJmGKvzcc8_bA_XHXBf3Ee-ltRxLwhzzYVpU3NdCnK2d/exec"; // Google Apps ScriptのURL
 const shops = [ // 店舗名のリスト
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
