@@ -107,7 +107,7 @@
                 <th onclick="sortTable(2)">相手先</th>
                 <th onclick="sortTable(3)">品目</th>
                 <th onclick="sortTable(4)">カテゴリー</th>
-                <th onclick="sortTable(5)">個/本</th>
+                <th onclick="sortTable(5)">個/本/kg</th>
                 <th onclick="sortTable(6)">単価</th>
                 <th onclick="sortTable(7)">金額</th>
                 <th onclick="sortTable(8)">入力者</th>
@@ -384,7 +384,7 @@ class GoogleSheetsAPIAnalyzer {
                 <div class="grid-item-label">借主:</div><div class="grid-item-value">${data.borrower}</div>
                 <div class="grid-item-label">品目:</div><div class="grid-item-value">${data.item}</div>
                 <div class="grid-item-label">カテゴリー:</div><div class="grid-item-value">${data.category}</div>
-                <div class="grid-item-label">個/本:</div><div class="grid-item-value">${data.quantity}</div>
+                <div class="grid-item-label">個/本/kg:</div><div class="grid-item-value">${data.quantity}</div>
                 <div class="grid-item-label">単価:</div><div class="grid-item-value">¥${(data.unitPrice || 0).toLocaleString()}</div>
                 <div class="grid-item-label">金額:</div><div class="grid-item-value">¥${(data.amount || 0).toLocaleString()}</div>
                 <div class="grid-item-label">入力日時:</div><div class="grid-item-value">${data.inputDate}</div>
@@ -426,7 +426,7 @@ class GoogleSheetsAPIAnalyzer {
             '借主': r.borrower,
             '品目': r.item,
             'カテゴリー': r.category,
-            '個/本': r.quantity,
+            '個/本/kg': r.quantity,
             '単価': r.unitPrice,
             '金額': r.amount,
             '入力日時': r.inputDate,
