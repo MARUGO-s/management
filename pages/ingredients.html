@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>食材管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+      max-width: 1200px;
+      width: 100%;
+      position: relative;
+      z-index: 2;
+    }
+
+    h2 {
+      color: #2d3748;
+      font-size: 2rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 30px;
+      background: linear-gradient(135deg, #4a5568, #2d3748);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .controls-section {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .search-section {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 16px 20px;
+      font-size: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.8);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: inherit;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #4a5568;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.1);
+    }
+
+    .btn {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(74, 85, 104, 0.4);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+    }
+
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+
+    .ingredients-table {
+      width: 100%;
+      min-width: 800px;
+      border-collapse: collapse;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .ingredients-table th,
+    .ingredients-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .ingredients-table th {
+      background: linear-gradient(135deg, #4a5568, #2d3748);
+      color: white;
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+
+    .ingredients-table th:hover {
+      background: linear-gradient(135deg, #2d3748, #1a202c);
+    }
+
+    .ingredients-table th.sortable::after {
+      content: '↕';
+      position: absolute;
+      right: 8px;
+      opacity: 0.5;
+    }
+
+    .ingredients-table th.sort-asc::after {
+      content: '↑';
+      opacity: 1;
+    }
+
+    .ingredients-table th.sort-desc::after {
+      content: '↓';
+      opacity: 1;
+    }
+
+    .ingredients-table tr:hover {
+      background: rgba(74, 85, 104, 0.05);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #4a5568;
+      font-size: 1.1rem;
+    }
+
+    .error {
+      text-align: center;
+      padding: 40px;
+      color: #e53e3e;
+      font-size: 1.1rem;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 30px 20px;
+        margin: 10px;
+        border-radius: 16px;
+      }
+
+      h2 {
+        font-size: 1.6rem;
+      }
+
+      .controls-section {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .search-section {
+        min-width: auto;
+      }
+
+      .table-container {
+        border-radius: 8px;
+      }
+      
+      .ingredients-table {
+        font-size: 12px;
+        min-width: 700px;
+      }
+
+      .ingredients-table th,
+      .ingredients-table td {
+        padding: 8px 12px;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🥬 食材管理</h2>
+
+    <div class="controls-section">
+      <div class="search-section">
+        <input type="text" id="searchInput" class="search-input" placeholder="商品名・取引先名・伝票日付で検索..." autocomplete="off">
+      </div>
+      <button class="btn btn-secondary" onclick="exportToCSV()">📊 CSV出力</button>
+      <button class="btn btn-secondary" onclick="refreshData()">🔄 更新</button>
+    </div>
+
+    <div id="loadingMessage" class="loading">
+      📊 食材データを読み込み中...
+    </div>
+
+    <div id="errorMessage" class="error" style="display: none;">
+      ❌ データの読み込みに失敗しました
+    </div>
+
+    <div class="table-container">
+      <table id="ingredientsTable" class="ingredients-table" style="display: none;">
+        <thead>
+          <tr>
+            <th class="sortable" data-sort="date">伝票日付</th>
+            <th class="sortable" data-sort="supplier">取引先名</th>
+            <th class="sortable" data-sort="productName">商品名</th>
+            <th class="sortable" data-sort="packUnit">入数単位</th>
+            <th class="sortable" data-sort="unitPrice">単価</th>
+            <th class="sortable" data-sort="unit">単位</th>
+          </tr>
+        </thead>
+        <tbody id="ingredientsTableBody">
+        </tbody>
+      </table>
+    </div>
+
+    <div class="button-group">
+      <a href="../index.html" class="btn btn-secondary">📝 データ入力</a>
+<a href="marugo.html" class="btn btn-secondary">📊 データ確認</a>
+<a href="cost.html" class="btn btn-secondary">💰 原価管理</a>
+    </div>
+  </div>
+
+  <script src="js/ingredients.js"></script>
+</body>
+</html>
