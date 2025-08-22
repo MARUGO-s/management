@@ -1,218 +1,1099 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
   <meta charset="UTF-8">
-  <title>逆取引の送信</title>
+  <title>逆取引修正フォーム</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* 基本スタイル */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
-      background-color: #f4f7f6;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      padding: 15px;
-      color: #333;
-    }
-    /* メインコンテナ */
-    .container {
-      background: #ffffff;
-      border-radius: 16px;
       padding: 20px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="75" cy="75" r="0.3" fill="rgba(255,255,255,0.03)"/><circle cx="50" cy="10" r="0.4" fill="rgba(255,255,255,0.04)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .floating-shapes {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .shape {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      animation: float 6s ease-in-out infinite;
+    }
+
+    .shape:nth-child(1) {
+      width: 80px;
+      height: 80px;
+      top: 10%;
+      left: 10%;
+      animation-delay: -1s;
+    }
+
+    .shape:nth-child(2) {
+      width: 60px;
+      height: 60px;
+      top: 20%;
+      right: 20%;
+      animation-delay: -2s;
+    }
+
+    .shape:nth-child(3) {
+      width: 40px;
+      height: 40px;
+      bottom: 30%;
+      left: 30%;
+      animation-delay: -3s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(180deg); }
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
       max-width: 500px;
       width: 100%;
-    }
-    /* ヘッダー */
-    .header-section { text-align: center; margin-bottom: 20px; position: relative; }
-    .back-btn {
-      position: absolute; top: 50%; left: 0; transform: translateY(-50%);
-      background: #f1f1f1; color: #333; border: 1px solid #ddd;
-      padding: 6px 10px; border-radius: 8px; cursor: pointer;
-      font-size: 12px; font-weight: 600; text-decoration: none;
-      transition: background-color 0.2s ease;
-    }
-    .back-btn:hover { background-color: #e7e7e7; }
-    h2 { font-size: clamp(1.4rem, 5vw, 1.6rem); font-weight: 600; margin: 0; white-space: nowrap; }
-    .subtitle { color: #666; font-size: clamp(0.8rem, 3vw, 0.85rem); margin-top: 3px; }
-    /* フォーム & データ表示 */
-    .details-table { margin-bottom: 20px; border-top: 1px solid #f0f0f0; }
-    .form-group {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 10px 5px; border-bottom: 1px solid #f0f0f0;
-      min-height: 38px; overflow: hidden;
-    }
-    .details-table .form-group:last-child { border-bottom: none; }
-    .form-group label {
-      font-weight: 500; color: #555; font-size: clamp(0.85rem, 3.5vw, 0.9rem);
-      white-space: nowrap; padding-right: 10px; flex-shrink: 0;
-    }
-    input:disabled, select:disabled {
-      background: transparent; border: none; padding: 0;
-      font-size: clamp(0.85rem, 3.5vw, 0.9rem); color: #222;
-      font-family: inherit; text-align: right; cursor: default; width: 100%;
-      -webkit-appearance: none; -moz-appearance: none; appearance: none;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    select:disabled { background-image: none; }
-    /* 名前入力 */
-    .name-input-group {
-      border-top: 2px solid #333; margin-top: 15px; padding-top: 15px;
-      border-bottom: none; display: block;
-    }
-    .name-input-group label {
-      font-size: clamp(1rem, 4vw, 1.05rem); font-weight: 600;
-      margin-bottom: 8px; display: block; text-align: center;
-    }
-    #name {
-      width: 100%; padding: 10px 12px; font-size: clamp(0.9rem, 3.8vw, 1rem);
-      border: 1px solid #ccc; border-radius: 8px; transition: all 0.2s ease;
-    }
-    #name:focus {
-      outline: none; border-color: #5a7c5a;
-      box-shadow: 0 0 0 3px rgba(90, 124, 90, 0.2);
-    }
-    /* ボタン */
-    .button-group { display: flex; gap: 8px; margin-top: 20px; }
-    .submit-btn, .cancel-btn {
-      flex-grow: 1; width: 100%; padding: 12px 10px; border: none;
-      border-radius: 8px; font-size: clamp(0.9rem, 4vw, 1rem);
-      font-weight: 600; cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
-    }
-    .submit-btn { background-color: #5a7c5a; color: white; }
-    .submit-btn:hover:not(:disabled) { background-color: #4a6b4a; }
-    .cancel-btn { background-color: #aaa; color: white; }
-    .cancel-btn:hover { background-color: #999; }
-    .submit-btn:disabled { background-color: #cccccc; cursor: not-allowed; }
-    .loading {
-      display: none; width: 16px; height: 16px; border: 2px solid #ffffff;
-      border-radius: 50%; border-top-color: transparent;
-      animation: spin 1s linear infinite; margin-right: 5px; vertical-align: middle;
-    }
-    .submit-btn.loading .loading { display: inline-block; }
-    /* その他 */
-    .error-notice {
-      display: none; background-color: #fff0f0; border: 1px solid #ffcccc;
-      color: #d8000c; padding: 10px; border-radius: 8px; text-align: center;
-      margin-bottom: 15px; font-size: clamp(0.75rem, 3vw, 0.8rem);
-    }
-    .error-notice.show { display: block; }
-    .hidden-inputs { display: none; }
-
-    /* ========== 【ここから追加】進捗表示ポップアップのスタイル ========== */
-    .progress-popup-backdrop {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background-color: rgba(0, 0, 0, 0.6);
-      display: none; /* JSで表示を制御 */
-      align-items: center; justify-content: center;
-      z-index: 1000;
+      position: relative;
+      z-index: 2;
+      transform: translateY(20px);
       opacity: 0;
-      transition: opacity 0.3s ease;
+      animation: slideIn 0.8s ease-out forwards;
     }
-    .progress-popup-backdrop.show {
+
+    @keyframes slideIn {
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .header-section {
+      text-align: center;
+      margin-bottom: 30px;
+      position: relative;
+    }
+
+    .back-btn {
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: transform 0.2s ease;
+    }
+
+    .back-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    h2 {
+      color: #2d3748;
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #d69e2e, #b7791f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: #4a5568;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+
+    .original-data-section {
+      background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+      border: 2px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .original-data-header {
+      color: #2d3748;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 15px;
       display: flex;
-      opacity: 1;
+      align-items: center;
+      gap: 8px;
     }
-    .progress-popup {
-      background: white; padding: 25px 30px; border-radius: 12px;
-      width: 90%; max-width: 350px; text-align: center;
-      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-      transform: scale(0.95);
-      transition: transform 0.3s ease;
+
+    .original-data-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      font-size: 14px;
     }
-    .progress-popup-backdrop.show .progress-popup {
-      transform: scale(1);
+
+    .original-data-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
     }
-    .progress-popup h3 { margin-bottom: 20px; font-size: 1.2rem; color: #333; }
-    .status-step {
-      display: flex; align-items: center; justify-content: flex-start;
-      text-align: left; margin: 12px 0; font-size: 1rem; font-weight: 500;
+
+    .original-data-label {
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    .original-data-value {
+      color: #2d3748;
+      font-family: 'Courier New', monospace;
+    }
+
+    .form-group {
+      margin-bottom: 25px;
+      position: relative;
+    }
+
+    /* 🔥 名前入力フィールド強調スタイル */
+    .form-group.name-highlight {
+      position: relative;
+      padding: 8px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, 
+        rgba(214, 158, 46, 0.1) 0%, 
+        rgba(214, 158, 46, 0.05) 50%, 
+        rgba(214, 158, 46, 0.1) 100%);
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      animation: nameFieldPulse 3s ease-in-out infinite;
+    }
+
+    .form-group.name-highlight::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      background: linear-gradient(45deg, 
+        #d69e2e, #b7791f, #d69e2e, #b7791f);
+      background-size: 300% 300%;
+      border-radius: 20px;
+      z-index: -1;
+      animation: gradientShift 2s ease-in-out infinite;
+      opacity: 0.6;
+    }
+
+    .form-group.name-highlight::after {
+      content: '👈 ここに名前を入力してください';
+      position: absolute;
+      top: 50%;
+      right: -200px;
+      transform: translateY(-50%);
+      background: linear-gradient(135deg, #d69e2e, #b7791f);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 4px 15px rgba(214, 158, 46, 0.3);
+      animation: bouncePointer 2s ease-in-out infinite;
+      z-index: 10;
+    }
+
+    @keyframes nameFieldPulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(214, 158, 46, 0.4);
+      }
+      50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 0 10px rgba(214, 158, 46, 0.1);
+      }
+    }
+
+    @keyframes gradientShift {
+      0%, 100% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+    }
+
+    @keyframes bouncePointer {
+      0%, 100% {
+        transform: translateY(-50%) translateX(0px);
+        opacity: 0.8;
+      }
+      50% {
+        transform: translateY(-50%) translateX(-10px);
+        opacity: 1;
+      }
+    }
+
+    /* 名前入力完了時のアニメーション */
+    .form-group.name-completed {
+      animation: nameFieldComplete 0.6s ease-out;
+      background: linear-gradient(135deg, 
+        rgba(104, 211, 145, 0.1) 0%, 
+        rgba(104, 211, 145, 0.05) 100%);
+    }
+
+    .form-group.name-completed::before {
+      background: linear-gradient(45deg, #68d391, #4fd1c7);
+      animation: none;
+    }
+
+    .form-group.name-completed::after {
+      content: '✅ 入力完了！';
+      background: linear-gradient(135deg, #68d391, #4fd1c7);
+      animation: fadeInCheck 0.6s ease-out;
+    }
+
+    @keyframes nameFieldComplete {
+      0% {
+        transform: scale(1.02);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes fadeInCheck {
+      0% {
+        opacity: 0;
+        transform: translateY(-50%) translateX(-20px) scale(0.8);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0px) scale(1);
+      }
+    }
+
+    /* モバイル対応 */
+    @media (max-width: 768px) {
+      .form-group.name-highlight::after {
+        right: -180px;
+        font-size: 11px;
+        padding: 6px 10px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .form-group.name-highlight::after {
+        position: relative;
+        right: auto;
+        top: auto;
+        transform: none;
+        margin-top: 10px;
+        display: block;
+        text-align: center;
+      }
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* 名前ラベルの特別スタイル */
+    .name-highlight label {
+      color: #d69e2e;
+      font-weight: 700;
+      animation: labelGlow 2s ease-in-out infinite;
+    }
+
+    @keyframes labelGlow {
+      0%, 100% {
+        text-shadow: 0 0 5px rgba(214, 158, 46, 0.3);
+      }
+      50% {
+        text-shadow: 0 0 15px rgba(214, 158, 46, 0.6);
+      }
+    }
+
+    input, select {
+      width: 100%;
+      padding: 16px 20px;
+      font-size: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.8);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: inherit;
+    }
+
+    /* 名前入力フィールドの特別スタイル */
+    .name-highlight input {
+      border-color: #d69e2e;
+      background: rgba(255, 255, 255, 0.95);
+      font-weight: 600;
+      color: #2d3748;
+      animation: inputGlow 3s ease-in-out infinite;
+    }
+
+    .name-highlight input::placeholder {
+      color: #d69e2e;
+      opacity: 0.7;
+      font-weight: 500;
+    }
+
+    @keyframes inputGlow {
+      0%, 100% {
+        box-shadow: 0 0 10px rgba(214, 158, 46, 0.2);
+      }
+      50% {
+        box-shadow: 0 0 20px rgba(214, 158, 46, 0.4);
+      }
+    }
+
+    /* 無効化された入力フィールドのスタイル */
+    input:disabled, select:disabled {
+      background: #e9e9e9;
       color: #888;
-      transition: color 0.4s ease;
+      cursor: not-allowed;
+      border-color: #dcdcdc;
+      transform: none;
+      box-shadow: none;
     }
-    .status-icon { margin-right: 12px; font-size: 1.2rem; width: 24px; text-align: center; }
-    .status-step.active { color: #333; font-weight: 600; }
-    .status-step.completed { color: #28a745; }
-    .status-step.error { color: #dc3545; }
-    .status-step .status-icon::before { content: '◻️'; }
-    .status-step.active .status-icon::before {
-      content: '⏳'; display: inline-block;
-      animation: spin 1.5s linear infinite;
+    input:disabled:hover, select:disabled:hover {
+        border-color: #dcdcdc;
+        transform: none;
     }
-    .status-step.completed .status-icon::before { content: '✅'; animation: none; }
-    .status-step.error .status-icon::before { content: '❌'; animation: none; }
-    .popup-error-message {
-        color: #dc3545; font-size: 0.9rem; margin-top: 15px;
-        display: none; text-align: center; font-weight: 500;
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #d69e2e;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 3px rgba(214, 158, 46, 0.1);
+      transform: translateY(-2px);
     }
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    /* ========== 【ここまで追加】 ========== */
+
+    input:hover, select:hover {
+      border-color: #cbd5e0;
+      transform: translateY(-1px);
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .category-option {
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.8);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    /* 無効化されたカテゴリーオプションのスタイル */
+    .category-option.disabled {
+        background: #e9e9e9;
+        color: #888;
+        cursor: not-allowed;
+        border-color: #dcdcdc;
+        transform: none;
+    }
+    .category-option.disabled:hover {
+        border-color: #dcdcdc;
+        transform: none;
+        background: #e9e9e9;
+    }
+
+    .category-option:hover {
+      border-color: #d69e2e;
+      background: rgba(214, 158, 46, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .category-option.selected {
+      border-color: #d69e2e;
+      background: linear-gradient(135deg, #d69e2e, #b7791f);
+      color: white;
+    }
+
+    /* 選択された無効カテゴリーのスタイル */
+    .category-option.selected.disabled {
+        background: linear-gradient(135deg, #b7791f, #a67f3f);
+        color: white;
+        border-color: #d69e2e;
+    }
+
+    .amount-input {
+      position: relative;
+    }
+
+    .amount-input::before {
+      content: '¥';
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #4a5568;
+      font-weight: 600;
+      font-size: 1.2rem;
+      z-index: 1;
+    }
+
+    .amount-input input {
+      padding-left: 40px;
+    }
+
+    .correction-notice {
+      background: linear-gradient(135deg, #fff5cd 0%, #ffeaa7 100%);
+      border: 2px solid #d69e2e;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 25px 0;
+      text-align: center;
+    }
+
+    .correction-notice-header {
+      color: #b7791f;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .correction-notice-text {
+      color: #8a6914;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .status-display {
+      margin: 20px 0;
+      padding: 20px;
+      border-radius: 16px;
+      background: rgba(214, 158, 46, 0.05);
+      border: 2px solid rgba(214, 158, 46, 0.1);
+      display: none;
+      text-align: center;
+    }
+
+    .status-display.show {
+      display: block;
+      animation: statusSlideIn 0.4s ease-out;
+    }
+
+    @keyframes statusSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .status-step {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 12px 0;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0.3;
+      transition: all 0.4s ease;
+      color: #b7791f;
+    }
+
+    .status-step.active {
+      opacity: 1;
+      color: #b7791f;
+      transform: scale(1.05);
+    }
+
+    .status-step.completed {
+      opacity: 1;
+      color: #38a169;
+    }
+
+    .status-step.error {
+      opacity: 1;
+      color: #e53e3e;
+    }
+
+    .status-icon {
+      margin-right: 8px;
+      font-size: 16px;
+    }
+
+    .mini-loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(214, 158, 46, 0.2);
+      border-top: 2px solid #d69e2e;
+      border-radius: 50%;
+      animation: miniSpin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes miniSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 18px 24px;
+      background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(214, 158, 46, 0.4);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .submit-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .submit-btn:hover::before {
+      left: 100%;
+    }
+
+    .cancel-btn {
+      background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
+    }
+
+    .cancel-btn:hover:not(:disabled) {
+      box-shadow: 0 10px 25px rgba(138, 138, 138, 0.4);
+    }
+
+    .success-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #68d391, #4fd1c7);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(104, 211, 145, 0.3);
+      transform: translateX(400px);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      font-weight: 600;
+    }
+
+    .success-message.show {
+      transform: translateX(0);
+    }
+
+    .error-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #f56565, #e53e3e);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(245, 101, 101, 0.3);
+      transform: translateX(400px);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      font-weight: 600;
+    }
+
+    .error-message.show {
+      transform: translateX(0);
+    }
+
+    .loading {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .submit-btn.loading .loading {
+      display: inline-block;
+    }
+
+    .submit-btn.loading::before {
+      display: none;
+    }
+
+    /* エラー表示用のスタイル */
+    .error-notice {
+      background: linear-gradient(135deg, #ffe8e8 0%, #ffcccb 100%);
+      border: 2px solid #ff6b6b;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 25px 0;
+      text-align: center;
+      display: none;
+    }
+
+    .error-notice.show {
+      display: block;
+    }
+
+    .error-notice-header {
+      color: #c92a2a;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .error-notice-text {
+      color: #c92a2a;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    /* デバッグ情報用のスタイル */
+    .debug-section {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      max-width: 300px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+    }
+
+    .debug-toggle {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: #333;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      z-index: 1001;
+    }
+
+    .debug-toggle:hover {
+      background: #555;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 30px 20px;
+        margin: 10px;
+        border-radius: 16px;
+      }
+
+      h2 {
+        font-size: 1.8rem;
+      }
+
+      .category-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .original-data-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .success-message, .error-message {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+        left: 20px;
+        transform: translateY(100px);
+      }
+
+      .success-message.show, .error-message.show {
+        transform: translateY(0);
+      }
+    }
   </style>
+
+<link rel="icon" href="favicon-v2.ico" type="image/x-icon">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180x180-v2.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512x512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16x16.png">  
+<link rel="manifest" href="site-v2.webmanifest">
+  
 </head>
 <body>
+  <div class="floating-shapes">
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+  </div>
+
   <div class="container">
     <div class="header-section">
-      <a href="#" onclick="history.back(); return false;" class="back-btn" id="back-btn">← 戻る</a>
-      <h2>逆取引の送信</h2>
-      <p class="subtitle">内容を確認し、修正者名を入力して送信してください。</p>
+      <a href="data/marugo.html" class="back-btn" id="back-btn">
+        ← 戻る
+      </a>
+      <h2>✏️ 逆取引修正</h2>
+      <p class="subtitle">選択されたデータの逆取引を送信します</p>
     </div>
+
     <div class="error-notice" id="error-notice">
-      修正対象のデータが見つかりません。<br>データ一覧ページから再度選択してください。
+      <div class="error-notice-header">⚠️ データ読み込みエラー</div>
+      <div class="error-notice-text" id="error-notice-text">
+        修正対象のデータが見つかりません。<br>
+        データ一覧ページから再度選択してください。
+      </div>
     </div>
+
+    <div class="original-data-section" id="original-data-section">
+      <div class="original-data-header">
+        📋 元のデータ
+      </div>
+      <div class="original-data-grid" id="original-data-grid">
+        </div>
+    </div>
+
+    <div class="correction-notice">
+      <div class="correction-notice-header">🔄 逆取引として送信</div>
+      <div class="correction-notice-text">
+        貸主と借主を入れ替えて修正データとして送信します。<br>
+        自動的に「✏️修正」マークが付与されます。
+      </div>
+    </div>
+
     <form id="correctionForm">
-      <div class="details-table">
-          <div class="form-group"><label for="date">📅 日付</label><input type="date" id="date" required disabled></div>
-          <div class="form-group"><label for="lender">📤 貸主 (修正後)</label><select id="lender" required disabled></select></div>
-          <div class="form-group"><label for="borrower">📥 借主 (修正後)</label><select id="borrower" required disabled></select></div>
-          <div class="form-group"><label for="category-display">🏷️ カテゴリー</label><input type="text" id="category-display" disabled></div>
-          <div class="form-group"><label for="item">📝 品目</label><input type="text" id="item" required disabled></div>
-          <div class="form-group"><label for="quantity">🔢 個/本/g</label><input type="text" id="quantity" disabled></div>
-          <div class="form-group"><label for="unitPrice">💰 単価</label><input type="text" id="unitPrice" disabled></div>
-          <div class="form-group"><label for="amount">💵 金額</label><input type="text" id="amount" required disabled></div>
+      <div class="form-group">
+        <label for="date">📅 日付</label>
+        <input type="date" id="date" required disabled>
       </div>
-      <div class="form-group name-input-group">
-        <label for="name">👤 修正者名</label>
-        <input type="text" id="name" required placeholder="名前を入力してください">
+
+      <div class="form-group name-highlight" id="name-form-group">
+        <label for="name">📋 名前</label>
+       <input type="text" id="name" required placeholder="入力者名を入力">
       </div>
-      <div class="hidden-inputs"><input type="hidden" id="category" required></div>
+
+      <div class="form-group">
+        <label for="lender">📤 貸主</label>
+        <select id="lender" required disabled>
+          <option value="">選択してください</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="borrower">📥 借主</label>
+        <select id="borrower" required disabled>
+          <option value="">選択してください</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>🏷️ カテゴリー</label>
+        <div class="category-grid">
+          <div class="category-option disabled" data-value="食材">🍎 食材</div>
+          <div class="category-option disabled" data-value="飲料">🥤 飲料</div>
+          <div class="category-option disabled" data-value="その他">📦 その他</div>
+        </div>
+        <input type="hidden" id="category" required>
+      </div>
+
+      <div class="form-group">
+        <label for="item">📝 品目</label>
+        <input type="text" id="item" required placeholder="品目を入力" disabled>
+      </div>
+
+      <div class="form-group">
+        <label for="quantity">📦 個/本/g</label>
+        <input type="text" id="quantity" placeholder="個/本/g" disabled>
+      </div>
+
+      <div class="form-group">
+        <label for="unitPrice">💰 単価</label>
+        <div class="amount-input">
+          <input type="text" id="unitPrice" placeholder="単価" disabled>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="amount">💵 金額</label>
+        <div class="amount-input">
+          <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric" placeholder="金額を入力" disabled>
+        </div>
+      </div>
+
+      <div class="status-display" id="status-display">
+        <div class="status-step" id="step-validation">
+          <span class="status-icon">📋</span>
+          <span>修正データを検証中...</span>
+        </div>
+        <div class="status-step" id="step-sending">
+          <span class="status-icon">📤</span>
+          <span>修正データをスプレッドシートに送信中...</span>
+        </div>
+        <div class="status-step" id="step-inserting">
+          <span class="status-icon">💾</span>
+          <span>修正データを挿入中...</span>
+        </div>
+        <div class="status-step" id="step-backup">
+          <span class="status-icon">🔄</span>
+          <span>バックアップを作成中...</span>
+        </div>
+        <div class="status-step" id="step-complete">
+          <span class="status-icon">✅</span>
+          <span>修正送信完了！</span>
+        </div>
+      </div>
+
       <div class="button-group">
-        <button type="button" class="cancel-btn" onclick="history.back()">キャンセル</button>
-        <button type="submit" class="submit-btn"><span class="loading"></span><span class="btn-text">送信</span></button>
+        <button type="submit" class="submit-btn">
+          <span class="loading"></span>
+          <span class="btn-text">✏️ 修正データを送信</span>
+        </button>
+        <button type="button" class="submit-btn cancel-btn" onclick="history.back()">
+          <span class="btn-text">❌ キャンセル</span>
+        </button>
       </div>
     </form>
   </div>
-  
-  <div id="progress-popup-backdrop" class="progress-popup-backdrop">
-    <div id="progress-popup" class="progress-popup">
-      <h3>送信処理中...</h3>
-      <div class="status-step" id="step-validation">
-        <span class="status-icon"></span>
-        <span>入力データを検証中...</span>
-      </div>
-      <div class="status-step" id="step-sending">
-        <span class="status-icon"></span>
-        <span>データを送信中...</span>
-      </div>
-      <div class="status-step" id="step-complete">
-        <span class="status-icon"></span>
-        <span>処理完了！</span>
-      </div>
-      <div id="popup-error-message" class="popup-error-message"></div>
-    </div>
+
+  <div class="success-message" id="successMessage">
+    ✅ 修正データの送信が完了しました！
   </div>
+
+  <div class="error-message" id="errorMessage">
+    ❌ 送信に失敗しました
+  </div>
+
+  <button class="debug-toggle" onclick="toggleDebug()">🐛 Debug</button>
+  <div class="debug-section" id="debug-section">
+    <div id="debug-content">デバッグ情報を読み込み中...</div>
+  </div>
+
   <script>
+    // デバッグ機能
+    function toggleDebug() {
+      const debugSection = document.getElementById('debug-section');
+      debugSection.style.display = debugSection.style.display === 'none' ? 'block' : 'none';
+      updateDebugInfo();
+    }
+
+    function updateDebugInfo() {
+      const debugContent = document.getElementById('debug-content');
+      const sessionData = sessionStorage.getItem('correctionData');
+      const localData = localStorage.getItem('correctionData');
+      const urlData = new URLSearchParams(window.location.search).get('data');
+      
+      const info = {
+        'URL': window.location.href,
+        'Referrer': document.referrer,
+        'sessionStorage keys': Object.keys(sessionStorage),
+        'localStorage keys': Object.keys(localStorage),
+        'sessionStorage correctionData': sessionData ? 'あり（' + sessionData.length + '文字）' : 'なし',
+        'localStorage correctionData': localData ? 'あり（' + localData.length + '文字）' : 'なし',
+        'URL parameter data': urlData ? 'あり（' + urlData.length + '文字）' : 'なし',
+        'Timestamp': new Date().toISOString()
+      };
+      
+      debugContent.innerHTML = Object.entries(info)
+        .map(([key, value]) => `<div><strong>${key}:</strong> ${JSON.stringify(value)}</div>`)
+        .join('');
+    }
+
+    // 初期化処理でデバッグ情報とエラー制御
     document.addEventListener('DOMContentLoaded', () => {
+      console.log('=== correction.html 初期化開始 ===');
+      updateDebugInfo();
+      
+      // データ読み込み状況を確認
       const hasSessionData = sessionStorage.getItem('correctionData');
       const hasLocalData = localStorage.getItem('correctionData');
-      if (!hasSessionData && !hasLocalData) {
+      const hasUrlData = new URLSearchParams(window.location.search).get('data');
+      
+      console.log('データ読み込み状況:', {
+        sessionStorage: hasSessionData ? '有り' : '無し',
+        localStorage: hasLocalData ? '有り' : '無し',
+        urlParams: hasUrlData ? '有り' : '無し'
+      });
+      
+      // エラー表示の制御
+      if (!hasSessionData && !hasLocalData && !hasUrlData) {
+        console.log('データが見つからないためエラー表示');
         document.getElementById('error-notice').classList.add('show');
+        document.getElementById('original-data-section').style.display = 'none';
         document.getElementById('correctionForm').style.display = 'none';
+        
+        // 自動的に戻るための処理
+        setTimeout(() => {
+          const backBtn = document.getElementById('back-btn');
+          console.log('自動リダイレクト実行');
+          if (backBtn && backBtn.href) {
+            window.location.href = backBtn.href;
+          } else if (document.referrer) {
+            history.back();
+          } else {
+            // フォールバックパス
+            const possiblePaths = ['data/marugo.html', '../data/marugo.html', 'marugo.html'];
+            window.location.href = possiblePaths[0];
+          }
+        }, 3000);
+      } else {
+        console.log('データが見つかったため通常の初期化を実行');
+        document.getElementById('error-notice').style.display = 'none';
+        document.getElementById('original-data-section').style.display = 'block';
+        document.getElementById('correctionForm').style.display = 'block';
+        
+        // 🔥 名前入力アニメーション制御
+        setupNameInputAnimation();
       }
     });
+
+    // 🔥 名前入力アニメーション設定
+    function setupNameInputAnimation() {
+      const nameInput = document.getElementById('name');
+      const nameFormGroup = document.getElementById('name-form-group');
+      
+      if (!nameInput || !nameFormGroup) return;
+      
+      // 入力監視
+      nameInput.addEventListener('input', () => {
+        if (nameInput.value.trim().length > 0) {
+          // 入力がある場合は完了状態に
+          nameFormGroup.classList.remove('name-highlight');
+          nameFormGroup.classList.add('name-completed');
+          
+          // 3秒後にアニメーションをリセット
+          setTimeout(() => {
+            nameFormGroup.classList.remove('name-completed');
+          }, 3000);
+        } else {
+          // 入力が空の場合は強調状態に戻す
+          nameFormGroup.classList.remove('name-completed');
+          nameFormGroup.classList.add('name-highlight');
+        }
+      });
+      
+      // フォーカス時の特別処理
+      nameInput.addEventListener('focus', () => {
+        nameFormGroup.classList.add('name-highlight');
+      });
+      
+      // ブラー時の処理
+      nameInput.addEventListener('blur', () => {
+        if (nameInput.value.trim().length === 0) {
+          nameFormGroup.classList.add('name-highlight');
+        }
+      });
+      
+      // 初期状態で強調アニメーションを開始
+      setTimeout(() => {
+        nameFormGroup.classList.add('name-highlight');
+      }, 1000);
+    }
   </script>
+
   <script src="correction.js"></script>
 </body>
 </html>
