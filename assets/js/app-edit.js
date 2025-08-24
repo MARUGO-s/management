@@ -60,6 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyRecipeBtn = document.getElementById('apply-recipe-btn');
   const aiWizardBtn = document.getElementById('ai-wizard-btn');
   
+  // APIキー設定モーダル要素
+  const apiKeyModal = document.getElementById('api-key-modal');
+  const apiKeyModalCloseBtn = document.getElementById('api-key-modal-close-btn');
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const apiKeyCancelBtn = document.getElementById('apiKeyCancelBtn');
+  const apiKeySaveBtn = document.getElementById('apiKeySaveBtn');
+  
   // URL読み込みモーダル要素
   const urlImportBtn = document.getElementById('urlImportBtn');
   const urlImportModal = document.getElementById('url-import-modal');
@@ -1383,6 +1390,44 @@ JSONレスポンス例:
     });
   }
 
+  // --- APIキー設定機能 ---
+  const actions = document.querySelector('.header-actions');
+  if (actions) {
+    const apiKeyBtn = document.createElement('button');
+    apiKeyBtn.className = 'btn ghost';
+    apiKeyBtn.textContent = 'API設定';
+    apiKeyBtn.style.marginRight = '0.5rem';
+    actions.insertBefore(apiKeyBtn, actions.firstChild);
+    
+    apiKeyBtn.addEventListener('click', () => {
+      // 保存されたAPIキーを表示
+      if (apiKeyInput) {
+        apiKeyInput.value = window.APP_CONFIG?.GEMINI_API_KEY || '';
+      }
+      apiKeyModal.style.display = 'block';
+    });
+  }
+
+  // APIキー設定モーダルのイベント
+  apiKeyModalCloseBtn?.addEventListener('click', () => {
+    apiKeyModal.style.display = 'none';
+  });
+
+  apiKeyCancelBtn?.addEventListener('click', () => {
+    apiKeyModal.style.display = 'none';
+  });
+
+  apiKeySaveBtn?.addEventListener('click', () => {
+    const apiKey = apiKeyInput?.value?.trim();
+    if (apiKey) {
+      setGeminiApiKey(apiKey);
+      alert('APIキーが保存されました。');
+      apiKeyModal.style.display = 'none';
+    } else {
+      alert('APIキーを入力してください。');
+    }
+  });
+
   // --- URL読み込み機能 ---
   urlImportBtn?.addEventListener('click', () => {
     urlImportModal.style.display = 'block';
@@ -1518,146 +1563,261 @@ JSONレスポンス例:
       }
       
       const html = data.contents;
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
       
-      // レシピデータを抽出
-      const recipeData = {
-        title: '',
-        description: '',
-        ingredients: [],
-        steps: [],
-        servings: ''
-      };
-      
-      // タイトルの抽出
-      const titleSelectors = [
-        'h1',
-        '.recipe-title',
-        '.recipe-name',
-        '.title',
-        '.name',
-        '[class*="title"]',
-        '[class*="name"]',
-        'h1.recipe-title',
-        'h1.title',
-        '.recipe h1',
-        '.recipe-header h1'
-      ];
-      
-      for (const selector of titleSelectors) {
-        const element = doc.querySelector(selector);
-        if (element && element.textContent.trim()) {
-          recipeData.title = element.textContent.trim();
-          break;
+      // Gemini APIを使用した解析を試す
+      try {
+        const recipeData = await extractWithGemini(html, url);
+        if (recipeData && recipeData.title) {
+          return recipeData;
         }
+      } catch (geminiError) {
+        console.log('Gemini解析に失敗、CSSセレクターでフォールバック:', geminiError);
       }
       
-      // 説明の抽出
-      const descSelectors = [
-        '.recipe-description',
-        '.recipe-summary',
-        '.description',
-        '[class*="description"]',
-        '[class*="summary"]'
-      ];
-      
-      for (const selector of descSelectors) {
-        const element = doc.querySelector(selector);
-        if (element && element.textContent.trim()) {
-          recipeData.description = element.textContent.trim();
-          break;
-        }
-      }
-      
-      // 材料の抽出
-      const ingredientSelectors = [
-        '.ingredient',
-        '.ingredients li',
-        '.ingredients-item',
-        '.recipe-ingredient',
-        '.recipe-ingredients li',
-        '.ingredient-item',
-        '[class*="ingredient"]',
-        '.material',
-        '.materials li',
-        '.recipe-material',
-        '.recipe-materials li'
-      ];
-      
-      for (const selector of ingredientSelectors) {
-        const elements = doc.querySelectorAll(selector);
-        if (elements.length > 0) {
-          elements.forEach(el => {
-            const text = el.textContent.trim();
-            if (text) {
-              recipeData.ingredients.push({
-                item: text,
-                quantity: '',
-                unit: ''
-              });
-            }
-          });
-          break;
-        }
-      }
-      
-      // 手順の抽出
-      const stepSelectors = [
-        '.step',
-        '.recipe-step',
-        '.instruction',
-        '.recipe-instruction',
-        '.recipe-steps li',
-        '.steps li',
-        '.step-item',
-        '.instruction-item',
-        '[class*="step"]',
-        '[class*="instruction"]',
-        '.method',
-        '.recipe-method',
-        '.cooking-step',
-        '.cooking-instruction'
-      ];
-      
-      for (const selector of stepSelectors) {
-        const elements = doc.querySelectorAll(selector);
-        if (elements.length > 0) {
-          elements.forEach(el => {
-            const text = el.textContent.trim();
-            if (text) {
-              recipeData.steps.push(text);
-            }
-          });
-          break;
-        }
-      }
-      
-      // 人数の抽出
-      const servingsSelectors = [
-        '.servings',
-        '.recipe-servings',
-        '[class*="serving"]',
-        '[class*="portion"]'
-      ];
-      
-      for (const selector of servingsSelectors) {
-        const element = doc.querySelector(selector);
-        if (element && element.textContent.trim()) {
-          const text = element.textContent.trim();
-          const match = text.match(/(\d+)/);
-          if (match) {
-            recipeData.servings = match[1];
-          }
-          break;
-        }
-      }
-      
-      return recipeData;
+      // Geminiが失敗した場合、CSSセレクターで抽出
+      return extractWithCSSSelectors(html);
     } catch (error) {
       console.error('Client-side extraction error:', error);
       throw new Error('レシピデータの抽出に失敗しました: ' + error.message);
     }
+  }
+
+  // Gemini APIを使用したレシピ解析
+  async function extractWithGemini(html, url) {
+    try {
+      // Gemini APIキーを設定から取得
+      const GEMINI_API_KEY = window.APP_CONFIG?.GEMINI_API_KEY || '';
+      
+      if (!GEMINI_API_KEY) {
+        throw new Error('Gemini APIキーが設定されていません。設定画面でAPIキーを入力してください。');
+      }
+
+      // HTMLからテキストを抽出（タグを除去）
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // 不要な要素を除去
+      const elementsToRemove = doc.querySelectorAll('script, style, nav, footer, header, .ad, .advertisement, .sidebar');
+      elementsToRemove.forEach(el => el.remove());
+      
+      const textContent = doc.body.textContent.trim();
+      
+      // Gemini APIに送信するプロンプト
+      const prompt = `
+以下のHTMLからレシピ情報を抽出してください。JSON形式で返してください。
+
+URL: ${url}
+
+HTML内容:
+${textContent.substring(0, 10000)} // 最初の10000文字のみ
+
+以下のJSON形式で返してください：
+{
+  "title": "レシピのタイトル",
+  "description": "レシピの説明やコツ",
+  "servings": "人数（数字のみ）",
+  "ingredients": [
+    {
+      "item": "材料名",
+      "quantity": "分量",
+      "unit": "単位"
+    }
+  ],
+  "steps": [
+    "手順1",
+    "手順2"
+  ]
+}
+
+注意：
+- 材料は「材料名」「分量」「単位」に分けてください
+- 手順は番号付きで配列にしてください
+- 人数は数字のみで返してください
+- 不明な場合は空文字列にしてください
+`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gemini API エラー: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const generatedText = result.candidates[0].content.parts[0].text;
+      
+      // JSONを抽出
+      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('GeminiからJSONが取得できませんでした');
+      }
+      
+      const recipeData = JSON.parse(jsonMatch[0]);
+      
+      // データの検証と正規化
+      return {
+        title: recipeData.title || '',
+        description: recipeData.description || '',
+        servings: recipeData.servings || '',
+        ingredients: Array.isArray(recipeData.ingredients) ? recipeData.ingredients : [],
+        steps: Array.isArray(recipeData.steps) ? recipeData.steps : []
+      };
+      
+    } catch (error) {
+      console.error('Gemini解析エラー:', error);
+      throw error;
+    }
+  }
+
+  // CSSセレクターを使用した従来の抽出方法
+  function extractWithCSSSelectors(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    // レシピデータを抽出
+    const recipeData = {
+      title: '',
+      description: '',
+      ingredients: [],
+      steps: [],
+      servings: ''
+    };
+    
+    // タイトルの抽出
+    const titleSelectors = [
+      'h1',
+      '.recipe-title',
+      '.recipe-name',
+      '.title',
+      '.name',
+      '[class*="title"]',
+      '[class*="name"]',
+      'h1.recipe-title',
+      'h1.title',
+      '.recipe h1',
+      '.recipe-header h1'
+    ];
+    
+    for (const selector of titleSelectors) {
+      const element = doc.querySelector(selector);
+      if (element && element.textContent.trim()) {
+        recipeData.title = element.textContent.trim();
+        break;
+      }
+    }
+    
+    // 説明の抽出
+    const descSelectors = [
+      '.recipe-description',
+      '.recipe-summary',
+      '.description',
+      '[class*="description"]',
+      '[class*="summary"]'
+    ];
+    
+    for (const selector of descSelectors) {
+      const element = doc.querySelector(selector);
+      if (element && element.textContent.trim()) {
+        recipeData.description = element.textContent.trim();
+        break;
+      }
+    }
+    
+    // 材料の抽出
+    const ingredientSelectors = [
+      '.ingredient',
+      '.ingredients li',
+      '.ingredients-item',
+      '.recipe-ingredient',
+      '.recipe-ingredients li',
+      '.ingredient-item',
+      '[class*="ingredient"]',
+      '.material',
+      '.materials li',
+      '.recipe-material',
+      '.recipe-materials li'
+    ];
+    
+    for (const selector of ingredientSelectors) {
+      const elements = doc.querySelectorAll(selector);
+      if (elements.length > 0) {
+        elements.forEach(el => {
+          const text = el.textContent.trim();
+          if (text) {
+            recipeData.ingredients.push({
+              item: text,
+              quantity: '',
+              unit: ''
+            });
+          }
+        });
+        break;
+      }
+    }
+    
+    // 手順の抽出
+    const stepSelectors = [
+      '.step',
+      '.recipe-step',
+      '.instruction',
+      '.recipe-instruction',
+      '.recipe-steps li',
+      '.steps li',
+      '.step-item',
+      '.instruction-item',
+      '[class*="step"]',
+      '[class*="instruction"]',
+      '.method',
+      '.recipe-method',
+      '.cooking-step',
+      '.cooking-instruction'
+    ];
+    
+    for (const selector of stepSelectors) {
+      const elements = doc.querySelectorAll(selector);
+      if (elements.length > 0) {
+        elements.forEach(el => {
+          const text = el.textContent.trim();
+          if (text) {
+            recipeData.steps.push(text);
+          }
+        });
+        break;
+      }
+    }
+    
+    // 人数の抽出
+    const servingsSelectors = [
+      '.servings',
+      '.recipe-servings',
+      '[class*="serving"]',
+      '[class*="portion"]'
+    ];
+    
+    for (const selector of servingsSelectors) {
+      const element = doc.querySelector(selector);
+      if (element && element.textContent.trim()) {
+        const text = element.textContent.trim();
+        const match = text.match(/(\d+)/);
+        if (match) {
+          recipeData.servings = match[1];
+        }
+        break;
+      }
+    }
+    
+    return recipeData;
   }
 
   // URL入力でEnterキーでも読み込み開始
