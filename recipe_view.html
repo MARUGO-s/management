@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>レシピ表示 — Recipe Box</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
+
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    /* ===== AIモーダル（3タブ統合版） ===== */
+    .ai-view-modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; display:none; align-items:center; justify-content:center; }
+    .ai-view-modal-content{ background:var(--bg-panel,#fff); color:var(--fg,#222); width:clamp(320px,92vw,860px); max-height:92vh; overflow:hidden; border-radius:12px; box-shadow:0 8px 28px rgba(0,0,0,.35); display:flex; flex-direction:column; }
+    .ai-view-modal-header{ display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.85rem 1rem; border-bottom:1px solid rgba(0,0,0,.08); }
+    .ai-view-modal-title{ font-weight:700; }
+    .ai-view-modal-close{ background:none; border:none; font-size:1.5rem; line-height:1; cursor:pointer; }
+    .ai-view-tabs{ display:flex; gap:.25rem; padding:.5rem; border-bottom:1px solid rgba(0,0,0,.06); background:var(--bg-muted,#f7f7f7); }
+    .ai-tab{ padding:.4rem .75rem; border-radius:999px; cursor:pointer; border:1px solid transparent; }
+    .ai-tab[aria-selected="true"]{ background:#e8f0fe; border-color:#b6cef7; }
+    .ai-chat-container{ flex:1; overflow:auto; padding:1rem; display:none; }
+    .ai-chat-container.active{ display:block; }
+    .ai-input-row{ display:flex; gap:.5rem; padding:.75rem 1rem; border-top:1px solid rgba(0,0,0,.08); }
+    .ai-input-row textarea{ flex:1; resize:vertical; min-height:42px; }
+    .ai-btn{ padding:.5rem .85rem; border:1px solid #d0d7de; border-radius:8px; background:#fff; cursor:pointer; }
+    .ai-btn.primary{ background:#2563eb; color:#fff; border-color:#2563eb; }
+    .ai-msg{ 
+      margin:.8rem 0; 
+      padding:1rem 1.2rem; 
+      border-radius:12px; 
+      border:1px solid #e5e7eb; 
+      background:#fafafa; 
+      line-height:1.7; 
+      font-size: 0.95em;
+    }
+    .ai-msg.user{ 
+      background:#eef5ff; 
+      border-color:#cfe2ff; 
+    }
+    
+    /* マークダウン風のスタイリング */
+    .ai-msg h1, .ai-msg h2, .ai-msg h3, .ai-msg h4 {
+      margin: 1.5rem 0 0.8rem 0;
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+    
+    .ai-msg h1 { font-size: 1.4em; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; }
+    .ai-msg h2 { font-size: 1.3em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; }
+    .ai-msg h3 { font-size: 1.2em; color: #2563eb; }
+    .ai-msg h4 { font-size: 1.1em; color: #374151; }
+    
+    .ai-msg p {
+      margin: 0.8rem 0;
+      line-height: 1.7;
+    }
+    
+    .ai-msg ul, .ai-msg ol {
+      margin: 0.8rem 0;
+      padding-left: 1.5rem;
+    }
+    
+    .ai-msg li {
+      margin: 0.4rem 0;
+      line-height: 1.6;
+    }
+    
+    .ai-msg strong {
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+    
+    .ai-msg em {
+      color: #6b7280;
+      font-style: italic;
+    }
+    
+    .ai-msg blockquote {
+      margin: 1rem 0;
+      padding: 0.8rem 1rem;
+      background: #f8f9fa;
+      border-left: 4px solid #2563eb;
+      border-radius: 0 6px 6px 0;
+    }
+    
+    .ai-msg code {
+      background: #f1f5f9;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.9em;
+      color: #dc2626;
+    }
+    
+    .ai-msg pre {
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid #e5e7eb;
+      margin: 1rem 0;
+    }
+    
+    .ai-msg pre code {
+      background: none;
+      padding: 0;
+      color: #374151;
+    }
+    
+    /* 改善提案の特別なスタイリング */
+    .ai-msg .improvement-section {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    
+    .ai-msg .improvement-title {
+      color: #0369a1;
+      font-weight: 600;
+      font-size: 1.1em;
+      margin-bottom: 0.8rem;
+    }
+    
+    .ai-msg .rationale, .ai-msg .implementation, .ai-msg .risk {
+      margin: 0.8rem 0;
+      padding: 0.6rem 0.8rem;
+      border-radius: 6px;
+    }
+    
+    .ai-msg .rationale {
+      background: #fef3c7;
+      border-left: 3px solid #f59e0b;
+    }
+    
+    .ai-msg .implementation {
+      background: #dbeafe;
+      border-left: 3px solid #3b82f6;
+    }
+    
+    .ai-msg .risk {
+      background: #fee2e2;
+      border-left: 3px solid #ef4444;
+    }
+    
+    .ai-msg .rationale::before {
+      content: "根拠: ";
+      font-weight: 600;
+      color: #92400e;
+    }
+    
+    .ai-msg .implementation::before {
+      content: "実装: ";
+      font-weight: 600;
+      color: #1e40af;
+    }
+    
+    .ai-msg .risk::before {
+      content: "リスク: ";
+      font-weight: 600;
+      color: #991b1b;
+    }
+    .loading{ width:24px; height:24px; border:3px solid rgba(0,0,0,.15); border-top-color:rgba(0,0,0,.45); border-radius:50%; animation:spin 1s linear infinite; margin:.25rem auto; }
+    @keyframes spin{ to{ transform:rotate(360deg);} }
+    body.modal-open{ overflow:hidden; }
+    /* 既存の解析カードの体裁補助 */
+    .grid{ display:grid; grid-template-columns: 1fr auto; gap:.25rem .75rem; align-items:baseline; }
+    .card .num{ text-align:right; }
+
+    /* AIモーダル内のテーブルを見やすくするスタイル */
+    .ai-chat-container table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.9em;
+        line-height: 1.5;
+    }
+    .ai-chat-container th,
+    .ai-chat-container td {
+        border: 1px solid #dee2e6; /* var(--line-primary) */
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        vertical-align: top;
+    }
+    .ai-chat-container th {
+        background-color: #f8f9fa; /* Lighter than --bg-muted */
+        font-weight: 600;
+    }
+    .ai-chat-container tr:nth-child(even) {
+        background-color: #f7f7f7; /* var(--bg-muted) */
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1 class="brand">レシピ表示</h1>
+    <div class="header-actions" data-actions>
+      <button class="btn primary small js-ai-advice">✨ AIアドバイス</button>
+      <button class="btn js-edit">編集</button>
+      <button class="btn ghost js-delete" style="color:#c0392b;border-color:#c0392b;">削除</button>
+      <button class="btn js-back">戻る</button>
+    </div>
+  </header>
+
+  <main class="container two-col-layout">
+    <article class="panel">
+      <div class="fav-block" style="text-align:right;margin-bottom:1rem;">
+        <button id="favBtn" class="btn small">♡ お気に入り</button>
+      </div>
+      <h2 id="recipeTitle">タイトル</h2>
+      <div class="muted" id="meta">作成日 — / 更新日 —</div>
+      <div id="tags" style="margin:8px 0;"></div>
+      <p id="recipeIntro" class="lead"></p>
+      <div id="notes" style="margin-top:16px;white-space:pre-wrap;"></div>
+    </article>
+
+    <aside class="panel">
+      <h3>材料</h3>
+      <div id="ingredients"><div class="muted">未登録</div></div>
+
+      <h3 style="margin-top:24px;">手順</h3>
+      <ol id="steps"><li class="muted">未登録</li></ol>
+
+      <section class="card" id="analysisSection" style="display:none;">
+        <h3>科学メモ（ベーカーズ％）</h3>
+        <div class="grid">
+          <div>粉合計</div><div><span id="flour_g">–</span> g (100%)</div>
+          <div>加水率</div><div><span id="hydration_bp">–</span>%（水分 <span id="water_g">–</span> g）</div>
+          <div>油脂</div><div><span id="fat_bp">–</span>%（<span id="fat_g">–</span> g）</div>
+          <div>糖</div><div><span id="sugar_bp">–</span>%（<span id="sugar_g">–</span> g）</div>
+          <div>塩</div><div><span id="salt_bp">–</span>%（<span id="salt_g">–</span> g）</div>
+          <div>酵母</div><div><span id="yeast_bp">–</span>%（<span id="yeast_g">–</span> g）</div>
+        </div>
+        <p id="analysisNotes" class="note"></p>
+      </section>
+
+
+    </aside>
+  </main>
+
+
+
+  <div id="aiModal" class="ai-view-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <div class="ai-view-modal-content" tabindex="-1">
+      <header class="ai-view-modal-header">
+        <div class="ai-view-modal-title" id="aiTitle">✨ AI レシピ アシスタント</div>
+        <button class="ai-view-modal-close" id="aiClose" aria-label="閉じる">×</button>
+      </header>
+      <nav class="ai-view-tabs" role="tablist">
+        <button class="ai-tab" role="tab" aria-selected="true" data-tab="advice">提案</button>
+        <button class="ai-tab" role="tab" aria-selected="false" data-tab="temps">温度・時間</button>
+        <button class="ai-tab" role="tab" aria-selected="false" data-tab="hazards">危害要因</button>
+      </nav>
+      <section id="tab-advice" class="ai-chat-container active"></section>
+      <section id="tab-temps" class="ai-chat-container"></section>
+      <section id="tab-hazards" class="ai-chat-container"></section>
+      <div class="ai-input-row">
+        <textarea id="aiInput" placeholder="質問や要望を入力…"></textarea>
+        <button class="ai-btn" id="aiSave">新規レシピ化</button>
+        <button class="ai-btn primary" id="aiSend">送信</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Supabase 初期化（既に window.sb があれば流用） =====
+    if (window.supabase && !window.sb) {
+      window.sb = window.supabase.createClient(
+        "https://ctxyawinblwcbkovfsyj.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0eHlhd2luYmx3Y2Jrb3Zmc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NzE3MzIsImV4cCI6MjA3MDU0NzczMn0.HMMoDl_LPz8uICruD_tzn75eUpU7rp3RZx_N8CEfO1Q"
+      );
+    }
+
+    // ===== 要素参照 =====
+    const btnOpen = document.querySelector('.js-ai-advice');
+    const btnBack = document.querySelector('.js-back');
+    const modal = document.getElementById('aiModal');
+    const modalContent = modal.querySelector('.ai-view-modal-content');
+    const btnClose = document.getElementById('aiClose');
+    const tabs = document.querySelectorAll('.ai-tab');
+    const panes = { advice: document.getElementById('tab-advice'), temps: document.getElementById('tab-temps'), hazards: document.getElementById('tab-hazards') };
+    const input = document.getElementById('aiInput');
+    const btnSend = document.getElementById('aiSend');
+    const btnSave = document.getElementById('aiSave');
+
+    // ▼▼▼【変更点 1】会話履歴を保存するオブジェクトを追加 ▼▼▼
+    const chatHistories = { advice: [], temps: [], hazards: [] };
+
+    // ===== タブ切替（遅延生成対応） =====
+    const tabLoaded = { advice:false, temps:false, hazards:false };
+    tabs.forEach(t=>t.addEventListener('click', async ()=>{
+      tabs.forEach(x=>x.setAttribute('aria-selected','false'));
+      t.setAttribute('aria-selected','true');
+      Object.values(panes).forEach(p=>p.classList.remove('active'));
+      panes[t.dataset.tab].classList.add('active');
+      if(!tabLoaded[t.dataset.tab]){ await generateTab(t.dataset.tab); tabLoaded[t.dataset.tab]=true; }
+    }));
+
+    // ===== 開閉（Esc/背景クリック/戻る導線） =====
+    const openModal = ()=>{ modal.style.display='flex'; document.body.classList.add('modal-open'); modalContent.focus({preventScroll:true}); };
+    const closeModal = ()=>{ modal.style.display='none'; document.body.classList.remove('modal-open'); };
+    btnOpen?.addEventListener('click', async ()=>{ openModal(); if(!tabLoaded.advice) { await generateTab('advice'); tabLoaded.advice=true; } });
+    btnClose?.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.style.display==='flex') closeModal(); });
+    btnBack?.addEventListener('click', ()=>{ location.href='index.html'; });
+
+    // ===== 便利関数 =====
+    const md = (s)=>{ try{ return marked.parse(s||''); }catch{ return (s||''); } };
+    const pushMsg = (pane, role, text)=>{ 
+      const el=document.createElement('div'); 
+      el.className=`ai-msg ${role}`; 
+      el.innerHTML = role==='assistant'? md(text): (text||''); 
+      pane.appendChild(el); 
+      
+      // 最初のAIアドバイス生成時のみ一番上にスクロール
+      const isFirstAIResponse = pane.children.length === 1 && role === 'assistant';
+      if (isFirstAIResponse) {
+        pane.scrollTop = 0;
+      } else {
+        pane.scrollTop = pane.scrollHeight;
+      }
+    };
+    const spinner = ()=>{ const d=document.createElement('div'); d.className='loading'; return d; };
+
+    // ===== レシピ抽出 =====
+    function scrapeRecipe(){
+      const title = document.getElementById('recipeTitle')?.textContent?.trim() || '';
+      const ings = Array.from(document.querySelectorAll('#ingredients tbody tr')).map(tr=>{
+        const tds = tr.querySelectorAll('td');
+        return { item:(tds[0]?.textContent||'').trim(), quantity:(tds[1]?.textContent||'').trim(), unit:(tds[2]?.textContent||'').trim() };
+      });
+      const steps = Array.from(document.querySelectorAll('#steps li')).map(li=> (li.textContent||'').trim()).filter(Boolean);
+      return { title, ings, steps };
+    }
+
+    // ===== タブ別プロンプト =====
+    function buildPrompts(){
+      const { title, ings, steps } = scrapeRecipe();
+      const ingText = ings.map(i=>`- ${i.item} ${i.quantity||''} ${i.unit||''}`).join('\n');
+      const stepText = steps.map((s,i)=> `${i+1}. ${s}`).join('\n');
+      const base = `# ルセット名\n${title||'無題のレシピ'}\n\n## 材料\n${ingText}\n\n## 手順\n${stepText}`;
+      const advice = `あなたはプロ向けの調理科学アドバイザーです。${base}
+
+## 改善提案（要約版）
+
+### 主要な改善点（3-4個）
+
+各改善点を簡潔に記述してください：
+
+#### 1. [改善項目名]
+- **根拠:** 簡潔な科学的根拠
+- **実装:** 具体的な手順（1-2行）
+- **注意点:** 重要なリスクや注意事項
+
+#### 2. [改善項目名]
+- **根拠:** 簡潔な科学的根拠
+- **実装:** 具体的な手順（1-2行）
+- **注意点:** 重要なリスクや注意事項
+
+### 調理科学のポイント
+
+重要な調理科学の観点を簡潔に箇条書きで：
+- メイラード反応、酵素活性、タンパク質変性など
+- パン/生地系の場合はベーカーズ％の妥当性
+
+**必ず簡潔で実用的なアドバイスにしてください。**`;
+      
+      const temps = `あなたはプロの食品安全コンサルタントです。以下のレシピの重要管理点（CCP）における温度と時間を管理するための表を作成してください。\n\n${base}\n\n— 出力仕様 —\n- 必ずMarkdownの表形式で出力してください。\n- 表には「工程」「温度（表面/中心）」「時間」「備考（食品安全上の根拠など）」の列を含めてください。`;
+      
+      const hazards = `以下のレシピに関する危害要因（微生物/アレルゲン/化学・物理）とCCP候補、簡単な管理基準案を箇条書きで。\n\n${base}`;
+      return { advice, temps, hazards };
+    }
+
+    // ===== Supabase Edge Function 呼び出し =====
+    async function invokeGemini(prompt, responseSchema){
+      if (!window.sb){ pushMsg(panes.advice,'assistant','Supabase が初期化されていません。'); return null; }
+      const load = spinner();
+      const activePane = document.querySelector('.ai-chat-container.active') || panes.advice;
+      activePane.appendChild(load);
+      try{
+        const { data, error } = await sb.functions.invoke('call-gemini', { body:{ prompt, responseSchema } });
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
+        console.log('[AI raw]', data); return data;
+      }catch(e){ pushMsg(activePane,'assistant',`エラー: ${e.message}`); return null; }
+      finally{ load.remove(); }
+    }
+
+    // ===== 応答テキスト抽出（Gemini / OpenAI 両対応） =====
+    function extractLLMText(r){
+      try{
+        if (!r) return '';
+        if (typeof r === 'string') return r;
+        if (r.text) return r.text;
+        if (r.output_text) return r.output_text;
+        if (r.message && typeof r.message.content === 'string') return r.message.content;
+        if (Array.isArray(r.choices) && r.choices.length){
+          const ch = r.choices[0];
+          return (ch.message && ch.message.content) || ch.text || '';
+        }
+        if (Array.isArray(r.candidates) && r.candidates.length){
+          const cand = r.candidates[0];
+          if (cand && cand.content && Array.isArray(cand.content.parts)){
+            return cand.content.parts.map(p => (p && p.text) ? p.text : '').join('\n').trim();
+          }
+        }
+        if (r.content && Array.isArray(r.content.parts)){
+            return r.content.parts.map(p => p.text || '').join('\n').trim();
+        }
+        try { return JSON.stringify(r); } catch { return ''; }
+      }catch(e){
+        console.error('extractLLMText error', e, r);
+        return '';
+      }
+    }
+    
+    // ===== タブ内容生成（必要時に呼び出し） =====
+    async function generateTab(kind){
+      const prompts = buildPrompts();
+      const pane = panes[kind];
+      pane.innerHTML = ''; 
+      pushMsg(pane,'assistant','解析中…');
+      const r = await invokeGemini(prompts[kind]);
+      const t = extractLLMText(r) || '（結果なし）';
+      pane.innerHTML = ''; // 一旦クリア
+      pushMsg(pane, 'assistant', t); // レンダリング
+      chatHistories[kind] = [{ role: 'assistant', content: t }];
+    }
+
+    // ▼▼▼ 会話履歴を考慮してAIに質問するよう修正 ▼▼▼
+    btnSend.addEventListener('click', async ()=>{
+      const q = input.value.trim(); if(!q) return;
+
+      const activeTabEl = document.querySelector('.ai-tab[aria-selected="true"]');
+      const kind = activeTabEl.dataset.tab;
+      const pane = panes[kind];
+      const history = chatHistories[kind];
+      
+      pushMsg(pane,'user',q);
+      history.push({ role: 'user', content: q });
+      input.value='';
+
+      const historyText = history.map(msg => {
+          return `${msg.role === 'user' ? 'ユーザー' : 'アシスタント'}:\n${msg.content}`;
+      }).join('\n\n');
+
+      const initialPrompt = buildPrompts()[kind];
+      const fullPrompt = `${initialPrompt}\n\n---\n上記は最初の指示です。以下はそれ以降の会話履歴です。文脈を踏まえて応答を続けてください。\n\n${historyText}`;
+
+      const r = await invokeGemini(fullPrompt);
+      const t = extractLLMText(r) || '（結果なし）';
+      
+      pushMsg(pane,'assistant',t);
+      history.push({ role: 'assistant', content: t });
+    });
+
+    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); btnSend.click(); }});
+
+    // ▼▼▼【ここから元に戻した箇所】▼▼▼
+    // ===== 新規レシピ化（JSON + 単位正規化） =====
+    btnSave.addEventListener('click', async ()=>{
+      const schema = { type:"OBJECT", properties:{ title:{type:"STRING"}, category:{type:"STRING"}, tags:{type:"ARRAY",items:{type:"STRING"}}, notes:{type:"STRING"}, ingredients:{type:"ARRAY", items:{type:"OBJECT", properties:{ item:{type:"STRING"}, quantity:{type:"STRING"}, unit:{type:"STRING"} }, required:["item"]}}, steps:{type:"ARRAY",items:{type:"STRING"}} }, required:["title","category","tags","notes","ingredients","steps"] };
+      
+      // 新規レシピ化専用のプロンプトを作成
+      const { title, ings, steps } = scrapeRecipe();
+      const ingText = ings.map(i=>`- ${i.item} ${i.quantity||''} ${i.unit||''}`).join('\n');
+      const stepText = steps.map((s,i)=> `${i+1}. ${s}`).join('\n');
+      
+      const recipePrompt = `以下のレシピを基に、改善された新レシピを作成してください：
+
+# レシピ名
+${title||'無題のレシピ'}
+
+## 材料
+${ingText}
+
+## 手順
+${stepText}
+
+## 出力仕様
+1. 上記レシピを改善し、新しいレシピを作成してください
+2. 材料はg/mlを基本単位とし、単位省略不可
+3. 同義単位は変換してください（tsp=5ml, tbsp=15ml, 小さじ=5ml, 大さじ=15ml）
+4. 以下のJSON形式でのみ回答してください（マークダウン記号は使用しない）：
+
+{
+  "title": "改善されたレシピ名",
+  "category": "カテゴリ",
+  "tags": ["タグ1", "タグ2"],
+  "notes": "レシピの説明やコツ",
+  "ingredients": [
+    {"item": "材料名", "quantity": "分量", "unit": "単位"}
+  ],
+  "steps": ["手順1", "手順2"]
+}`;
+
+      const r = await invokeGemini(recipePrompt, schema);
+      const jsonText = extractLLMText(r);
+      if (!jsonText){ alert('JSONを取得できませんでした。'); return; }
+      
+      try{
+        // JSONテキストからJSON部分のみを抽出
+        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+        const cleanJsonText = jsonMatch ? jsonMatch[0] : jsonText;
+        
+        const obj = JSON.parse(cleanJsonText);
+        const unitMap = { 'tsp':'ml', 'tbsp':'ml', '小さじ':'ml', '大さじ':'ml' };
+        const toVol = (q,u)=>{ const n=Number(q); if(!Number.isFinite(n)) return q; if(u==='tsp'||u==='小さじ') return n*5; if(u==='tbsp'||u==='大さじ') return n*15; return n; };
+        obj.ingredients = (obj.ingredients||[]).map(it=>{ const u=(it.unit||'').toLowerCase(); if(unitMap[u]) return { ...it, quantity:String(toVol(it.quantity,u)), unit:'ml' }; return it; });
+        localStorage.setItem('ai_generated_recipe', JSON.stringify(obj));
+        alert('AIレシピを編集画面に読み込みます。');
+        location.href = 'recipe_edit.html';
+      }catch(e){ 
+        console.error('JSON解析エラー:', e, '元のテキスト:', jsonText);
+        alert('JSONの解析に失敗: '+ e.message + '\n\n取得されたテキスト: ' + jsonText.substring(0, 200) + '...'); 
+      }
+    });
+    // ▲▲▲【ここまで元に戻した箇所】▲▲▲
+  </script>
+
+<script>
+// ===== レシピ読み込み（URLの id から取得して表示） =====
+(function(){
+  try{
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    if(!id){
+      alert('レシピIDがありません'); location.href='index.html'; return;
+    }
+
+    if(!window.sb && window.supabase){
+      window.sb = window.supabase.createClient(
+        "https://ctxyawinblwcbkovfsyj.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0eHlhd2luYmx3Y2Jrb3Zmc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NzE3MzIsImV4cCI6MjA3MDU0NzczMn0.HMMoDl_LPz8uICruD_tzn75eUpU7rp3RZx_N8CEfO1Q"
+      );
+    }
+    if(!window.sb){ console.error('Supabase not initialized'); return; }
+    const sb = window.sb;
+
+    const titleEl = document.getElementById('recipeTitle');
+    const metaEl  = document.getElementById('meta');
+    const tagsEl  = document.getElementById('tags');
+    const notesEl = document.getElementById('notes');
+    const ingEl   = document.getElementById('ingredients');
+    const stepsEl = document.getElementById('steps');
+    const btnEdit   = document.querySelector('.js-edit');
+    const btnDelete = document.querySelector('.js-delete');
+    const favBtn    = document.getElementById('favBtn');
+
+    btnEdit?.addEventListener('click', ()=>{ location.href = `recipe_edit.html?id=${encodeURIComponent(id)}`; });
+    btnDelete?.addEventListener('click', async ()=>{
+      if(!confirm('このレシピを削除しますか？（材料・手順は残る場合があります）')) return;
+      try{
+        await sb.from('recipes').delete().eq('id', id);
+        alert('削除しました'); location.href = 'index.html';
+      }catch(e){ alert('削除に失敗: ' + (e.message||e)); }
+    });
+
+    function getClientId(){
+      let cid = localStorage.getItem('client_id');
+      if(!cid){ cid = (crypto?.randomUUID?.() || String(Math.random()).slice(2)); localStorage.setItem('client_id', cid); }
+      return cid;
+    }
+    async function refreshFavState(){
+      try{
+        const { data } = await sb.from('favorites').select('id').eq('recipe_id', id).eq('client_id', getClientId()).limit(1);
+        const on = !!(data && data.length);
+        if(favBtn){
+          favBtn.textContent = on ? '♥ お気に入り解除' : '♡ お気に入り';
+          favBtn.dataset.active = on ? '1' : '0';
+        }
+      }catch(_){}
+    }
+    favBtn?.addEventListener('click', async ()=>{
+      try{
+        const cid = getClientId();
+        const { data } = await sb.from('favorites').select('id').eq('recipe_id', id).eq('client_id', cid).limit(1);
+        if(data && data.length){
+          await sb.from('favorites').delete().eq('id', data[0].id);
+        }else{
+          await sb.from('favorites').insert({ recipe_id: id, client_id: cid });
+        }
+        await refreshFavState();
+      }catch(e){ alert('お気に入り操作に失敗: ' + (e.message||e)); }
+    });
+
+    function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+    async function load(){
+      const { data: recs, error } = await sb.from('recipes').select('*').eq('id', id).limit(1);
+      if(error){ console.error(error); alert('レシピの取得に失敗しました'); return; }
+      const r = recs?.[0];
+      if(!r){ alert('レシピが見つかりません'); return; }
+
+      titleEl.textContent = r.title || '無題のレシピ';
+      const dt = r.updated_at || r.created_at;
+      metaEl.textContent = dt ? `更新: ${new Date(dt).toLocaleString()}` : '';
+
+      const tags = Array.isArray(r.tags) ? r.tags : (r.tags ? String(r.tags).split(/[,\s]+/).filter(Boolean) : []);
+      tagsEl.innerHTML = (tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+      notesEl.textContent = r.notes || '';
+
+      try{
+        const { data: ings, error: e1 } = await sb.from('recipe_ingredients').select('*').eq('recipe_id', id).order('position', {ascending:true}).order('id', {ascending:true});
+        if(!e1 && ings?.length){
+          const cols = Object.keys(ings[0]).filter(k=>!['id','recipe_id','created_at','updated_at'].includes(k));
+          const thead = `<thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>`;
+          const tbody = `<tbody>${ings.map(row=>`<tr>${cols.map(c=>`<td>${esc(row[c])}</td>`).join('')}</tr>`).join('')}</tbody>`;
+          ingEl.innerHTML = `<table class="table">${thead}${tbody}</table>`;
+        }else{
+          ingEl.innerHTML = '<div class="muted">未登録</div>';
+        }
+      }catch(_){
+        ingEl.innerHTML = '<div class="muted">未登録</div>';
+      }
+
+      try{
+        const { data: steps, error: e2 } = await sb.from('recipe_steps').select('*').eq('recipe_id', id).order('position', {ascending:true}).order('id', {ascending:true});
+        if(!e2 && steps?.length){
+          stepsEl.innerHTML = steps.map(s=>`<li>${esc(s.instruction || s.step || s.description || s.body || '')}</li>`).join('');
+        }else{
+          stepsEl.innerHTML = '<li class="muted">未登録</li>';
+        }
+      }catch(_){
+        stepsEl.innerHTML = '<li class="muted">未登録</li>';
+      }
+
+      await refreshFavState();
+    }
+
+    load();
+  }catch(e){
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>

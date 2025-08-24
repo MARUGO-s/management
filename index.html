@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recipe Box — レシピ管理アプリ</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand-section">
+        <h1 class="brand">Recipe Box</h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn primary js-new">
+          <i class="fas fa-plus"></i>
+          新規レシピ
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- さりげない統計情報 -->
+    <section class="stats-section-mini">
+      <div class="stats-mini">
+        <span class="stat-mini">
+          <i class="fas fa-book-open"></i>
+          <span id="totalRecipes">0</span>件
+        </span>
+        <span class="stat-mini">
+          <i class="fas fa-heart"></i>
+          <span id="favoriteRecipes">0</span>件
+        </span>
+      </div>
+    </section>
+
+    <!-- 検索セクション -->
+    <section class="search-section">
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" id="searchInput" class="search-input" placeholder="レシピを検索...">
+          <button class="search-clear" id="searchClear" style="display: none;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- タブセクション -->
+    <section class="tabs-section">
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" role="tab" data-tab="all" aria-selected="true">
+          すべて
+        </button>
+        <button class="tab" role="tab" data-tab="favorites">
+          お気に入り
+        </button>
+      </div>
+    </section>
+
+    <!-- カテゴリーフィルター -->
+    <section class="category-filter-section">
+      <div class="category-filter">
+        <button class="category-btn active" data-category="all">
+          すべて
+        </button>
+        <button class="category-btn" data-category="アミューズ">
+          アミューズ
+        </button>
+        <button class="category-btn" data-category="前菜">
+          前菜
+        </button>
+        <button class="category-btn" data-category="スープ">
+          スープ
+        </button>
+        <button class="category-btn" data-category="パスタ">
+          パスタ
+        </button>
+        <button class="category-btn" data-category="魚料理">
+          魚料理
+        </button>
+        <button class="category-btn" data-category="肉料理">
+          肉料理
+        </button>
+        <button class="category-btn" data-category="メイン">
+          メイン
+        </button>
+        <button class="category-btn" data-category="デザート">
+          デザート
+        </button>
+        <button class="category-btn" data-category="パン">
+          パン
+        </button>
+        <button class="category-btn" data-category="その他">
+          その他
+        </button>
+      </div>
+    </section>
+
+    <!-- レシピカードグリッド -->
+    <section class="recipes-section">
+      <div class="card-grid" id="cardList" aria-live="polite">
+      </div>
+
+      <div id="empty-message" class="empty-state" style="display: none;">
+        <div class="empty-icon">
+          <i class="fas fa-book-open"></i>
+        </div>
+        <h2>まだレシピがありません</h2>
+        <p>最初のレシピを登録してみましょう！</p>
+        <button class="btn primary js-new-empty">
+          <i class="fas fa-plus"></i>
+          レシピを作成
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/app-index.js"></script>
+</body>
+</html>

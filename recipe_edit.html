@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>レシピ編集 — Recipe Box</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1 class="brand">レシピ編集</h1>
+    <div class="header-actions">
+      <a href="index.html" class="btn ghost">ホーム</a>
+      <button class="btn primary js-save">保存する</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <form id="editForm" class="panel">
+      
+      <div class="field">
+        <label for="title">料理名</label>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <input id="title" name="title" class="input" required style="flex: 1;" />
+          <button type="button" class="btn ghost small" id="urlImportBtn" title="URLからレシピを読み込み">
+            <i class="fas fa-link"></i> URL読み込み
+          </button>
+        </div>
+      </div>
+      <div class="field category-tags-field">
+        <div class="category-tags-row">
+          <div class="category-section">
+            <div class="category-input-wrapper">
+              <button type="button" id="categorySelectBtn" class="input category-select-btn">
+                <span id="selectedCategoryText">カテゴリーを選択</span>
+                <i class="fas fa-chevron-down"></i>
+              </button>
+            </div>
+            <div id="customCategories" class="custom-categories"></div>
+          </div>
+          <div class="tags-section">
+            <button type="button" id="tagSelectBtn" class="input tag-select-btn">
+              <span id="selectedTagsText">タグを選択</span>
+              <i class="fas fa-chevron-down"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="field servings-field">
+        <label for="servings">出来上がり人数</label>
+        <div class="servings-input-wrapper">
+          <input id="servings" name="servings" class="input" type="number" min="1" max="20" placeholder="例: 4" />
+          <span class="servings-unit">人前</span>
+        </div>
+        <div class="servings-actions">
+          <button type="button" class="btn ghost small" id="adjustServingsBtn">人数に応じて材料量を調整</button>
+        </div>
+      </div>
+      <div class="field notes-field">
+        <label for="notes">メモ・コツ</label>
+        <textarea id="notes" name="notes" class="input" rows="3"></textarea>
+      </div>
+       <div class="field">
+        <label>材料</label>
+        <div id="ingredientsEditor"></div>
+        <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
+            <button type="button" class="btn ghost small" id="addIng">＋ 材料を追加</button>
+            <button type="button" class="btn primary small" id="ai-wizard-btn">✨ AIで創作</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>作り方</label>
+        <div id="stepsEditor"></div>
+        <button type="button" class="btn ghost small" id="addStep" style="margin-top: 1rem;">＋ 手順を追加</button>
+      </div>
+    </form>
+  </main>
+  
+  <!-- URL読み込みモーダル -->
+  <div id="url-import-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">URLからレシピを読み込み</h2>
+        <button id="url-import-modal-close-btn" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="urlInput">レシピサイトのURL</label>
+          <input id="urlInput" type="url" class="input" placeholder="https://example.com/recipe/..." />
+        </div>
+        <div class="field">
+          <label>対応サイト</label>
+          <div class="supported-sites">
+            <p>以下のサイトからレシピを読み込めます：</p>
+            <ul>
+              <li>クックパッド</li>
+              <li>楽天レシピ</li>
+              <li>みんなのきょうの料理</li>
+              <li>その他のレシピサイト</li>
+            </ul>
+          </div>
+        </div>
+        <div class="field">
+          <label>代替手段</label>
+          <div class="alternative-method">
+            <p>URL読み込みが失敗した場合は、以下の方法をお試しください：</p>
+            <button type="button" class="btn ghost small" id="manualInputBtn">
+              <i class="fas fa-edit"></i> 手動入力モード
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="urlImportCancelBtn" class="btn ghost">キャンセル</button>
+        <button id="urlImportConfirmBtn" class="btn primary">読み込み開始</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- カテゴリー選択モーダル -->
+  <div id="category-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">カテゴリーを選択</h2>
+        <button id="category-modal-close-btn" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="category-list">
+          <div class="category-group">
+            <h3 class="category-group-title">基本カテゴリー</h3>
+            <div class="category-options" id="category-options">
+              <!-- データベースから動的に読み込み -->
+            </div>
+          </div>
+          <div class="category-group" id="custom-category-group" style="display: none;">
+            <h3 class="category-group-title">カスタムカテゴリー</h3>
+            <div class="category-options" id="custom-category-options">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="add-new-category-btn" class="btn ghost">
+            <i class="fas fa-plus"></i>
+            新しいカテゴリーを追加
+          </button>
+          <div class="modal-footer-actions">
+            <button id="category-ok-btn" class="btn primary">OK</button>
+            <button id="category-cancel-btn" class="btn ghost">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- タグ選択モーダル -->
+  <div id="tag-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">タグを選択</h2>
+        <button id="tag-modal-close-btn" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="tag-list">
+          <div class="tag-group">
+            <h3 class="tag-group-title">利用可能なタグ</h3>
+            <div class="tag-options" id="tag-options">
+              <!-- データベースから動的に読み込み -->
+            </div>
+          </div>
+          <div class="tag-group" id="custom-tag-group" style="display: none;">
+            <h3 class="tag-group-title">カスタムタグ</h3>
+            <div class="tag-options" id="custom-tag-options">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="add-new-tag-btn" class="btn ghost">
+            <i class="fas fa-plus"></i>
+            新しいタグを追加
+          </button>
+          <div class="modal-footer-actions">
+            <button id="tag-ok-btn" class="btn primary">OK</button>
+            <button id="tag-cancel-btn" class="btn ghost">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ai-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">✨ AI ルセット創作アシスタント</h2>
+        <button id="modal-close-btn" class="modal-close">&times;</button>
+      </div>
+      <div id="modal-body" class="modal-body">
+        <div id="ai-step-1" style="display: block;">
+          <p class="step-title">1. 料理のジャンルを選択</p>
+          <div class="genre-selection">
+            <button class="genre-btn" data-genre="フレンチ">フレンチ</button>
+            <button class="genre-btn" data-genre="イタリアン">イタリアン</button>
+            <button class="genre-btn" data-genre="和食">和食</button>
+            <button class="genre-btn" data-genre="中華">中華</button>
+            <button class="genre-btn" data-genre="創作料理">創作料理</button>
+            <button class="genre-btn" data-genre="デザート">デザート</button>
+            <button class="genre-btn" data-genre="パン">パン</button>
+          </div>
+          <div class="field">
+            <label for="ai-custom-request" style="font-size: 0.8em; margin-bottom: 0.5rem;">追加の希望 (任意)</label>
+            <textarea id="ai-custom-request" class="input" rows="2" placeholder="例: 子供向けの味付け, 野菜を多めに"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button id="get-suggestions-btn" class="btn primary" disabled>メニュー案を創作</button>
+          </div>
+        </div>
+        <div id="ai-step-2" style="display: none;">
+          <p class="step-title">2. メニューを選択</p>
+          <div id="menu-suggestions" class="menu-suggestions"></div>
+          <div class="modal-footer">
+            <button id="generate-full-recipe-btn" class="btn primary" disabled>このメニューでルセットを生成</button>
+          </div>
+        </div>
+        <div id="ai-step-3" style="display: none;">
+            <p class="step-title">3. 内容を確認して反映</p>
+            <div id="recipe-preview" style="white-space: pre-wrap; background: var(--bg-secondary); padding: 1rem; border-radius: 0.5rem; max-height: 40vh; overflow-y: auto; border: 1px solid var(--border-medium); color: var(--text-primary); font-size: var(--font-size-sm); line-height: 1.5;"></div>
+            <div class="modal-footer">
+              <button id="apply-recipe-btn" class="btn primary">フォームに反映する</button>
+            </div>
+        </div>
+        <div id="ai-loading" style="display: none;">
+          <div class="loading-spinner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/app-edit.js"></script>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    'use strict';
+    const PROJECT_URL = 'https://ctxyawinblwcbkovfsyj.supabase.co';
+    const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0eHlhd2luYmx3Y2Jrb3Zmc3lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NzE3MzIsImV4cCI6MjA3MDU0NzczMn0.HMMoDl_LPz8uICruD_tzn75eUpU7rp3RZx_N8CEfO1Q';
+
+    if (typeof supabase === 'undefined') return;
+    const sb = supabase.createClient(PROJECT_URL, ANON);
+
+    const actions = document.querySelector('.header-actions');
+    if (actions) {
+        const headerBtn = document.createElement('button');
+        headerBtn.className = 'btn ghost';
+        headerBtn.textContent = 'URLから取り込み';
+        actions.insertBefore(headerBtn, actions.firstChild);
+        headerBtn.addEventListener('click', async () => {
+            const u = prompt('レシピ掲載ページのURL'); if (!u) return;
+            await runImport(u);
+        });
+    }
+
+    async function runImport(url) {
+        try {
+            alert('レシピを読み取り中…');
+            
+            let recipeData = null;
+            
+            // まずSupabase Edge Functionを試す
+            try {
+                const { data, error } = await sb.functions.invoke('extract-recipe', { 
+                    body: { url } 
+                });
+                
+                if (error) throw error;
+                if (!data?.ok) throw new Error(data?.message || 'import failed');
+                
+                if (data && data.data) {
+                    recipeData = data.data;
+                }
+            } catch (edgeFunctionError) {
+                console.log('Edge Function failed, trying client-side extraction:', edgeFunctionError);
+                
+                // Edge Functionが失敗した場合、クライアントサイドで抽出を試す
+                try {
+                    recipeData = await extractRecipeFromURL(url);
+                } catch (clientError) {
+                    console.error('Client-side extraction also failed:', clientError);
+                    throw new Error('レシピの抽出に失敗しました。手動入力モードをご利用ください。');
+                }
+            }
+            
+            if (!recipeData) {
+                throw new Error('レシピデータを取得できませんでした。');
+            }
+            
+            // タイトルを設定
+            const titleEl = document.getElementById('title');
+            if (titleEl) titleEl.value = recipeData.title || '';
+            
+            // 説明を設定
+            const notesEl = document.getElementById('notes');
+            if (notesEl) notesEl.value = recipeData.description || '';
+            
+            // 材料を設定
+            const ingredientsEditor = document.getElementById('ingredientsEditor');
+            const addIngBtn = document.getElementById('addIng');
+            if (ingredientsEditor) ingredientsEditor.innerHTML = '';
+            
+            if (recipeData.ingredients && Array.isArray(recipeData.ingredients)) {
+                // 新しい形式（ingredients配列）
+                recipeData.ingredients.forEach(ing => {
+                    addIngBtn?.dispatchEvent(new Event('click'));
+                    const rows = ingredientsEditor?.querySelectorAll('.ingredient-row');
+                    const row = rows?.[rows.length - 1];
+                    if (row) {
+                        const itemInput = row.querySelector('.ing-item');
+                        const qtyInput = row.querySelector('.ing-qty');
+                        const unitInput = row.querySelector('.ing-unit');
+                        if (itemInput) itemInput.value = ing.item || ing.name || '';
+                        if (qtyInput) qtyInput.value = ing.quantity || ing.amount || '';
+                        if (unitInput) unitInput.value = ing.unit || '';
+                    }
+                });
+            } else if (recipeData.ingredientLines && Array.isArray(recipeData.ingredientLines)) {
+                // 古い形式（ingredientLines配列）
+                recipeData.ingredientLines.forEach(line => {
+                    addIngBtn?.dispatchEvent(new Event('click'));
+                    const rows = ingredientsEditor?.querySelectorAll('.ingredient-row');
+                    const row = rows?.[rows.length - 1];
+                    const itemInput = row?.querySelector('.ing-item');
+                    if (itemInput) itemInput.value = line;
+                });
+            }
+            
+            // 手順を設定
+            const stepsEditor = document.getElementById('stepsEditor');
+            const addStepBtn = document.getElementById('addStep');
+            if (stepsEditor) stepsEditor.innerHTML = '';
+            
+            if (recipeData.steps && Array.isArray(recipeData.steps)) {
+                recipeData.steps.forEach(text => {
+                    addStepBtn?.dispatchEvent(new Event('click'));
+                    const rows = stepsEditor?.querySelectorAll('.step-row input[type="text"]');
+                    const el = rows?.[rows.length - 1];
+                    if (el) el.value = text;
+                });
+            }
+            
+            // 人数を設定（あれば）
+            if (recipeData.servings) {
+                const servingsEl = document.getElementById('servings');
+                if (servingsEl) servingsEl.value = recipeData.servings;
+            }
+            
+            alert('レシピの読み取りが完了しました！');
+        } catch (e) {
+            console.error('URL読み込みエラー:', e);
+            alert('レシピの読み取りに失敗しました: ' + (e.message || e));
+        }
+    }
+    
+    // クライアントサイドでのレシピ抽出機能
+    async function extractRecipeFromURL(url) {
+        try {
+            // CORSの問題を回避するため、プロキシサービスを使用
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            const response = await fetch(proxyUrl);
+            const data = await response.json();
+            
+            if (!data.contents) {
+                throw new Error('ページの内容を取得できませんでした。');
+            }
+            
+            const html = data.contents;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // レシピデータを抽出
+            const recipeData = {
+                title: '',
+                description: '',
+                ingredients: [],
+                steps: [],
+                servings: ''
+            };
+            
+            // タイトルの抽出
+            const titleSelectors = [
+                'h1',
+                '.recipe-title',
+                '.recipe-name',
+                '.title',
+                '.name',
+                '[class*="title"]',
+                '[class*="name"]',
+                'h1.recipe-title',
+                'h1.title',
+                '.recipe h1',
+                '.recipe-header h1'
+            ];
+            
+            for (const selector of titleSelectors) {
+                const element = doc.querySelector(selector);
+                if (element && element.textContent.trim()) {
+                    recipeData.title = element.textContent.trim();
+                    break;
+                }
+            }
+            
+            // 説明の抽出
+            const descSelectors = [
+                '.recipe-description',
+                '.recipe-summary',
+                '.description',
+                '[class*="description"]',
+                '[class*="summary"]'
+            ];
+            
+            for (const selector of descSelectors) {
+                const element = doc.querySelector(selector);
+                if (element && element.textContent.trim()) {
+                    recipeData.description = element.textContent.trim();
+                    break;
+                }
+            }
+            
+            // 材料の抽出
+            const ingredientSelectors = [
+                '.ingredient',
+                '.ingredients li',
+                '.ingredients-item',
+                '.recipe-ingredient',
+                '.recipe-ingredients li',
+                '.ingredient-item',
+                '[class*="ingredient"]',
+                '.material',
+                '.materials li',
+                '.recipe-material',
+                '.recipe-materials li'
+            ];
+            
+            for (const selector of ingredientSelectors) {
+                const elements = doc.querySelectorAll(selector);
+                if (elements.length > 0) {
+                    elements.forEach(el => {
+                        const text = el.textContent.trim();
+                        if (text) {
+                            recipeData.ingredients.push({
+                                item: text,
+                                quantity: '',
+                                unit: ''
+                            });
+                        }
+                    });
+                    break;
+                }
+            }
+            
+            // 手順の抽出
+            const stepSelectors = [
+                '.step',
+                '.recipe-step',
+                '.instruction',
+                '.recipe-instruction',
+                '.recipe-steps li',
+                '.steps li',
+                '.step-item',
+                '.instruction-item',
+                '[class*="step"]',
+                '[class*="instruction"]',
+                '.method',
+                '.recipe-method',
+                '.cooking-step',
+                '.cooking-instruction'
+            ];
+            
+            for (const selector of stepSelectors) {
+                const elements = doc.querySelectorAll(selector);
+                if (elements.length > 0) {
+                    elements.forEach(el => {
+                        const text = el.textContent.trim();
+                        if (text) {
+                            recipeData.steps.push(text);
+                        }
+                    });
+                    break;
+                }
+            }
+            
+            // 人数の抽出
+            const servingsSelectors = [
+                '.servings',
+                '.recipe-servings',
+                '[class*="serving"]',
+                '[class*="portion"]'
+            ];
+            
+            for (const selector of servingsSelectors) {
+                const element = doc.querySelector(selector);
+                if (element && element.textContent.trim()) {
+                    const text = element.textContent.trim();
+                    const match = text.match(/(\d+)/);
+                    if (match) {
+                        recipeData.servings = match[1];
+                    }
+                    break;
+                }
+            }
+            
+            return recipeData;
+        } catch (error) {
+            console.error('Client-side extraction error:', error);
+            throw new Error('レシピデータの抽出に失敗しました: ' + error.message);
+        }
+    }
+  });
+  </script>
+</body>
+</html>
