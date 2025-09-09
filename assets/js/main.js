@@ -409,12 +409,12 @@ function openSelectModal(title, items, onSelect) {
     } // latest: 並べ替えなし（itemsの順番を維持 = 最新順）
 
     filtered.slice(0, SELECT_MODAL_LIMIT).forEach(v => {
-      const div = document.createElement('div');
-      div.className = 'select-item';
-      div.textContent = v;
-      div.onclick = () => { close(); onSelect(v); };
-      listEl.appendChild(div);
-    });
+        const div = document.createElement('div');
+        div.className = 'select-item';
+        div.textContent = v;
+        div.onclick = () => { close(); onSelect(v); };
+        listEl.appendChild(div);
+      });
   };
 
   const close = () => { modal.classList.remove('show'); searchEl.value = ''; listEl.innerHTML=''; };
@@ -452,10 +452,10 @@ function calculateAmountForRow(rowEl) {
   const quantityInput = rowEl.querySelector('.quantity');
   const unitPriceInput = rowEl.querySelector('.unit-price');
   const amountInput = rowEl.querySelector('.amount');
-  const quantity = parseFloat(convertToHalfWidthNumber(quantityInput.value)) || 0;
-  const unitPrice = parseInt(convertToHalfWidthNumber(unitPriceInput.value), 10) || 0;
-  const totalAmount = quantity * unitPrice;
-  amountInput.value = totalAmount.toLocaleString('ja-JP');
+    const quantity = parseFloat(convertToHalfWidthNumber(quantityInput.value)) || 0;
+    const unitPrice = parseInt(convertToHalfWidthNumber(unitPriceInput.value), 10) || 0;
+    const totalAmount = quantity * unitPrice;
+    amountInput.value = totalAmount.toLocaleString('ja-JP');
 }
 
 function refreshRemoveButtonsVisibility() {
@@ -637,23 +637,26 @@ function addFullRow() {
   group.style.background = '#fff';
 
   group.innerHTML = `
-    <div class="form-row" style="margin-bottom:12px;">
-      <div class="form-group">
+    <div class="form-row full-two-line" style="margin-bottom:12px; flex-wrap:wrap;">
+      <div class="form-group full-date-wrap">
         <label>📅 日付</label>
         <input type="date" class="full-date" required>
       </div>
-      <div class="form-group">
+      <div class="form-group full-lender-wrap">
         <label>📤 貸主</label>
         <select class="full-lender" required></select>
       </div>
-      <div class="form-group">
+      <div class="form-group full-borrower-wrap">
         <label>📥 借主</label>
         <select class="full-borrower" required></select>
       </div>
     </div>
     <div class="form-group" style="margin-bottom:12px;">
       <label>👤 名前</label>
-      <input type="text" class="full-name" required placeholder="入力者名" value="${currentName.replace(/"/g, '&quot;')}">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="text" class="full-name" required placeholder="入力者名" value="${currentName.replace(/"/g, '&quot;')}">
+        <button type="button" class="list-btn full-name-list-btn">選択</button>
+      </div>
     </div>
     <div class="form-group">
       <label>🏷️ 品目一覧</label>
@@ -714,6 +717,18 @@ function addFullRow() {
   // 最初の行をセットアップ
   const firstRow = group.querySelector('.entry-row');
   if (firstRow) setupEntryRow(firstRow);
+
+  // 名前の履歴選択
+  const fullNameBtn = group.querySelector('.full-name-list-btn');
+  if (fullNameBtn) {
+    fullNameBtn.addEventListener('click', async () => {
+      const names = await populateNameDatalist(true);
+      openSelectModal('名前一覧', names || [], (val) => {
+        const input = group.querySelector('.full-name');
+        if (input) input.value = val;
+      });
+    });
+  }
 
   // 行追加（内部ボタンは削除。外部ツールバーの「＋ 品目を追加」を使用）
 
@@ -1147,13 +1162,13 @@ async function submitData(options = {}) {
       if (rows.length === 0) { groupIndex++; continue; }
       // 入力チェック（見つけ次第フォーカス＆ハイライト）
       // 必須チェック（まとめて収集）
-      if (!date) { markError(gd.dateEl); pendingErrorQueue.push(gd.dateEl); }
+      if (!date) { markError(gd.dateEl); pendingErrorQueue.push(gd.dateEl); gd.dateEl.setCustomValidity(''); }
       else { clearError(gd.dateEl); }
-      if (!name) { markError(gd.nameEl); pendingErrorQueue.push(gd.nameEl); }
+      if (!name) { markError(gd.nameEl); pendingErrorQueue.push(gd.nameEl); gd.nameEl.setCustomValidity(''); }
       else { clearError(gd.nameEl); }
-      if (!lender) { markError(gd.lenderEl); pendingErrorQueue.push(gd.lenderEl); }
+      if (!lender) { markError(gd.lenderEl); pendingErrorQueue.push(gd.lenderEl); gd.lenderEl.setCustomValidity?.(''); }
       else { clearError(gd.lenderEl); }
-      if (!borrower) { markError(gd.borrowerEl); pendingErrorQueue.push(gd.borrowerEl); }
+      if (!borrower) { markError(gd.borrowerEl); pendingErrorQueue.push(gd.borrowerEl); gd.borrowerEl.setCustomValidity?.(''); }
       else { clearError(gd.borrowerEl); }
       if (lender && borrower && lender === borrower) { markError(gd.borrowerEl); pendingErrorQueue.push(gd.borrowerEl); }
 
@@ -1174,6 +1189,9 @@ async function submitData(options = {}) {
         const qtyEl = row.querySelector('.quantity');
         if (!en.quantity) { markError(qtyEl); pendingErrorQueue.push(qtyEl); }
         else { clearError(qtyEl); }
+        const upEl = row.querySelector('.unit-price');
+        if (!en.unitPrice) { markError(upEl); pendingErrorQueue.push(upEl); }
+        else { clearError(upEl); }
         const amtEl = row.querySelector('.amount');
         if (!en.amount) { markError(amtEl); pendingErrorQueue.push(amtEl); }
         else { clearError(amtEl); }
@@ -1202,7 +1220,9 @@ async function submitData(options = {}) {
       const errorModalBody = document.getElementById('errorModalBody');
       const errorModalCloseBtn = document.getElementById('errorModalCloseBtn');
       if (errorModal && errorModalBody) {
-        errorModalBody.textContent = `入力ミスがあります（${pendingErrorQueue.length}件）。内容をご確認ください。`;
+        errorModalBody.textContent = `未入力または入力ミスの項目が ${pendingErrorQueue.length} 件あります。内容をご確認ください。`;
+        // 全エラーに軽い点滅を付与
+        pendingErrorQueue.forEach(el => { el?.classList?.add('error-pulse'); const wrap = el?.closest?.('.form-group'); wrap?.classList?.add('error-outline'); });
         errorModal.classList.add('show');
         setTimeout(() => {
           const first = pendingErrorQueue[0];
@@ -1269,11 +1289,11 @@ async function submitData(options = {}) {
         payload.sendType = "CORRECTION";
       }
       await fetch(GAS_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
-      });
+    });
     }
     completeStep('step-sending', `✅ 送信完了 (${allPayloads.length}行)`);
     await showStep('step-inserting', `💾 ${correctionOnly ? '修正データ' : ''}を挿入中...`);
@@ -1319,7 +1339,7 @@ async function submitData(options = {}) {
       errorModalBody.textContent = `入力ミスがあります。内容をご確認ください。`;
       errorModal.classList.add('show');
       // モーダルが表示された後に、直前にエラー付与した要素へ再フォーカス
-      setTimeout(() => {
+    setTimeout(() => {
         const lastError = document.querySelector('.input-error, .category-grid.input-error');
         if (lastError && typeof lastError.focus === 'function') {
           lastError.focus({ preventScroll: false });
