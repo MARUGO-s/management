@@ -447,15 +447,64 @@ function convertToHalfWidthNumber(value) {
   return converted;
 }
 
+// === 汎用: エラー表示の付与/解除 ===
+function removeErrorClasses(el) {
+  if (!el) return;
+  el.classList.remove('input-error', 'error-pulse', 'error-outline', 'error-pulse-strong');
+  const wrap = el.closest?.('.form-group');
+  if (wrap) wrap.classList.remove('error-outline');
+}
+
+function validateRowFields(rowEl) {
+  if (!rowEl) return;
+  const catGrid = rowEl.querySelector('.category-grid');
+  const catHidden = rowEl.querySelector('.category');
+  if (catHidden && catHidden.value) removeErrorClasses(catGrid || catHidden);
+  const itemEl = rowEl.querySelector('.item');
+  if (itemEl && (itemEl.value || '').trim()) removeErrorClasses(itemEl);
+  const qtyEl = rowEl.querySelector('.quantity');
+  const qty = parseFloat(convertToHalfWidthNumber(qtyEl?.value || ''));
+  if (qtyEl && !isNaN(qty) && qty > 0) removeErrorClasses(qtyEl);
+  const upEl = rowEl.querySelector('.unit-price');
+  const up = parseFloat(convertToHalfWidthNumber(upEl?.value || ''));
+  if (upEl && !isNaN(up) && up > 0) removeErrorClasses(upEl);
+  const amtEl = rowEl.querySelector('.amount');
+  const amt = parseInt(convertToHalfWidthNumber(amtEl?.value || ''));
+  if (amtEl && !isNaN(amt) && amt > 0) removeErrorClasses(amtEl);
+}
+
+function validateTopGroup(root) {
+  const scope = root || document;
+  const dateEl = scope.querySelector('.full-date') || document.getElementById('date');
+  const nameEl = scope.querySelector('.full-name') || document.getElementById('name');
+  const lenderEl = scope.querySelector('select.full-lender') || document.getElementById('lender');
+  const borrowerEl = scope.querySelector('select.full-borrower') || document.getElementById('borrower');
+  if (dateEl && dateEl.value) removeErrorClasses(dateEl);
+  if (nameEl && (nameEl.value || '').trim()) removeErrorClasses(nameEl);
+  const lenderVal = (lenderEl?.value || '').trim();
+  const borrowerVal = (borrowerEl?.value || '').trim();
+  if (lenderEl && lenderVal) removeErrorClasses(lenderEl);
+  if (borrowerEl && borrowerVal) removeErrorClasses(borrowerEl);
+  if (lenderVal && borrowerVal && lenderVal !== borrowerVal) {
+    removeErrorClasses(lenderEl);
+    removeErrorClasses(borrowerEl);
+  }
+}
+
 // 金額を自動計算してフォーマットする関数
 function calculateAmountForRow(rowEl) {
   const quantityInput = rowEl.querySelector('.quantity');
   const unitPriceInput = rowEl.querySelector('.unit-price');
   const amountInput = rowEl.querySelector('.amount');
-    const quantity = parseFloat(convertToHalfWidthNumber(quantityInput.value)) || 0;
-    const unitPrice = parseInt(convertToHalfWidthNumber(unitPriceInput.value), 10) || 0;
-    const totalAmount = quantity * unitPrice;
-    amountInput.value = totalAmount.toLocaleString('ja-JP');
+  const quantity = parseFloat(convertToHalfWidthNumber(quantityInput.value)) || 0;
+  const unitPrice = parseInt(convertToHalfWidthNumber(unitPriceInput.value), 10) || 0;
+  const totalAmount = quantity * unitPrice;
+  amountInput.value = totalAmount ? totalAmount.toLocaleString('ja-JP') : '';
+  // 自動挿入時でも即赤枠解除
+  const clearErr = (el) => { if (!el) return; el.classList.remove('input-error','error-pulse','error-outline'); const wrap = el.closest?.('.form-group'); wrap?.classList?.remove('error-outline'); };
+  if (quantity > 0) clearErr(quantityInput);
+  if (unitPrice > 0) clearErr(unitPriceInput);
+  if (totalAmount > 0) clearErr(amountInput);
 }
 
 function refreshRemoveButtonsVisibility() {
@@ -477,6 +526,14 @@ function setupEntryRow(rowEl) {
       const selectedCategory = option.dataset.value;
       catHidden.value = selectedCategory;
       updateButtonsByCategory(selectedCategory, rowEl);
+      const grid = rowEl.querySelector('.category-grid');
+      if (grid) {
+        grid.classList.remove('input-error','error-pulse','error-outline');
+        const wrap = grid.closest('.form-group');
+        if (wrap) wrap.classList.remove('error-outline');
+        grid.dispatchEvent(new Event('input', { bubbles: true }));
+        grid.dispatchEvent(new Event('change', { bubbles: true }));
+      }
     });
   });
 
@@ -533,7 +590,11 @@ function setupEntryRow(rowEl) {
       const dataset = await populateItemDatalist(true);
       openSelectModal('品目一覧', dataset, (val) => {
         const itemInput = rowEl.querySelector('.item');
-        if (itemInput) itemInput.value = val;
+        if (itemInput) {
+          itemInput.value = val;
+          itemInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        validateRowFields(rowEl);
         // 価格も挿入するか確認
         const key = normalizeKeyForDedupe(val);
         const meta = latestItemMetaMap.get(key);
@@ -544,15 +605,17 @@ function setupEntryRow(rowEl) {
             `数量: ${meta.qty ? meta.qty : '-'}\n`+
             `金額: ${meta.amount ? ('¥' + Number(meta.amount).toLocaleString('ja-JP')) : '-'}`);
           if (doFill) {
-            if (meta.unitPrice) rowEl.querySelector('.unit-price').value = Number(meta.unitPrice).toLocaleString('ja-JP');
-            if (meta.qty) rowEl.querySelector('.quantity').value = String(meta.qty);
+            if (meta.unitPrice) { rowEl.querySelector('.unit-price').value = Number(meta.unitPrice).toLocaleString('ja-JP'); rowEl.querySelector('.unit-price').dispatchEvent(new Event('input', { bubbles: true })); }
+            if (meta.qty) { rowEl.querySelector('.quantity').value = String(meta.qty); rowEl.querySelector('.quantity').dispatchEvent(new Event('input', { bubbles: true })); }
             calculateAmountForRow(rowEl);
             if (!meta.unitPrice && meta.amount && meta.qty) {
               // 単価欠落時、数量と金額から単価逆算（整数化）
               const up = Math.round(Number(meta.amount) / Number(meta.qty));
               rowEl.querySelector('.unit-price').value = up.toLocaleString('ja-JP');
               calculateAmountForRow(rowEl);
+              rowEl.querySelector('.unit-price').dispatchEvent(new Event('input', { bubbles: true }));
             }
+            validateRowFields(rowEl);
           }
         }
       });
@@ -567,10 +630,17 @@ function setupEntryRow(rowEl) {
       openSelectModal('原価リスト', wineNames, (selectedWineName) => {
         const selectedItem = costData.find(item => item.wineName === selectedWineName);
         if (selectedItem) {
-          rowEl.querySelector('.item').value = selectedWineName;
-          rowEl.querySelector('.unit-price').value = selectedItem.costInTax.toLocaleString('ja-JP');
-          rowEl.querySelector('.quantity').value = '1';
+          const itemEl = rowEl.querySelector('.item');
+          const upEl = rowEl.querySelector('.unit-price');
+          const qtyEl = rowEl.querySelector('.quantity');
+          if (itemEl) itemEl.value = selectedWineName;
+          if (upEl) upEl.value = selectedItem.costInTax.toLocaleString('ja-JP');
+          if (qtyEl) qtyEl.value = '1';
           calculateAmountForRow(rowEl);
+          itemEl?.dispatchEvent(new Event('input', { bubbles: true }));
+          upEl?.dispatchEvent(new Event('input', { bubbles: true }));
+          qtyEl?.dispatchEvent(new Event('input', { bubbles: true }));
+          validateRowFields(rowEl);
         }
       });
     });
@@ -590,10 +660,17 @@ function setupEntryRow(rowEl) {
           const isHighTax = highTaxItems.some(item => productNameLower.includes(item.toLowerCase()));
           if (isHighTax) taxRate = 1.1;
           const priceWithTax = Math.round(selectedItem.unitPrice * taxRate);
-          rowEl.querySelector('.item').value = selectedProductName;
-          rowEl.querySelector('.unit-price').value = priceWithTax.toLocaleString('ja-JP');
-          rowEl.querySelector('.quantity').value = '1';
+          const itemEl = rowEl.querySelector('.item');
+          const upEl = rowEl.querySelector('.unit-price');
+          const qtyEl = rowEl.querySelector('.quantity');
+          if (itemEl) itemEl.value = selectedProductName;
+          if (upEl) upEl.value = priceWithTax.toLocaleString('ja-JP');
+          if (qtyEl) qtyEl.value = '1';
           calculateAmountForRow(rowEl);
+          itemEl?.dispatchEvent(new Event('input', { bubbles: true }));
+          upEl?.dispatchEvent(new Event('input', { bubbles: true }));
+          qtyEl?.dispatchEvent(new Event('input', { bubbles: true }));
+          validateRowFields(rowEl);
         }
       });
     });
@@ -725,7 +802,12 @@ function addFullRow() {
       const names = await populateNameDatalist(true);
       openSelectModal('名前一覧', names || [], (val) => {
         const input = group.querySelector('.full-name');
-        if (input) input.value = val;
+        if (input) {
+          input.value = val;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        validateTopGroup(group);
       });
     });
   }
@@ -1238,19 +1320,65 @@ async function submitData(options = {}) {
           errorListenersAttached = true;
         }
         // 入力で修正されたら次のエラーに進む
+        const isElementValid = (el) => {
+          if (!el) return false;
+          // カテゴリー
+          if (el.classList.contains('category-grid') || el.classList.contains('category')) {
+            const row = el.closest('.entry-row') || document;
+            const hidden = row.querySelector('.category');
+            return !!(hidden && hidden.value);
+          }
+          // テキスト: 名前/品目
+          if (el.classList.contains('full-name') || el.id === 'name' || el.classList.contains('item')) {
+            return (el.value || '').trim().length > 0;
+          }
+          // 日付
+          if (el.classList.contains('full-date') || el.id === 'date') {
+            return !!el.value;
+          }
+          // 数値: 数量/単価/金額
+          if (el.classList.contains('quantity')) {
+            const v = parseFloat(convertToHalfWidthNumber(el.value) || '');
+            return !isNaN(v) && v > 0;
+          }
+          if (el.classList.contains('unit-price')) {
+            const v = parseFloat(convertToHalfWidthNumber(el.value) || '');
+            return !isNaN(v) && v > 0;
+          }
+          if (el.classList.contains('amount')) {
+            const v = parseInt(convertToHalfWidthNumber(el.value) || '');
+            return !isNaN(v) && v > 0;
+          }
+          // セレクト: 貸主/借主
+          if (el.matches('select.full-lender, #lender, select.full-borrower, #borrower')) {
+            const root = el.closest('.full-entry-group') || document;
+            const lenderEl = root.querySelector('select.full-lender') || document.getElementById('lender');
+            const borrowerEl = root.querySelector('select.full-borrower') || document.getElementById('borrower');
+            const lenderVal = (lenderEl?.value || '').trim();
+            const borrowerVal = (borrowerEl?.value || '').trim();
+            if (!el.value) return false;
+            if (lenderVal && borrowerVal) return lenderVal !== borrowerVal;
+            return true; // 片方未入力の場合は自分が入っていれば一旦OK（もう片方でエラーを出す）
+          }
+          return !!(el.value || '').trim();
+        };
+
         const attachProgression = (el) => {
           if (!el) return;
           const handler = () => {
-            el.classList.remove('input-error','error-pulse','error-outline');
-            const wrap = el.closest?.('.form-group'); wrap?.classList?.remove('error-outline');
-            const idx = pendingErrorQueue.indexOf(el);
-            if (idx > -1) pendingErrorQueue.splice(idx, 1);
-            const next = pendingErrorQueue[0];
-            if (next) { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); next.focus?.({ preventScroll: true }); next.classList.add('error-pulse-strong'); setTimeout(() => next.classList.remove('error-pulse-strong'), 1500); }
+            if (isElementValid(el)) {
+              el.classList.remove('input-error','error-pulse','error-outline');
+              const wrap = el.closest?.('.form-group'); wrap?.classList?.remove('error-outline');
+              const idx = pendingErrorQueue.indexOf(el);
+              if (idx > -1) pendingErrorQueue.splice(idx, 1);
+              const next = pendingErrorQueue[0];
+              if (next) { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); next.focus?.({ preventScroll: true }); next.classList.add('error-pulse-strong'); setTimeout(() => next.classList.remove('error-pulse-strong'), 1500); }
+              el.removeEventListener('input', handler);
+              el.removeEventListener('change', handler);
+            }
           };
-          // 何か入力/変更があれば修正扱い
-          el.addEventListener('input', handler, { once: true });
-          el.addEventListener('change', handler, { once: true });
+          el.addEventListener('input', handler);
+          el.addEventListener('change', handler);
         };
         pendingErrorQueue.forEach(attachProgression);
       }
@@ -1446,7 +1574,16 @@ function initialize() {
   if (nameBtn) {
     nameBtn.addEventListener('click', async () => {
       const dataset = await populateNameDatalist(true);
-      openSelectModal('名前一覧', dataset, (val) => { document.getElementById('name').value = val; });
+      openSelectModal('名前一覧', dataset, (val) => {
+        const nameInput = document.getElementById('name');
+        if (nameInput) {
+          nameInput.value = val;
+          nameInput.classList.remove('input-error','error-pulse','error-outline');
+          nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+          nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        validateTopGroup(document);
+      });
     });
   }
 }
