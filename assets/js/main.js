@@ -594,19 +594,31 @@ function setupEntryRow(rowEl) {
           itemInput.value = val;
           itemInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
+        // 履歴からの自動挿入時は数量を必ず1にする
+        const qtyEl = rowEl.querySelector('.quantity');
+        if (qtyEl) {
+          qtyEl.value = '1';
+          qtyEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        calculateAmountForRow(rowEl);
         validateRowFields(rowEl);
         // 価格も挿入するか確認
         const key = normalizeKeyForDedupe(val);
         const meta = latestItemMetaMap.get(key);
         if (meta && (meta.unitPrice > 0 || meta.amount > 0)) {
+          const displayUnit = meta.unitPrice ? Number(meta.unitPrice) : (meta.amount && meta.qty ? Math.round(Number(meta.amount) / Number(meta.qty)) : 0);
+          const displayQty = 1; // 常に1表示
+          const displayAmt = displayUnit > 0 ? displayUnit * displayQty : 0;
           const doFill = confirm(`選択した品目に過去の価格があります。単価/数量/金額を反映しますか？\n\n`+
             `📝 品目: ${val}\n`+
-            `＠ 単価: ${meta.unitPrice ? ('¥' + Number(meta.unitPrice).toLocaleString('ja-JP')) : '-'}\n`+
-            `数量: ${meta.qty ? meta.qty : '-'}\n`+
-            `金額: ${meta.amount ? ('¥' + Number(meta.amount).toLocaleString('ja-JP')) : '-'}`);
+            `＠ 単価: ${displayUnit ? ('¥' + displayUnit.toLocaleString('ja-JP')) : '-'}\n`+
+            `数量: ${displayQty}\n`+
+            `金額: ${displayAmt ? ('¥' + displayAmt.toLocaleString('ja-JP')) : '-'}`);
           if (doFill) {
             if (meta.unitPrice) { rowEl.querySelector('.unit-price').value = Number(meta.unitPrice).toLocaleString('ja-JP'); rowEl.querySelector('.unit-price').dispatchEvent(new Event('input', { bubbles: true })); }
-            if (meta.qty) { rowEl.querySelector('.quantity').value = String(meta.qty); rowEl.querySelector('.quantity').dispatchEvent(new Event('input', { bubbles: true })); }
+            // 履歴上の数量に関わらず、常に 1 をセット
+            rowEl.querySelector('.quantity').value = '1';
+            rowEl.querySelector('.quantity').dispatchEvent(new Event('input', { bubbles: true }));
             calculateAmountForRow(rowEl);
             if (!meta.unitPrice && meta.amount && meta.qty) {
               // 単価欠落時、数量と金額から単価逆算（整数化）
