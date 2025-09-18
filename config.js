@@ -21,7 +21,7 @@ async function callSheetsAPI(range, method = 'GET', values = null) {
   
   try {
     // API使用量を記録（呼び出し前）
-    recordAPIUsage(range, method, caller);
+    await recordAPIUsage(range, method, caller);
     
     const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/sheets-api`, {
       method: 'POST',
@@ -53,10 +53,10 @@ async function callSheetsAPI(range, method = 'GET', values = null) {
   }
 }
 
-// API使用量記録関数
-function recordAPIUsage(range, method, caller = 'unknown') {
+// API使用量記録関数（Supabaseベース）
+async function recordAPIUsage(range, method, caller = 'unknown') {
   try {
-    // 呼び出し履歴を詳細に記録
+    // 呼び出し履歴を詳細に記録（ローカル用）
     if (!window._apiCallHistory) {
       window._apiCallHistory = [];
     }
@@ -65,11 +65,10 @@ function recordAPIUsage(range, method, caller = 'unknown') {
       timestamp: new Date().toISOString(),
       method,
       range,
-      caller: caller.substring(0, 100), // 長すぎる場合は切り詰め
+      caller: caller.substring(0, 100),
       counted: false
     };
     
-    // ★ すべてのAPI呼び出しがクォータを消費するため、すべてカウント対象とする
     console.log(`🌐 API呼び出し: ${method} ${range}`);
     
     // 重複記録を防ぐため、短時間での同一呼び出しをチェック
@@ -81,7 +80,7 @@ function recordAPIUsage(range, method, caller = 'unknown') {
     }
     
     const lastCall = window._apiCallTracker.get(callKey);
-    if (lastCall && (now - lastCall) < 2000) { // 2秒以内の重複呼び出しをスキップ
+    if (lastCall && (now - lastCall) < 2000) {
       if (window._debugMode) {
         console.log(`⚠️ 重複スキップ: ${method} ${range}`);
       }
@@ -94,66 +93,58 @@ function recordAPIUsage(range, method, caller = 'unknown') {
     window._apiCallTracker.set(callKey, now);
     callInfo.counted = true;
     
-    const today = new Date().toDateString();
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    
-    // 日次統計
-    let dailyStats = JSON.parse(localStorage.getItem('dailyAPIStats') || '{}');
-    if (!dailyStats[today]) {
-      dailyStats[today] = 0;
-    }
-    dailyStats[today]++;
-    localStorage.setItem('dailyAPIStats', JSON.stringify(dailyStats));
-    
-    // 月次統計
-    let monthlyStats = JSON.parse(localStorage.getItem('monthlyAPIStats') || '{}');
-    if (!monthlyStats[currentMonth]) {
-      monthlyStats[currentMonth] = 0;
-    }
-    monthlyStats[currentMonth]++;
-    localStorage.setItem('monthlyAPIStats', JSON.stringify(monthlyStats));
-    
-    // 全体統計
-    let totalStats = JSON.parse(localStorage.getItem('totalAPIStats') || '{"total": 0}');
-    totalStats.total++;
-    localStorage.setItem('totalAPIStats', JSON.stringify(totalStats));
-    
-    // 🌐 累計統計管理（全デバイス・ブラウザ共通）
-    const cumulativeKey = 'globalAPICumulative';
-    let cumulativeStats = JSON.parse(localStorage.getItem(cumulativeKey) || '{"total": 0, "daily": {}, "monthly": {}, "devices": {}, "lastUpdated": null}');
-    
-    // デバイスID取得・生成
+    // 🌐 Supabaseに使用量記録
     const deviceId = getOrCreateDeviceId();
+    const deviceInfo = {
+      userAgent: navigator.userAgent.substring(0, 100),
+      timestamp: new Date().toISOString(),
+      range: range,
+      method: method
+    };
     
-    // 累計統計更新
-    if (!cumulativeStats.daily[today]) {
-      cumulativeStats.daily[today] = 0;
+    try {
+      const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+        },
+        body: JSON.stringify({
+          action: 'record',
+          deviceId: deviceId,
+          deviceInfo: deviceInfo,
+          usageType: 'api_call'
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Supabase記録エラー: ${response.status} - ${errorText}`);
+      }
+    } catch (supabaseError) {
+      console.warn('⚠️ Supabase記録失敗、ローカルにフォールバック:', supabaseError.message);
+      
+      // フォールバック: ローカルストレージに記録
+      const today = new Date().toDateString();
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      
+      let dailyStats = JSON.parse(localStorage.getItem('dailyAPIStats') || '{}');
+      if (!dailyStats[today]) dailyStats[today] = 0;
+      dailyStats[today]++;
+      localStorage.setItem('dailyAPIStats', JSON.stringify(dailyStats));
+      
+      let monthlyStats = JSON.parse(localStorage.getItem('monthlyAPIStats') || '{}');
+      if (!monthlyStats[currentMonth]) monthlyStats[currentMonth] = 0;
+      monthlyStats[currentMonth]++;
+      localStorage.setItem('monthlyAPIStats', JSON.stringify(monthlyStats));
+      
+      let totalStats = JSON.parse(localStorage.getItem('totalAPIStats') || '{"total": 0}');
+      totalStats.total++;
+      localStorage.setItem('totalAPIStats', JSON.stringify(totalStats));
+      
     }
-    cumulativeStats.daily[today]++;
-    
-    if (!cumulativeStats.monthly[currentMonth]) {
-      cumulativeStats.monthly[currentMonth] = 0;
-    }
-    cumulativeStats.monthly[currentMonth]++;
-    
-    cumulativeStats.total++;
-    cumulativeStats.lastUpdated = new Date().toISOString();
-    
-    // デバイス別統計
-    if (!cumulativeStats.devices[deviceId]) {
-      cumulativeStats.devices[deviceId] = { 
-        count: 0, 
-        lastAccess: null, 
-        userAgent: navigator.userAgent.substring(0, 100),
-        firstAccess: new Date().toISOString()
-      };
-    }
-    cumulativeStats.devices[deviceId].count++;
-    cumulativeStats.devices[deviceId].lastAccess = new Date().toISOString();
-    
-    localStorage.setItem(cumulativeKey, JSON.stringify(cumulativeStats));
-    
-    console.log(`📊 API使用量記録 (累計): ${method} ${range} | 本日${cumulativeStats.daily[today]}回, 今月${cumulativeStats.monthly[currentMonth]}回, 総累計${cumulativeStats.total}回 [デバイス:${deviceId.substring(0,8)}...]`);
     
     // 履歴に追加（最新100件のみ保持）
     window._apiCallHistory.push(callInfo);
@@ -279,36 +270,66 @@ window.analyzeAPIUsagePatterns = function() {
   console.groupEnd();
 };
 
-// データ送信専用のカウント関数
-window.recordDataSubmission = function(operation, method, description) {
+// データ送信専用のカウント関数（Supabaseベース）
+window.recordDataSubmission = async function(operation, method, description) {
   try {
-    const today = new Date().toDateString();
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    console.log(`📤 データ送信記録: ${operation}`);
     
-    // 日次統計
-    let dailyStats = JSON.parse(localStorage.getItem('dailyAPIStats') || '{}');
-    if (!dailyStats[today]) {
-      dailyStats[today] = 0;
+    // 🌐 Supabaseに使用量記録
+    const deviceId = getOrCreateDeviceId();
+    const deviceInfo = {
+      userAgent: navigator.userAgent.substring(0, 100),
+      timestamp: new Date().toISOString(),
+      operation: operation,
+      method: method,
+      description: description
+    };
+    
+    try {
+      const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+        },
+        body: JSON.stringify({
+          action: 'record',
+          deviceId: deviceId,
+          deviceInfo: deviceInfo,
+          usageType: 'data_submission'
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Supabase記録エラー: ${response.status} - ${errorText}`);
+      }
+    } catch (supabaseError) {
+      console.warn('⚠️ Supabase記録失敗、ローカルにフォールバック:', supabaseError.message);
+      
+      // フォールバック: ローカルストレージに記録
+      const today = new Date().toDateString();
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      
+      let dailyStats = JSON.parse(localStorage.getItem('dailyAPIStats') || '{}');
+      if (!dailyStats[today]) dailyStats[today] = 0;
+      dailyStats[today]++;
+      localStorage.setItem('dailyAPIStats', JSON.stringify(dailyStats));
+      
+      let monthlyStats = JSON.parse(localStorage.getItem('monthlyAPIStats') || '{}');
+      if (!monthlyStats[currentMonth]) monthlyStats[currentMonth] = 0;
+      monthlyStats[currentMonth]++;
+      localStorage.setItem('monthlyAPIStats', JSON.stringify(monthlyStats));
+      
+      let totalStats = JSON.parse(localStorage.getItem('totalAPIStats') || '{"total": 0}');
+      totalStats.total++;
+      localStorage.setItem('totalAPIStats', JSON.stringify(totalStats));
+      
     }
-    dailyStats[today]++;
-    localStorage.setItem('dailyAPIStats', JSON.stringify(dailyStats));
     
-    // 月次統計
-    let monthlyStats = JSON.parse(localStorage.getItem('monthlyAPIStats') || '{}');
-    if (!monthlyStats[currentMonth]) {
-      monthlyStats[currentMonth] = 0;
-    }
-    monthlyStats[currentMonth]++;
-    localStorage.setItem('monthlyAPIStats', JSON.stringify(monthlyStats));
-    
-    // 全体統計
-    let totalStats = JSON.parse(localStorage.getItem('totalAPIStats') || '{"total": 0}');
-    totalStats.total++;
-    localStorage.setItem('totalAPIStats', JSON.stringify(totalStats));
-    
-    console.log(`📊 データ送信記録: ${operation} | 本日${dailyStats[today]}回, 今月${monthlyStats[currentMonth]}回, 総計${totalStats.total}回`);
-    
-    // 履歴に追加
+    // 履歴に追加（ローカル用）
     if (!window._apiCallHistory) {
       window._apiCallHistory = [];
     }
@@ -335,25 +356,58 @@ window.recordDataSubmission = function(operation, method, description) {
   }
 };
 
-// 管理者用: 累計API使用量表示
-window.showCumulativeAPIUsage = function() {
-  const cumulativeStats = JSON.parse(localStorage.getItem('globalAPICumulative') || '{"total": 0, "daily": {}, "monthly": {}, "devices": {}}');
+// 管理者用: 累計API使用量表示（Supabaseベース）
+window.showCumulativeAPIUsage = async function() {
+  console.group('🌐 累計API使用量 (Supabase統一管理)');
   
-  console.group('🌐 累計API使用量 (全デバイス・ブラウザ)');
-  console.log('📊 総累計:', cumulativeStats.total, '回');
-  console.log('📅 日次累計:', cumulativeStats.daily);
-  console.log('📆 月次累計:', cumulativeStats.monthly);
-  console.log('📱 デバイス別:', Object.keys(cumulativeStats.devices).length, 'デバイス');
-  
-  // デバイス詳細
-  Object.entries(cumulativeStats.devices).forEach(([deviceId, info]) => {
-    console.log(`  📱 ${deviceId.substring(0, 12)}...: ${info.count}回 (最終アクセス: ${new Date(info.lastAccess).toLocaleString('ja-JP')})`);
-  });
-  
-  console.log('🕒 最終更新:', new Date(cumulativeStats.lastUpdated).toLocaleString('ja-JP'));
-  console.groupEnd();
-  
-  return cumulativeStats;
+  try {
+    const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+      },
+      body: JSON.stringify({
+        action: 'get'
+      })
+    });
+
+    if (response.ok) {
+      const usageData = await response.json();
+      
+      console.log('📊 本日の使用量:', usageData.daily.total, '回 (API:', usageData.daily.api_calls, '回, データ送信:', usageData.daily.data_submissions, '回)');
+      console.log('📆 今月の使用量:', usageData.monthly.total, '回 (API:', usageData.monthly.api_calls, '回, データ送信:', usageData.monthly.data_submissions, '回)');
+      console.log('📊 総累計:', usageData.total.total, '回 (API:', usageData.total.api_calls, '回, データ送信:', usageData.total.data_submissions, '回)');
+      console.log('📱 登録デバイス数:', usageData.devices.count, '台');
+      
+      if (usageData.devices.details && usageData.devices.details.length > 0) {
+        console.log('\n📱 デバイス別詳細:');
+        usageData.devices.details.forEach((device, index) => {
+          console.log(`  ${index + 1}. ${device.device_id.substring(0, 12)}...: API${device.total_api_calls}回, データ送信${device.total_data_submissions}回 (最終: ${new Date(device.last_access).toLocaleString('ja-JP')})`);
+        });
+      }
+      
+      console.log('🕒 取得時刻:', new Date(usageData.timestamp).toLocaleString('ja-JP'));
+      console.groupEnd();
+      
+      return usageData;
+    } else {
+      throw new Error(`Supabase取得エラー: ${response.status}`);
+    }
+  } catch (error) {
+    console.warn('⚠️ Supabase取得失敗、ローカルデータにフォールバック:', error.message);
+    
+    // フォールバック: ローカルデータ表示
+    const cumulativeStats = JSON.parse(localStorage.getItem('globalAPICumulative') || '{"total": 0, "daily": {}, "monthly": {}, "devices": {}}');
+    
+    console.log('📊 ローカル総累計:', cumulativeStats.total, '回');
+    console.log('📅 ローカル日次累計:', cumulativeStats.daily);
+    console.log('📆 ローカル月次累計:', cumulativeStats.monthly);
+    console.log('📱 ローカルデバイス別:', Object.keys(cumulativeStats.devices).length, 'デバイス');
+    
+    console.groupEnd();
+    return cumulativeStats;
+  }
 };
 
 // 管理者用: 累計統計リセット

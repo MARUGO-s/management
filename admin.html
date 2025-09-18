@@ -512,6 +512,37 @@
                 </div>
             </div>
 
+            <!-- 月次使用量グラフ -->
+            <div class="dashboard-card">
+                <h3 class="card-title">📈 月次使用量グラフ</h3>
+                
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                    <label for="month-selector" style="font-weight: 600;">表示月:</label>
+                    <select id="month-selector" class="form-input" style="width: auto; min-width: 150px;" onchange="loadMonthlyChart()">
+                        <!-- 動的に生成 -->
+                    </select>
+                    <button class="btn secondary" onclick="loadMonthlyChart()">
+                        🔄 更新
+                    </button>
+                </div>
+
+                <div id="chart-container" style="position: relative;">
+                    <canvas id="monthly-chart" width="800" height="400" style="max-width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; background: white;"></canvas>
+                </div>
+
+                <div id="chart-summary" style="
+                    margin-top: 20px;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                    gap: 15px;
+                    padding: 15px;
+                    background: rgba(0,0,0,0.05);
+                    border-radius: 8px;
+                ">
+                    <!-- 動的に生成 -->
+                </div>
+            </div>
+
             <!-- システム状態 -->
             <div class="dashboard-card">
                 <h3 class="card-title">⚙️ システム状態</h3>
@@ -706,17 +737,297 @@
         }
 
         // 管理画面の初期化
+        // 月次グラフ関連の関数
+        
+        // 月選択プルダウンを初期化
+        function initializeMonthSelector() {
+            const selector = document.getElementById('month-selector');
+            const currentDate = new Date();
+            
+            // 過去12ヶ月分の選択肢を生成
+            for (let i = 0; i < 12; i++) {
+                const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+                
+                // 時間帯に依存しない月キー生成
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1; // 0ベース→1ベース変換
+                const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+                const monthName = date.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' });
+                
+                const option = document.createElement('option');
+                option.value = monthKey;
+                option.textContent = monthName;
+                
+                if (i === 0) option.selected = true; // 今月を選択
+                
+                selector.appendChild(option);
+            }
+        }
+        
+        // 月次チャートデータを取得
+        async function getMonthlyChartData(targetMonth) {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get_monthly_chart',
+                        targetMonth: targetMonth
+                    })
+                });
+
+                if (response.ok) {
+                    const chartData = await response.json();
+                    return chartData;
+                } else {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+            } catch (error) {
+                console.error('月次チャートデータ取得エラー:', error);
+                throw error;
+            }
+        }
+        
+        // グラフを描画
+        function drawMonthlyChart(chartData) {
+            const canvas = document.getElementById('monthly-chart');
+            const ctx = canvas.getContext('2d');
+            
+            if (!canvas || !ctx) {
+                console.error('❌ キャンバス要素が見つかりません');
+                return;
+            }
+            
+            // キャンバスをクリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 描画設定
+            const padding = 60;
+            const chartWidth = canvas.width - padding * 2;
+            const chartHeight = canvas.height - padding * 2;
+            const maxValue = Math.max(chartData.summary.maxDailyUsage, 10); // 最小10に設定
+            
+            // 背景グリッド
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            
+            // 横線（使用量）
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (chartHeight / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(padding + chartWidth, y);
+                ctx.stroke();
+                
+                // Y軸ラベル
+                ctx.fillStyle = '#6c757d';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(Math.round(maxValue - (maxValue / 5) * i), padding - 10, y + 4);
+            }
+            
+            // 縦線（日付）
+            const dayStep = Math.ceil(chartData.daysInMonth / 10); // 最大10本の縦線
+            for (let day = 1; day <= chartData.daysInMonth; day += dayStep) {
+                const x = padding + (chartWidth / chartData.daysInMonth) * (day - 1);
+                ctx.beginPath();
+                ctx.moveTo(x, padding);
+                ctx.lineTo(x, padding + chartHeight);
+                ctx.stroke();
+                
+                // X軸ラベル
+                ctx.fillStyle = '#6c757d';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${day}日`, x, padding + chartHeight + 20);
+            }
+            
+            // データ線を描画
+            if (chartData.dailyData.length > 0) {
+                
+                // API呼び出し（青）
+                ctx.strokeStyle = '#007bff';
+                ctx.fillStyle = 'rgba(0, 123, 255, 0.1)';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                chartData.dailyData.forEach((day, index) => {
+                    const x = padding + (chartWidth / chartData.daysInMonth) * index;
+                    const y = padding + chartHeight - (day.api_calls / maxValue) * chartHeight;
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                ctx.stroke();
+                
+                // データ送信（緑）
+                ctx.strokeStyle = '#28a745';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                chartData.dailyData.forEach((day, index) => {
+                    const x = padding + (chartWidth / chartData.daysInMonth) * index;
+                    const y = padding + chartHeight - (day.data_submissions / maxValue) * chartHeight;
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                ctx.stroke();
+                
+                // 合計（赤、太線）
+                ctx.strokeStyle = '#dc3545';
+                ctx.lineWidth = 3;
+                
+                ctx.beginPath();
+                chartData.dailyData.forEach((day, index) => {
+                    const x = padding + (chartWidth / chartData.daysInMonth) * index;
+                    const y = padding + chartHeight - (day.total / maxValue) * chartHeight;
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    // データポイントを描画
+                    if (day.total > 0) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                        ctx.fillStyle = '#dc3545';
+                        ctx.fill();
+                    }
+                });
+                ctx.stroke();
+            }
+            
+            // 凡例
+            const legendY = 30;
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'left';
+            
+            // API呼び出し
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(padding, legendY);
+            ctx.lineTo(padding + 20, legendY);
+            ctx.stroke();
+            ctx.fillStyle = '#007bff';
+            ctx.fillText('API呼び出し', padding + 30, legendY + 5);
+            
+            // データ送信
+            ctx.strokeStyle = '#28a745';
+            ctx.beginPath();
+            ctx.moveTo(padding + 120, legendY);
+            ctx.lineTo(padding + 140, legendY);
+            ctx.stroke();
+            ctx.fillStyle = '#28a745';
+            ctx.fillText('データ送信', padding + 150, legendY + 5);
+            
+            // 合計
+            ctx.strokeStyle = '#dc3545';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(padding + 240, legendY);
+            ctx.lineTo(padding + 260, legendY);
+            ctx.stroke();
+            ctx.fillStyle = '#dc3545';
+            ctx.fillText('合計', padding + 270, legendY + 5);
+        }
+        
+        // サマリーを表示
+        function displayChartSummary(chartData) {
+            const summaryContainer = document.getElementById('chart-summary');
+            
+            summaryContainer.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #dc3545;">${chartData.summary.monthlyTotal}</div>
+                    <div style="font-size: 14px; color: #6c757d;">月間合計</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 20px; font-weight: bold; color: #007bff;">${chartData.summary.maxDailyUsage}</div>
+                    <div style="font-size: 14px; color: #6c757d;">最大日使用量</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 18px; font-weight: bold; color: #28a745;">${chartData.summary.avgDailyUsage}</div>
+                    <div style="font-size: 14px; color: #6c757d;">平均日使用量</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 18px; font-weight: bold; color: #6f42c1;">${chartData.summary.activeDays}</div>
+                    <div style="font-size: 14px; color: #6c757d;">アクティブ日数</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 16px; font-weight: bold; color: #17a2b8;">${chartData.daysInMonth}</div>
+                    <div style="font-size: 14px; color: #6c757d;">総日数</div>
+                </div>
+            `;
+        }
+        
+        // 月次チャートを読み込み
+        async function loadMonthlyChart() {
+            const selector = document.getElementById('month-selector');
+            const selectedMonth = selector.value;
+            
+            try {
+                // ローディング表示
+                const chartContainer = document.getElementById('chart-container');
+                const summaryContainer = document.getElementById('chart-summary');
+                
+                chartContainer.style.opacity = '0.5';
+                summaryContainer.innerHTML = '<div style="color: #6c757d; text-align: center;">読み込み中...</div>';
+                
+                // データ取得
+                const chartData = await getMonthlyChartData(selectedMonth);
+                
+                // グラフ描画
+                drawMonthlyChart(chartData);
+                displayChartSummary(chartData);
+                
+                chartContainer.style.opacity = '1';
+                
+            } catch (error) {
+                console.error('月次チャート読み込みエラー:', error);
+                
+                const summaryContainer = document.getElementById('chart-summary');
+                summaryContainer.innerHTML = `
+                    <div style="color: #dc3545; text-align: center;">
+                        ❌ データの読み込みに失敗しました<br>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+                
+                document.getElementById('chart-container').style.opacity = '1';
+            }
+        }
+
         function initializeAdminPanel() {
             loadCurrentSettings();
             checkSystemStatus();
             
+            // 月選択プルダウンを初期化
+            initializeMonthSelector();
+            
             // quota-alert-systemの初期化を待ってから使用量表示
             setTimeout(() => {
                 loadSimpleUsageDisplay();
+                refreshUsageData(); // API使用量監視セクションの更新
+                loadMonthlyChart(); // 月次グラフも初期読み込み
                 
                 // リアルタイム更新（30秒ごと）
                 setInterval(() => {
                     loadSimpleUsageDisplay();
+                    refreshUsageData(); // API使用量監視も定期更新
                 }, 30000);
             }, 2000); // 2秒待機してからスタート
         }
@@ -735,27 +1046,57 @@
             }
         }
 
-        // 使用量データの更新
-        function refreshUsageData() {
-            if (typeof window.getQuotaUsage === 'function') {
-                const usage = window.getQuotaUsage();
-                updateUsageDisplay(usage);
-            } else {
-                // フォールバック: ローカルストレージから直接取得
-                const today = new Date().toDateString();
-                const currentMonth = new Date().toISOString().slice(0, 7);
+        // 使用量データの更新（Supabaseベース）
+        async function refreshUsageData() {
+            try {
+                console.log('🔄 API使用量監視セクション更新開始...');
                 
-                const dailyStats = JSON.parse(localStorage.getItem('dailyAPIStats') || '{}');
-                const monthlyStats = JSON.parse(localStorage.getItem('monthlyAPIStats') || '{}');
+                let usage;
                 
-                const usage = {
-                    daily: dailyStats[today] || 0,
-                    monthly: monthlyStats[currentMonth] || 0,
-                    dailyPercentage: Math.round((dailyStats[today] || 0) / 300 * 100),
-                    monthlyPercentage: Math.round((monthlyStats[currentMonth] || 0) / 3000 * 100)
-                };
+                // quota-alert-systemが利用可能な場合は使用
+                if (window.quotaAlertSystem && typeof window.quotaAlertSystem.getCurrentUsage === 'function') {
+                    usage = await window.quotaAlertSystem.getCurrentUsage();
+                } else {
+                    
+                    // 直接Supabaseから取得
+                    const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                        },
+                        body: JSON.stringify({
+                            action: 'get'
+                        })
+                    });
+
+                    if (response.ok) {
+                        const usageData = await response.json();
+                        usage = {
+                            daily: usageData.daily.total,
+                            monthly: usageData.monthly.total,
+                            total: usageData.total.total,
+                            dailyPercentage: Math.round((usageData.daily.total / 300) * 100),
+                            monthlyPercentage: Math.round((usageData.monthly.total / 3000) * 100)
+                        };
+                    } else {
+                        throw new Error(`Supabase取得エラー: ${response.status}`);
+                    }
+                }
                 
-                updateUsageDisplay(usage);
+                // 画面更新
+                if (usage && typeof usage.daily !== 'undefined' && typeof usage.monthly !== 'undefined') {
+                    updateUsageDisplay(usage);
+                } else {
+                    throw new Error('使用量データが不正です');
+                }
+                
+            } catch (error) {
+                console.error('❌ API使用量監視更新エラー:', error);
+                
+                // エラー表示
+                document.getElementById('daily-usage').textContent = 'エラー/300';
+                document.getElementById('monthly-usage').textContent = 'エラー/3,000';
             }
         }
 
@@ -1313,15 +1654,14 @@
 
         // 使用量ダッシュボード関数は簡素化されました
 
-        // シンプルなAPI使用量表示（quota-alert-systemと同期）
-        function loadSimpleUsageDisplay() {
+        // シンプルなAPI使用量表示（Supabaseベース・quota-alert-systemと同期）
+        async function loadSimpleUsageDisplay() {
             try {
                 let usage;
                 
-                // quota-alert-systemが利用可能な場合は使用
+                // quota-alert-systemが利用可能な場合は使用（非同期対応）
                 if (window.quotaAlertSystem) {
-                    usage = window.quotaAlertSystem.getCurrentUsage();
-                    console.log('📊 quota-alert-systemから使用量を取得:', usage);
+                    usage = await window.quotaAlertSystem.getCurrentUsage();
                 } else {
                     // フォールバック: 直接localStorage読み込み
                     const today = new Date().toDateString();
@@ -1336,7 +1676,6 @@
                         monthly: monthlyStats[currentMonth] || 0,
                         total: totalStats.total || 0
                     };
-                    console.log('📊 フォールバックで使用量を取得:', usage);
                 }
 
                 const display = document.getElementById('simple-usage-display');
