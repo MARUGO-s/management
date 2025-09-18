@@ -107,27 +107,37 @@ class QuotaAlertSystem {
 
     // API使用量の記録は config.js で処理されるため削除
 
-    // 現在の使用量取得（config.js と完全同期）
+    // 現在の使用量取得（累計方式・config.js と完全同期）
     getCurrentUsage() {
         const today = new Date().toDateString();
         const currentMonth = new Date().toISOString().slice(0, 7);
         
+        // 🌐 累計統計を優先使用（全デバイス・ブラウザの合算）
+        const cumulativeStats = JSON.parse(localStorage.getItem('globalAPICumulative') || '{"total": 0, "daily": {}, "monthly": {}, "devices": {}}');
+        
+        // フォールバック用の従来統計
         const dailyStats = JSON.parse(localStorage.getItem('dailyAPIStats') || '{}');
         const monthlyStats = JSON.parse(localStorage.getItem('monthlyAPIStats') || '{}');
         const totalStats = JSON.parse(localStorage.getItem('totalAPIStats') || '{"total": 0}');
         
-        const dailyUsage = dailyStats[today] || 0;
-        const monthlyUsage = monthlyStats[currentMonth] || 0;
-        const totalUsage = totalStats.total || 0;
+        // 累計データを優先、なければ従来データを使用
+        const dailyUsage = cumulativeStats.daily[today] || dailyStats[today] || 0;
+        const monthlyUsage = cumulativeStats.monthly[currentMonth] || monthlyStats[currentMonth] || 0;
+        const totalUsage = cumulativeStats.total || totalStats.total || 0;
         
-        console.log(`📊 使用量取得: 今日${dailyUsage}回, 今月${monthlyUsage}回, 総計${totalUsage}回`);
+        // デバイス数も取得
+        const deviceCount = Object.keys(cumulativeStats.devices || {}).length;
+        
+        console.log(`📊 使用量取得 (累計): 今日${dailyUsage}回, 今月${monthlyUsage}回, 総累計${totalUsage}回, デバイス${deviceCount}台`);
         
         return {
             daily: dailyUsage,
             monthly: monthlyUsage,
             total: totalUsage,
+            devices: deviceCount,
             dailyPercentage: Math.round((dailyUsage / this.DAILY_LIMIT) * 100),
-            monthlyPercentage: Math.round((monthlyUsage / this.MONTHLY_LIMIT) * 100)
+            monthlyPercentage: Math.round((monthlyUsage / this.MONTHLY_LIMIT) * 100),
+            lastUpdated: cumulativeStats.lastUpdated
         };
     }
 

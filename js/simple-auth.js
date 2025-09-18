@@ -5,15 +5,18 @@ class SimpleAuth {
         this.STORAGE_KEY = 'simpleAuth';
         this.PASSWORD_KEY = 'systemPassword';
         
-        this.init();
+        // 非同期初期化
+        this.init().catch(error => {
+            console.error('認証システム初期化エラー:', error);
+        });
     }
 
-    init() {
+    async init() {
         // 既存の認証状態をチェック
         if (this.isAuthenticated()) {
             this.hideAuthScreen();
         } else {
-            this.showAuthScreen();
+            await this.showAuthScreen();
         }
 
         this.setupEventListeners();
@@ -58,26 +61,81 @@ class SimpleAuth {
         }
     }
 
-    // パスワードが設定されているかチェック
-    isPasswordSet() {
-        return !!localStorage.getItem(this.PASSWORD_KEY);
+    // パスワードが設定されているかチェック（データベースベース）
+    async isPasswordSet() {
+        try {
+            const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+                },
+                body: JSON.stringify({
+                    action: 'get',
+                    passwordType: 'system'
+                })
+            });
+            
+            const result = await response.json();
+            return result.success && result.passwords?.system?.status === '設定済み';
+        } catch (error) {
+            console.error('❌ パスワード設定確認エラー:', error);
+            return true; // エラー時はデフォルトで設定済みとして扱う
+        }
     }
 
-    // パスワード設定
-    setSystemPassword(password) {
-        // 簡単なハッシュ化（本格的な実装では、より強固なハッシュを使用）
-        const hashedPassword = btoa(password + 'salt_' + new Date().getFullYear());
-        localStorage.setItem(this.PASSWORD_KEY, hashedPassword);
-        console.log('✅ システムパスワードが設定されました');
+    // パスワード設定（Supabaseベース）
+    async setSystemPassword(password) {
+        try {
+            const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+                },
+                body: JSON.stringify({
+                    action: 'change',
+                    passwordType: 'system',
+                    newPassword: password
+                })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                console.log('✅ システムパスワードが設定されました（Supabase）');
+                return true;
+            } else {
+                console.error('❌ パスワード設定失敗:', result.error);
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ パスワード設定エラー:', error);
+            return false;
+        }
     }
 
-    // パスワード検証
-    verifyPassword(inputPassword) {
-        const storedHash = localStorage.getItem(this.PASSWORD_KEY);
-        if (!storedHash) return false;
-        
-        const inputHash = btoa(inputPassword + 'salt_' + new Date().getFullYear());
-        return inputHash === storedHash;
+    // パスワード検証（Supabaseベース）
+    async verifyPassword(inputPassword) {
+        try {
+            const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+                },
+                body: JSON.stringify({
+                    action: 'verify',
+                    passwordType: 'system',
+                    currentPassword: inputPassword
+                })
+            });
+            
+            const result = await response.json();
+            return result.success && result.isValid;
+        } catch (error) {
+            console.error('❌ パスワード検証エラー:', error);
+            return false;
+        }
     }
 
     // 認証状態チェック
@@ -123,25 +181,30 @@ class SimpleAuth {
         passwordBtn.disabled = true;
         passwordBtn.textContent = '🔄 認証中...';
 
-        // 少し遅延を入れてセキュリティらしく見せる
-        setTimeout(() => {
-            if (this.verifyPassword(enteredPassword)) {
+        // Supabaseでパスワード検証
+        try {
+            const isValid = await this.verifyPassword(enteredPassword);
+            
+            if (isValid) {
                 // 認証成功
                 this.setAuthenticated();
                 passwordError.style.display = 'none';
                 this.hideAuthScreen();
-                console.log('✅ 認証成功');
+                console.log('✅ 認証成功（Supabase）');
             } else {
                 // 認証失敗
                 this.showError('パスワードが正しくありません');
                 passwordInput.value = '';
                 passwordInput.focus();
             }
+        } catch (error) {
+            console.error('認証エラー:', error);
+            this.showError('認証処理でエラーが発生しました');
+        }
 
-            // ボタンを元に戻す
-            passwordBtn.disabled = false;
-            passwordBtn.textContent = '🚪 ログイン';
-        }, 800);
+        // ボタンを元に戻す
+        passwordBtn.disabled = false;
+        passwordBtn.textContent = '🚪 ログイン';
     }
 
     // パスワード設定処理
@@ -169,9 +232,10 @@ class SimpleAuth {
         setupBtn.disabled = true;
         setupBtn.textContent = '🔄 設定中...';
 
-        setTimeout(() => {
-            try {
-                this.setSystemPassword(newPassword);
+        try {
+            const success = await this.setSystemPassword(newPassword);
+            
+            if (success) {
                 this.showSetupSuccess('パスワードが設定されました。ログインしてください。');
                 
                 // 設定画面を隠してログイン画面を表示
@@ -187,28 +251,34 @@ class SimpleAuth {
                     const passwordInput = document.getElementById('password-input');
                     if (passwordInput) passwordInput.focus();
                 }, 100);
-
-            } catch (error) {
+            } else {
                 this.showSetupError('パスワード設定に失敗しました');
-                console.error('Password setup error:', error);
             }
 
-            setupBtn.disabled = false;
-            setupBtn.textContent = '🔐 パスワード設定';
-        }, 500);
+        } catch (error) {
+            this.showSetupError('パスワード設定に失敗しました');
+            console.error('Password setup error:', error);
+        }
+
+        setupBtn.disabled = false;
+        setupBtn.textContent = '🔐 パスワード設定';
     }
 
-    // 認証画面表示
-    showAuthScreen() {
+    // 認証画面表示（データベースベース）
+    async showAuthScreen() {
         const authScreen = document.getElementById('password-screen');
         if (authScreen) {
             authScreen.style.display = 'block';
             
-            // パスワードが設定されているかチェック
-            if (this.isPasswordSet()) {
+            // パスワードが設定されているかチェック（非同期）
+            const isSet = await this.isPasswordSet();
+            if (isSet) {
                 // 既にパスワードが設定されている場合はログイン画面
-                document.getElementById('setup-section').style.display = 'none';
-                document.getElementById('login-section').style.display = 'block';
+                const setupSection = document.getElementById('setup-section');
+                const loginSection = document.getElementById('login-section');
+                
+                if (setupSection) setupSection.style.display = 'none';
+                if (loginSection) loginSection.style.display = 'block';
                 
                 setTimeout(() => {
                     const passwordInput = document.getElementById('password-input');
@@ -216,8 +286,11 @@ class SimpleAuth {
                 }, 100);
             } else {
                 // パスワードが未設定の場合は設定画面
-                document.getElementById('login-section').style.display = 'none';
-                document.getElementById('setup-section').style.display = 'block';
+                const loginSection = document.getElementById('login-section');
+                const setupSection = document.getElementById('setup-section');
+                
+                if (loginSection) loginSection.style.display = 'none';
+                if (setupSection) setupSection.style.display = 'block';
                 
                 setTimeout(() => {
                     const newPasswordInput = document.getElementById('new-password');

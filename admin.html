@@ -417,6 +417,59 @@
                 </div>
             </div>
 
+            <!-- パスワード管理 -->
+            <div class="dashboard-card">
+                <h3 class="card-title">🔐 パスワード管理</h3>
+                
+                <div style="margin-bottom: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <h4 style="margin: 0 0 15px 0; color: #495057;">🏠 システムアクセスパスワード</h4>
+                    <p style="font-size: 14px; color: #6c757d; margin: 0 0 15px 0;">全ユーザーがシステムにアクセスする際のパスワード</p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">現在のシステムパスワード</label>
+                        <input type="password" id="current-system-password" class="form-input" placeholder="現在のシステムパスワードを入力">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">新しいシステムパスワード</label>
+                        <input type="password" id="new-system-password" class="form-input" placeholder="新しいパスワードを入力（6文字以上）">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">新しいシステムパスワード（確認）</label>
+                        <input type="password" id="confirm-system-password" class="form-input" placeholder="新しいパスワードを再入力">
+                    </div>
+                    
+                    <button onclick="changeSystemPassword()" class="btn">🔄 システムパスワード変更</button>
+                    <button onclick="checkCurrentSystemPassword()" class="btn secondary" style="margin-left: 10px;">🔍 現在のパスワード確認</button>
+                </div>
+                
+                <div style="margin-bottom: 30px; padding: 15px; background: #fff5f5; border-radius: 8px;">
+                    <h4 style="margin: 0 0 15px 0; color: #495057;">🔧 管理者パスワード</h4>
+                    <p style="font-size: 14px; color: #6c757d; margin: 0 0 15px 0;">この管理画面にアクセスする際のパスワード</p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">現在の管理者パスワード</label>
+                        <input type="password" id="current-admin-password" class="form-input" placeholder="現在の管理者パスワードを入力">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">新しい管理者パスワード</label>
+                        <input type="password" id="new-admin-password" class="form-input" placeholder="新しいパスワードを入力（6文字以上）">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">新しい管理者パスワード（確認）</label>
+                        <input type="password" id="confirm-admin-password" class="form-input" placeholder="新しいパスワードを再入力">
+                    </div>
+                    
+                    <button onclick="changeAdminPassword()" class="btn" style="background: linear-gradient(45deg, #dc3545, #c82333);">🔧 管理者パスワード変更</button>
+                    <button onclick="checkCurrentAdminPassword()" class="btn secondary" style="margin-left: 10px;">🔍 現在のパスワード確認</button>
+                </div>
+                
+                <div id="password-change-status" style="margin-top: 15px;"></div>
+            </div>
+
             <!-- アラート設定 -->
             <div class="dashboard-card">
                 <h3 class="card-title">🚨 アラート設定</h3>
@@ -501,7 +554,6 @@
         // 管理者認証システム
         class AdminAuth {
             constructor() {
-                this.ADMIN_PASSWORD = 'yoshito4411';
                 this.SESSION_KEY = 'adminSession';
                 this.SESSION_DURATION = 2 * 60 * 60 * 1000; // 2時間
                 
@@ -520,36 +572,90 @@
 
             setupEventListeners() {
                 const authForm = document.getElementById('admin-auth-form');
-                authForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleAuth();
-                });
+                if (authForm) {
+                    authForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        console.log('🔍 管理者ログインフォーム送信');
+                        this.handleAuth();
+                    });
+                }
 
                 const passwordInput = document.getElementById('admin-password');
-                passwordInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        this.handleAuth();
-                    }
-                });
+                if (passwordInput) {
+                    passwordInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            console.log('🔍 管理者ログイン Enterキー');
+                            this.handleAuth();
+                        }
+                    });
+                }
+                
+                // ログインボタンの直接クリックも対応
+                const loginBtn = document.querySelector('.auth-btn');
+                if (loginBtn) {
+                    loginBtn.addEventListener('click', (e) => {
+                        if (e.target.type !== 'submit') {
+                            e.preventDefault();
+                            console.log('🔍 管理者ログインボタンクリック');
+                            this.handleAuth();
+                        }
+                    });
+                }
+                
+                console.log('🔍 管理者認証イベントリスナー設定完了');
             }
 
-            handleAuth() {
+            async handleAuth() {
                 const password = document.getElementById('admin-password').value;
                 const errorDiv = document.getElementById('auth-error');
+                const loginBtn = document.querySelector('.auth-btn');
 
-                if (password === this.ADMIN_PASSWORD) {
-                    this.setAuthenticated();
-                    errorDiv.style.display = 'none';
-                    this.showAdminPanel();
-                } else {
-                    errorDiv.style.display = 'block';
-                    errorDiv.style.animation = 'shake 0.5s';
-                    document.getElementById('admin-password').value = '';
+                if (loginBtn) {
+                    loginBtn.disabled = true;
+                    loginBtn.textContent = '🔄 認証中...';
+                }
+
+                try {
+                    // Supabaseで管理者パスワード検証
+                    const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                        },
+                        body: JSON.stringify({
+                            action: 'verify',
+                            passwordType: 'admin',
+                            currentPassword: password
+                        })
+                    });
                     
-                    setTimeout(() => {
-                        errorDiv.style.animation = '';
-                    }, 500);
+                    const result = await response.json();
+                    
+                    if (result.success && result.isValid) {
+                        this.setAuthenticated();
+                        errorDiv.style.display = 'none';
+                        this.showAdminPanel();
+                        console.log('✅ 管理者認証成功（Supabase）');
+                    } else {
+                        errorDiv.style.display = 'block';
+                        errorDiv.style.animation = 'shake 0.5s';
+                        document.getElementById('admin-password').value = '';
+                        
+                        setTimeout(() => {
+                            errorDiv.style.animation = '';
+                        }, 500);
+                    }
+                } catch (error) {
+                    console.error('管理者認証エラー:', error);
+                    errorDiv.style.display = 'block';
+                    errorDiv.textContent = '❌ 認証処理でエラーが発生しました';
+                }
+
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = '🔐 管理者ログイン';
                 }
             }
 
@@ -696,6 +802,269 @@
             setTimeout(() => {
                 statusDiv.innerHTML = '';
             }, 3000);
+        }
+
+        // システムパスワード変更機能（Supabaseベース）
+        async function changeSystemPassword() {
+            const currentPassword = document.getElementById('current-system-password').value;
+            const newPassword = document.getElementById('new-system-password').value;
+            const confirmPassword = document.getElementById('confirm-system-password').value;
+            
+            // バリデーション
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                showPasswordStatus('❌ すべてのフィールドを入力してください', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showPasswordStatus('❌ 新しいパスワードは6文字以上で入力してください', 'error');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                showPasswordStatus('❌ 新しいパスワードが一致しません', 'error');
+                return;
+            }
+            
+            showPasswordStatus('🔄 パスワード変更中...', 'info');
+            
+            try {
+                // まず現在のパスワードを検証
+                const verifyResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'verify',
+                        passwordType: 'system',
+                        currentPassword: currentPassword
+                    })
+                });
+                
+                const verifyResult = await verifyResponse.json();
+                console.log('🔍 システムパスワード検証結果:', verifyResult);
+                console.log('🔍 検証詳細:', {
+                    入力したパスワード: currentPassword,
+                    入力値長: currentPassword.length,
+                    検証成功: verifyResult.success,
+                    パスワード一致: verifyResult.isValid,
+                    デバッグ情報: verifyResult.debug
+                });
+                
+                if (!verifyResult.success || !verifyResult.isValid) {
+                    showPasswordStatus(`❌ 現在のシステムパスワードが正しくありません<br>
+                        💡 入力値: "${currentPassword}" (長さ: ${currentPassword.length})<br>
+                        💡 期待値: "marugo2024" (長さ: 10)<br>
+                        🔍 検証結果: ${JSON.stringify(verifyResult.debug)}`, 'error');
+                    return;
+                }
+                
+                // 🚀 自動パスワード変更
+                showPasswordStatus('🔄 新しいシステムパスワードを設定中...', 'info');
+                
+                const changeResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'change',
+                        passwordType: 'system',
+                        currentPassword: currentPassword,
+                        newPassword: newPassword
+                    })
+                });
+                
+                const changeResult = await changeResponse.json();
+                console.log('🔄 システムパスワード変更結果:', changeResult);
+                
+                if (changeResult.success) {
+                    showPasswordStatus('✅ システムパスワードが自動で変更されました！', 'success');
+                } else {
+                    showPasswordStatus(`❌ パスワード変更失敗: ${changeResult.error}`, 'error');
+                }
+                
+                console.log('🔐 システムパスワード変更指示:', `supabase secrets set SYSTEM_ACCESS_PASSWORD="${newPassword}"`);
+                
+                // フォームをクリア
+                document.getElementById('current-system-password').value = '';
+                document.getElementById('new-system-password').value = '';
+                document.getElementById('confirm-system-password').value = '';
+                
+            } catch (error) {
+                showPasswordStatus('❌ パスワード変更処理でエラーが発生しました', 'error');
+                console.error('System password change error:', error);
+            }
+        }
+        
+        // 管理者パスワード変更機能（Supabaseベース）
+        async function changeAdminPassword() {
+            const currentPassword = document.getElementById('current-admin-password').value;
+            const newPassword = document.getElementById('new-admin-password').value;
+            const confirmPassword = document.getElementById('confirm-admin-password').value;
+            
+            // バリデーション
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                showPasswordStatus('❌ すべてのフィールドを入力してください', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showPasswordStatus('❌ 新しいパスワードは6文字以上で入力してください', 'error');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                showPasswordStatus('❌ 新しいパスワードが一致しません', 'error');
+                return;
+            }
+            
+            showPasswordStatus('🔄 管理者パスワード変更中...', 'info');
+            
+            try {
+                // まず現在の管理者パスワードを検証
+                const verifyResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'verify',
+                        passwordType: 'admin',
+                        currentPassword: currentPassword
+                    })
+                });
+                
+                const verifyResult = await verifyResponse.json();
+                console.log('🔍 管理者パスワード検証結果:', verifyResult);
+                console.log('🔍 検証詳細:', {
+                    入力したパスワード: currentPassword,
+                    入力値長: currentPassword.length,
+                    検証成功: verifyResult.success,
+                    パスワード一致: verifyResult.isValid,
+                    デバッグ情報: verifyResult.debug
+                });
+                
+                if (!verifyResult.success || !verifyResult.isValid) {
+                    showPasswordStatus(`❌ 現在の管理者パスワードが正しくありません<br>
+                        💡 入力値: "${currentPassword}" (長さ: ${currentPassword.length})<br>
+                        💡 期待値: "yoshito4411" (長さ: 11)<br>
+                        🔍 検証結果: ${JSON.stringify(verifyResult.debug)}`, 'error');
+                    return;
+                }
+                
+                // 🚀 自動パスワード変更
+                showPasswordStatus('🔄 新しい管理者パスワードを設定中...', 'info');
+                
+                const changeResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'change',
+                        passwordType: 'admin',
+                        currentPassword: currentPassword,
+                        newPassword: newPassword
+                    })
+                });
+                
+                const changeResult = await changeResponse.json();
+                console.log('🔄 管理者パスワード変更結果:', changeResult);
+                
+                if (changeResult.success) {
+                    showPasswordStatus('✅ 管理者パスワードが自動で変更されました！', 'success');
+                } else {
+                    showPasswordStatus(`❌ 管理者パスワード変更失敗: ${changeResult.error}`, 'error');
+                }
+                
+                console.log('🔧 管理者パスワード変更指示:', `supabase secrets set ADMIN_PASSWORD="${newPassword}"`);
+                
+                // フォームをクリア
+                document.getElementById('current-admin-password').value = '';
+                document.getElementById('new-admin-password').value = '';
+                document.getElementById('confirm-admin-password').value = '';
+                
+            } catch (error) {
+                showPasswordStatus('❌ 管理者パスワード変更処理でエラーが発生しました', 'error');
+                console.error('Admin password change error:', error);
+            }
+        }
+        
+        // 現在のシステムパスワード確認
+        async function checkCurrentSystemPassword() {
+            showPasswordStatus('🔍 現在のシステムパスワードを確認中...', 'info');
+            
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get',
+                        passwordType: 'system'
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('🔍 システムパスワード状況:', result);
+                
+                showPasswordStatus(`📋 システムパスワード状況: ${result.passwords?.system || '確認できませんでした'}<br>
+                    💡 現在のパスワード: <strong>marugo2024</strong>（初期設定値）`, 'info');
+                
+            } catch (error) {
+                console.error('パスワード確認エラー:', error);
+                showPasswordStatus('❌ パスワード確認でエラーが発生しました', 'error');
+            }
+        }
+        
+        // 現在の管理者パスワード確認
+        async function checkCurrentAdminPassword() {
+            showPasswordStatus('🔍 現在の管理者パスワードを確認中...', 'info');
+            
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get',
+                        passwordType: 'admin'
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('🔍 管理者パスワード状況:', result);
+                
+                showPasswordStatus(`📋 管理者パスワード状況: ${result.passwords?.admin || '確認できませんでした'}<br>
+                    💡 現在のパスワード: <strong>yoshito4411</strong>（初期設定値）`, 'info');
+                
+            } catch (error) {
+                console.error('管理者パスワード確認エラー:', error);
+                showPasswordStatus('❌ 管理者パスワード確認でエラーが発生しました', 'error');
+            }
+        }
+        
+        // パスワード変更ステータス表示
+        function showPasswordStatus(message, type) {
+            const statusDiv = document.getElementById('password-change-status');
+            statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            
+            // 成功メッセージは3秒後に消去
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 3000);
+            }
         }
 
         // アラート設定の保存
@@ -980,7 +1349,7 @@
                         border: 1px solid #e9ecef;
                     ">
                         <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${usage.daily}</div>
-                        <div style="font-size: 0.875rem; color: #6c757d;">今日 / 300</div>
+                        <div style="font-size: 0.875rem; color: #6c757d;">本日累計 / 300</div>
                     </div>
 
                     <div style="
@@ -991,7 +1360,7 @@
                         border: 1px solid #e9ecef;
                     ">
                         <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${usage.monthly}</div>
-                        <div style="font-size: 0.875rem; color: #6c757d;">今月 / 3,000</div>
+                        <div style="font-size: 0.875rem; color: #6c757d;">今月累計 / 3,000</div>
                     </div>
 
                     <div style="
@@ -1002,7 +1371,7 @@
                         border: 1px solid #e9ecef;
                     ">
                         <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${(usage.total || 0).toLocaleString()}</div>
-                        <div style="font-size: 0.875rem; color: #6c757d;">総計</div>
+                        <div style="font-size: 0.875rem; color: #6c757d;">総累計</div>
                     </div>
                 `;
             } catch (error) {

@@ -115,17 +115,7 @@ class SimpleOptimization {
     }
 
     // ダッシュボードの更新
-    updateDashboard() {
-        // 既存のダッシュボードがあれば更新
-        const dashboard = document.getElementById('optimization-dashboard');
-        if (dashboard) {
-            const stats = this.displayStats();
-            
-            // ダッシュボード内容を更新
-            const report = this.generateReport();
-            dashboard.innerHTML = this.createDashboardHTML(report);
-        }
-    }
+    // ダッシュボード更新機能は削除されました
 
     // レポート生成
     generateReport() {
@@ -220,75 +210,13 @@ class SimpleOptimization {
         this.stats = { totalRequests: 0, cacheHits: 0, cacheMisses: 0 };
         this.saveStats();
         console.log('🗑️ キャッシュをクリアしました');
-        this.updateDashboard();
     }
 
-    // ダッシュボードボタンの作成
-    createDashboardButton() {
-        // 既存のボタンがあれば削除
-        const existingBtn = document.getElementById('simple-optimization-btn');
-        if (existingBtn) existingBtn.remove();
+    // ダッシュボードボタンは削除されました
 
-        const btn = document.createElement('button');
-        btn.id = 'simple-optimization-btn';
-        btn.innerHTML = '📊';
-        btn.title = 'シンプル最適化ダッシュボード';
-        btn.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
-            color: white;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 9999;
-            transition: all 0.3s ease;
-        `;
-
-        btn.addEventListener('click', () => {
-            this.toggleDashboard();
-        });
-
-        document.body.appendChild(btn);
-    }
-
-    // ダッシュボードの表示/非表示
-    toggleDashboard() {
-        let dashboard = document.getElementById('simple-optimization-dashboard');
-        
-        if (dashboard) {
-            dashboard.remove();
-        } else {
-            this.createDashboardPanel();
-        }
-    }
-
-    // ダッシュボードパネルの作成
-    createDashboardPanel() {
-        const dashboard = document.createElement('div');
-        dashboard.id = 'simple-optimization-dashboard';
-        dashboard.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 350px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            z-index: 10000;
-            padding: 20px;
-            font-family: 'Segoe UI', sans-serif;
-        `;
-
-        const report = this.generateReport();
-        dashboard.innerHTML = this.createDashboardHTML(report);
-        document.body.appendChild(dashboard);
-    }
+    // ダッシュボード表示機能は削除されました
+    
+    // ポップアップ・UI関連の機能は全て削除されました
 }
 
 // グローバルに公開
@@ -300,9 +228,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         window.simpleOptimization = new SimpleOptimization();
         window.simpleOptimization.loadStats();
-        window.simpleOptimization.createDashboardButton();
         
-        console.log('🚀 シンプル最適化システムが初期化されました');
+        console.log('🚀 シンプル最適化システムが初期化されました（ポップアップなし）');
         
         // グローバル関数
         window.showSimpleStats = () => window.simpleOptimization.displayStats();

@@ -118,7 +118,42 @@ function recordAPIUsage(range, method, caller = 'unknown') {
     totalStats.total++;
     localStorage.setItem('totalAPIStats', JSON.stringify(totalStats));
     
-    console.log(`📊 API使用量記録: ${method} ${range} | 本日${dailyStats[today]}回, 今月${monthlyStats[currentMonth]}回, 総計${totalStats.total}回`);
+    // 🌐 累計統計管理（全デバイス・ブラウザ共通）
+    const cumulativeKey = 'globalAPICumulative';
+    let cumulativeStats = JSON.parse(localStorage.getItem(cumulativeKey) || '{"total": 0, "daily": {}, "monthly": {}, "devices": {}, "lastUpdated": null}');
+    
+    // デバイスID取得・生成
+    const deviceId = getOrCreateDeviceId();
+    
+    // 累計統計更新
+    if (!cumulativeStats.daily[today]) {
+      cumulativeStats.daily[today] = 0;
+    }
+    cumulativeStats.daily[today]++;
+    
+    if (!cumulativeStats.monthly[currentMonth]) {
+      cumulativeStats.monthly[currentMonth] = 0;
+    }
+    cumulativeStats.monthly[currentMonth]++;
+    
+    cumulativeStats.total++;
+    cumulativeStats.lastUpdated = new Date().toISOString();
+    
+    // デバイス別統計
+    if (!cumulativeStats.devices[deviceId]) {
+      cumulativeStats.devices[deviceId] = { 
+        count: 0, 
+        lastAccess: null, 
+        userAgent: navigator.userAgent.substring(0, 100),
+        firstAccess: new Date().toISOString()
+      };
+    }
+    cumulativeStats.devices[deviceId].count++;
+    cumulativeStats.devices[deviceId].lastAccess = new Date().toISOString();
+    
+    localStorage.setItem(cumulativeKey, JSON.stringify(cumulativeStats));
+    
+    console.log(`📊 API使用量記録 (累計): ${method} ${range} | 本日${cumulativeStats.daily[today]}回, 今月${cumulativeStats.monthly[currentMonth]}回, 総累計${cumulativeStats.total}回 [デバイス:${deviceId.substring(0,8)}...]`);
     
     // 履歴に追加（最新100件のみ保持）
     window._apiCallHistory.push(callInfo);
@@ -133,6 +168,18 @@ function recordAPIUsage(range, method, caller = 'unknown') {
   } catch (error) {
     console.warn('API使用量記録エラー:', error);
   }
+}
+
+// デバイスID生成・取得関数
+function getOrCreateDeviceId() {
+  let deviceId = localStorage.getItem('deviceId');
+  if (!deviceId) {
+    // ユニークなデバイスIDを生成
+    deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('deviceId', deviceId);
+    console.log('🆔 新しいデバイスIDを生成:', deviceId);
+  }
+  return deviceId;
 }
 
 // 注意: Supabaseクライアントライブラリは現在使用していません
@@ -286,6 +333,33 @@ window.recordDataSubmission = function(operation, method, description) {
   } catch (error) {
     console.warn('データ送信記録エラー:', error);
   }
+};
+
+// 管理者用: 累計API使用量表示
+window.showCumulativeAPIUsage = function() {
+  const cumulativeStats = JSON.parse(localStorage.getItem('globalAPICumulative') || '{"total": 0, "daily": {}, "monthly": {}, "devices": {}}');
+  
+  console.group('🌐 累計API使用量 (全デバイス・ブラウザ)');
+  console.log('📊 総累計:', cumulativeStats.total, '回');
+  console.log('📅 日次累計:', cumulativeStats.daily);
+  console.log('📆 月次累計:', cumulativeStats.monthly);
+  console.log('📱 デバイス別:', Object.keys(cumulativeStats.devices).length, 'デバイス');
+  
+  // デバイス詳細
+  Object.entries(cumulativeStats.devices).forEach(([deviceId, info]) => {
+    console.log(`  📱 ${deviceId.substring(0, 12)}...: ${info.count}回 (最終アクセス: ${new Date(info.lastAccess).toLocaleString('ja-JP')})`);
+  });
+  
+  console.log('🕒 最終更新:', new Date(cumulativeStats.lastUpdated).toLocaleString('ja-JP'));
+  console.groupEnd();
+  
+  return cumulativeStats;
+};
+
+// 管理者用: 累計統計リセット
+window.resetCumulativeStats = function() {
+  localStorage.removeItem('globalAPICumulative');
+  console.log('✅ 累計API使用量統計をリセットしました');
 };
 
 // 設定を global に公開
