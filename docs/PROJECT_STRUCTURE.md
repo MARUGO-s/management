@@ -1,6 +1,6 @@
-# 📁 プロジェクト構造
+# 📁 プロジェクト構造（v3.0）
 
-## 🎯 **最終整理済みフォルダ構成**
+## 🎯 **最終整理済みフォルダ構成（Supabaseベース認証対応）**
 
 ```
 management-main-41/
@@ -57,10 +57,14 @@ management-main-41/
 │
 ├── 📁 supabase/                    # Supabaseバックエンド
 │   ├── 📄 config.toml              # Supabase設定
+│   ├── 📁 migrations/              # データベースマイグレーション
+│   │   └── 📄 *_create_password_management.sql
 │   └── 📁 functions/               # Edge Functions
 │       ├── 📁 send-alert-email/    # メール送信機能（無効化済み）
 │       │   └── index.ts
-│       └── 📁 sheets-api/          # Google Sheets API
+│       ├── 📁 sheets-api/          # Google Sheets API
+│       │   └── index.ts
+│       └── 📁 password-manager/    # パスワード管理機能（v3.0新機能）
 │           └── index.ts
 │
 └── 📄 admin.html                   # 管理者画面
@@ -119,7 +123,8 @@ management-main-41/
 
 #### **Supabase Edge Functions:**
 1. **sheets-api** - Google Sheets API プロキシ
-2. **send-alert-email** - メール送信（無効化済み）
+2. **password-manager** - パスワード管理・認証（v3.0新機能）
+3. **send-alert-email** - メール送信（無効化済み）
 
 ## 📊 **API呼び出し最適化**
 
