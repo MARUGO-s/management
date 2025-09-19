@@ -190,17 +190,9 @@ class UsageIndicator {
             details.style.display = 'none';
         }
 
-        // 色の変更（月次使用量ベース）
-        const monthlyPercentage = (monthly / 3000) * 100;
+        // 色の変更（管理画面設定に基づく）
         const indicator = document.getElementById('usage-indicator');
-        
-        if (monthlyPercentage >= 85) {
-            indicator.style.background = 'rgba(220, 53, 69, 0.9)'; // 赤
-        } else if (monthlyPercentage >= 70) {
-            indicator.style.background = 'rgba(255, 193, 7, 0.9)'; // 黄
-        } else {
-            indicator.style.background = 'rgba(0, 0, 0, 0.8)'; // 黒
-        }
+        this.updateIndicatorColor(indicator, monthly);
 
     }
 
@@ -231,11 +223,82 @@ class UsageIndicator {
                 details.style.display = 'none';
             }
 
+            // 色の変更（管理画面設定に基づく・ローカル版）
+            const indicator = document.getElementById('usage-indicator');
+            this.updateIndicatorColor(indicator, monthlyUsage);
+
 
         } catch (error) {
             console.error('❌ ローカル使用量取得エラー:', error);
             document.getElementById('usage-text').textContent = '📊 エラー';
         }
+    }
+
+    // 管理画面設定に基づく色変更
+    updateIndicatorColor(indicator, monthlyUsage) {
+        if (!indicator) return;
+        
+        // 動的API上限値を取得
+        const apiLimit = this.getAPILimit();
+        
+        // API制限チェック（設定された上限値で遮断表示）
+        if (monthlyUsage >= apiLimit) {
+            indicator.style.background = 'rgba(108, 117, 125, 0.9)'; // グレー
+            indicator.style.border = '2px solid #dc3545'; // 赤い枠
+            const usageText = document.getElementById('usage-text');
+            if (usageText) {
+                usageText.textContent = '🚫 制限中';
+                usageText.title = `API使用量が制限値（${apiLimit.toLocaleString()}回）を超過しました。管理者にご連絡ください。`;
+            }
+            return;
+        }
+        
+        // 通常の色変更処理
+        const settings = this.getColorSettings();
+        indicator.style.border = 'none'; // 枠をリセット
+        
+        if (monthlyUsage >= settings.red) {
+            indicator.style.background = 'rgba(220, 53, 69, 0.9)'; // 赤
+        } else if (monthlyUsage >= settings.yellow) {
+            indicator.style.background = 'rgba(255, 193, 7, 0.9)'; // 黄
+        } else if (monthlyUsage >= settings.orange) {
+            indicator.style.background = 'rgba(40, 167, 69, 0.8)'; // 緑
+        } else {
+            indicator.style.background = 'rgba(0, 0, 0, 0.8)'; // 黒
+        }
+    }
+
+    // 色設定を取得（管理画面設定 or デフォルト）
+    getColorSettings() {
+        try {
+            const saved = localStorage.getItem('indicatorColorSettings');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch (error) {
+            console.warn('色設定読み込みエラー:', error);
+        }
+        
+        // デフォルト設定
+        return {
+            orange: 900,
+            yellow: 1500,
+            red: 2400
+        };
+    }
+
+    // API上限値を取得（管理画面設定 or デフォルト）
+    getAPILimit() {
+        try {
+            const saved = localStorage.getItem('apiLimitSettings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                return settings.apiLimit || 2500; // デフォルト2,500
+            }
+        } catch (error) {
+            console.warn('上限値設定読み込みエラー:', error);
+        }
+        return 2500; // デフォルト値
     }
 
     // 詳細表示の切り替え（デフォルト非表示）

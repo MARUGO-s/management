@@ -1324,6 +1324,14 @@ async function submitData(options = {}) {
         console.log(`✅ 送信成功 ${i + 1}/${allPayloads.length}:`, payload.item);
       } catch (error) {
         console.error(`❌ 送信失敗 ${i + 1}/${allPayloads.length}:`, error);
+        
+        // API制限エラーの場合は専用モーダルを表示
+        if (error.code === 'API_LIMIT_EXCEEDED' || error.message.includes('制限値')) {
+          if (typeof window.showAPILimitError === 'function') {
+            window.showAPILimitError();
+          }
+          throw error; // 送信を停止
+        }
       }
     }
     

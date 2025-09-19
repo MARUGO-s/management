@@ -417,6 +417,85 @@
                 </div>
             </div>
 
+            <!-- API使用量上限設定 -->
+            <div class="dashboard-card">
+                <h3 class="card-title">🚫 API使用量上限設定</h3>
+                
+                <div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                    <p style="font-size: 14px; color: #856404; margin: 0 0 15px 0;">
+                        月間API使用量の上限値を設定します。この値を超えるとAPIアクセスが自動的に遮断されます。
+                    </p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">📊 月間API使用量上限（回数）</label>
+                        <input type="number" id="api-limit" class="form-input" placeholder="2500" min="100" max="10000" step="100">
+                        <small style="color: #6c757d;">推奨値: 2,500回 (Google Sheets API無料枠の約83%)</small>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button onclick="saveAPILimitSettings()" class="btn">💾 上限値を保存</button>
+                        <button onclick="loadAPILimitSettings()" class="btn secondary">🔄 設定を読み込み</button>
+                        <button onclick="resetAPILimitSettings()" class="btn secondary">🔄 デフォルトに戻す</button>
+                    </div>
+                </div>
+                
+                <div style="background: #f8d7da; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                    <h4 style="margin: 0 0 10px 0; color: #721c24;">⚠️ 重要な注意事項</h4>
+                    <ul style="margin: 0; color: #721c24; font-size: 14px;">
+                        <li>上限値を下げると、現在の使用量が上限を超えた場合は即座に遮断されます</li>
+                        <li>Google Sheets API無料枠は月間3,000回です</li>
+                        <li>安全マージンを考慮して2,500回程度に設定することを推奨します</li>
+                    </ul>
+                </div>
+                
+                <div id="limit-status" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <h4 style="margin: 0 0 10px 0;">📊 現在の設定状況</h4>
+                    <div id="limit-status-content">読み込み中...</div>
+                </div>
+            </div>
+
+            <!-- 使用量インジケーター設定 -->
+            <div class="dashboard-card">
+                <h3 class="card-title">🎨 使用量インジケーター色設定</h3>
+                
+                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <p style="font-size: 14px; color: #6c757d; margin: 0 0 15px 0;">
+                        全ページに表示される使用量インジケーターの色変化の閾値を設定できます。
+                    </p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">🟢 緑色の閾値（回数）</label>
+                        <input type="number" id="orange-threshold" class="form-input" placeholder="900" min="1" max="3000">
+                        <small style="color: #6c757d;">この回数以上で緑色に変化</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">🟡 黄色の閾値（回数）</label>
+                        <input type="number" id="yellow-threshold" class="form-input" placeholder="1500" min="1" max="3000">
+                        <small style="color: #6c757d;">この回数以上で黄色に変化</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">🔴 赤色の閾値（回数）</label>
+                        <input type="number" id="red-threshold" class="form-input" placeholder="2400" min="1" max="3000">
+                        <small style="color: #6c757d;">この回数以上で赤色に変化</small>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button onclick="saveIndicatorSettings()" class="btn">💾 設定を保存</button>
+                        <button onclick="loadIndicatorSettings()" class="btn secondary">🔄 設定を読み込み</button>
+                        <button onclick="resetIndicatorSettings()" class="btn secondary">🔄 デフォルトに戻す</button>
+                    </div>
+                </div>
+                
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0;">📊 現在の設定プレビュー</h4>
+                    <div id="indicator-preview" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <!-- プレビューがここに表示される -->
+                    </div>
+                </div>
+            </div>
+
             <!-- パスワード管理 -->
             <div class="dashboard-card">
                 <h3 class="card-title">🔐 パスワード管理</h3>
@@ -1023,6 +1102,8 @@
                 loadSimpleUsageDisplay();
                 refreshUsageData(); // API使用量監視セクションの更新
                 loadMonthlyChart(); // 月次グラフも初期読み込み
+                loadIndicatorSettings(); // インジケーター設定読み込み
+                loadAPILimitSettings(); // API上限値設定読み込み
                 
                 // リアルタイム更新（30秒ごと）
                 setInterval(() => {
@@ -1730,6 +1811,222 @@
             }
         `;
         document.head.appendChild(style);
+
+        // 使用量インジケーター設定管理
+        function saveIndicatorSettings() {
+            try {
+                const orangeThreshold = parseInt(document.getElementById('orange-threshold').value) || 900;
+                const yellowThreshold = parseInt(document.getElementById('yellow-threshold').value) || 1500;
+                const redThreshold = parseInt(document.getElementById('red-threshold').value) || 2400;
+
+                // 値の妥当性チェック
+                if (orangeThreshold >= yellowThreshold || yellowThreshold >= redThreshold) {
+                    alert('⚠️ 閾値は 緑色 < 黄色 < 赤色 の順序で設定してください');
+                    return;
+                }
+
+                const settings = {
+                    orange: orangeThreshold,
+                    yellow: yellowThreshold,
+                    red: redThreshold,
+                    updated: new Date().toISOString()
+                };
+
+                localStorage.setItem('indicatorColorSettings', JSON.stringify(settings));
+                
+                // プレビュー更新
+                updateIndicatorPreview(settings);
+                
+                alert('✅ 使用量インジケーターの色設定を保存しました\\n\\n設定は全ページのインジケーターに即座に反映されます。');
+                
+            } catch (error) {
+                console.error('設定保存エラー:', error);
+                alert('❌ 設定の保存に失敗しました');
+            }
+        }
+
+        function loadIndicatorSettings() {
+            try {
+                const saved = localStorage.getItem('indicatorColorSettings');
+                let settings;
+                
+                if (saved) {
+                    settings = JSON.parse(saved);
+                } else {
+                    // デフォルト設定
+                    settings = { orange: 900, yellow: 1500, red: 2400 };
+                }
+
+                document.getElementById('orange-threshold').value = settings.orange;
+                document.getElementById('yellow-threshold').value = settings.yellow;
+                document.getElementById('red-threshold').value = settings.red;
+                
+                updateIndicatorPreview(settings);
+                
+            } catch (error) {
+                console.error('設定読み込みエラー:', error);
+                resetIndicatorSettings();
+            }
+        }
+
+        function resetIndicatorSettings() {
+            const defaultSettings = { orange: 900, yellow: 1500, red: 2400 };
+            
+            document.getElementById('orange-threshold').value = defaultSettings.orange;
+            document.getElementById('yellow-threshold').value = defaultSettings.yellow;
+            document.getElementById('red-threshold').value = defaultSettings.red;
+            
+            updateIndicatorPreview(defaultSettings);
+            
+            // ローカルストレージからも削除
+            localStorage.removeItem('indicatorColorSettings');
+            
+            alert('🔄 デフォルト設定に戻しました');
+        }
+
+        function updateIndicatorPreview(settings) {
+            const preview = document.getElementById('indicator-preview');
+            
+            preview.innerHTML = `
+                <div style="padding: 8px 15px; border-radius: 20px; background: rgba(0, 0, 0, 0.8); color: white; font-size: 12px; font-weight: bold;">
+                    ⚫ 黒: 0-${settings.orange - 1}回
+                </div>
+                <div style="padding: 8px 15px; border-radius: 20px; background: rgba(40, 167, 69, 0.8); color: white; font-size: 12px; font-weight: bold;">
+                    🟢 緑: ${settings.orange}-${settings.yellow - 1}回
+                </div>
+                <div style="padding: 8px 15px; border-radius: 20px; background: rgba(255, 193, 7, 0.9); color: white; font-size: 12px; font-weight: bold;">
+                    🟡 黄色: ${settings.yellow}-${settings.red - 1}回
+                </div>
+                <div style="padding: 8px 15px; border-radius: 20px; background: rgba(220, 53, 69, 0.9); color: white; font-size: 12px; font-weight: bold;">
+                    🔴 赤色: ${settings.red}回以上
+                </div>
+            `;
+        }
+
+        // API上限値設定管理
+        function saveAPILimitSettings() {
+            try {
+                const apiLimit = parseInt(document.getElementById('api-limit').value);
+                
+                if (!apiLimit || apiLimit < 100 || apiLimit > 10000) {
+                    alert('⚠️ 上限値は100-10,000回の範囲で入力してください');
+                    return;
+                }
+                
+                const settings = {
+                    apiLimit: apiLimit,
+                    updated: new Date().toISOString()
+                };
+
+                localStorage.setItem('apiLimitSettings', JSON.stringify(settings));
+                
+                updateLimitStatus(settings);
+                
+                alert(`✅ API使用量上限を${apiLimit}回に設定しました\\n\\n設定は即座にシステム全体に反映されます。`);
+                
+            } catch (error) {
+                console.error('上限値設定保存エラー:', error);
+                alert('❌ 設定の保存に失敗しました');
+            }
+        }
+
+        function loadAPILimitSettings() {
+            try {
+                const saved = localStorage.getItem('apiLimitSettings');
+                let settings;
+                
+                if (saved) {
+                    settings = JSON.parse(saved);
+                } else {
+                    // デフォルト設定
+                    settings = { apiLimit: 2500 };
+                }
+
+                document.getElementById('api-limit').value = settings.apiLimit;
+                updateLimitStatus(settings);
+                
+            } catch (error) {
+                console.error('上限値設定読み込みエラー:', error);
+                resetAPILimitSettings();
+            }
+        }
+
+        function resetAPILimitSettings() {
+            const defaultSettings = { apiLimit: 2500 };
+            
+            document.getElementById('api-limit').value = defaultSettings.apiLimit;
+            updateLimitStatus(defaultSettings);
+            
+            // ローカルストレージからも削除
+            localStorage.removeItem('apiLimitSettings');
+            
+            alert('🔄 デフォルト設定（2,500回）に戻しました');
+        }
+
+        async function updateLimitStatus(settings) {
+            try {
+                // 現在の使用量を取得
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get'
+                    })
+                });
+
+                if (response.ok) {
+                    const stats = await response.json();
+                    const monthlyUsage = stats.monthly.total;
+                    const usagePercentage = Math.round((monthlyUsage / settings.apiLimit) * 100);
+                    
+                    let statusColor, statusText;
+                    if (monthlyUsage >= settings.apiLimit) {
+                        statusColor = '#dc3545';
+                        statusText = '🚫 遮断中';
+                    } else if (usagePercentage >= 90) {
+                        statusColor = '#fd7e14';
+                        statusText = '⚠️ 危険レベル';
+                    } else if (usagePercentage >= 70) {
+                        statusColor = '#ffc107';
+                        statusText = '🟡 警告レベル';
+                    } else {
+                        statusColor = '#28a745';
+                        statusText = '✅ 正常';
+                    }
+                    
+                    const statusHtml = `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <p><strong>設定上限値:</strong> ${settings.apiLimit.toLocaleString()}回</p>
+                                <p><strong>現在の使用量:</strong> ${monthlyUsage.toLocaleString()}回</p>
+                                <p><strong>使用率:</strong> ${usagePercentage}%</p>
+                            </div>
+                            <div>
+                                <p style="font-size: 18px; font-weight: bold; color: ${statusColor};">
+                                    ${statusText}
+                                </p>
+                                <p><strong>残り使用可能:</strong> ${Math.max(0, settings.apiLimit - monthlyUsage).toLocaleString()}回</p>
+                                <p><small>最終更新: ${settings.updated ? new Date(settings.updated).toLocaleString() : '未設定'}</small></p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('limit-status-content').innerHTML = statusHtml;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+            } catch (error) {
+                console.error('状況更新エラー:', error);
+                document.getElementById('limit-status-content').innerHTML = `
+                    <p><strong>設定上限値:</strong> ${settings.apiLimit.toLocaleString()}回</p>
+                    <p style="color: #dc3545;">使用量の取得に失敗しました</p>
+                `;
+            }
+        }
 
         // 初期化
         window.addEventListener('load', () => {

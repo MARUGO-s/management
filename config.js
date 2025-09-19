@@ -8,7 +8,7 @@ const SUPABASE_CONFIG = {
   spreadsheetId: '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'
 }
 
-// Google Sheets API呼び出し関数（セキュア版 + 使用量監視）
+// Google Sheets API呼び出し関数（セキュア版 + 使用量監視 + 遮断機能）
 async function callSheetsAPI(range, method = 'GET', values = null) {
   // 呼び出し元を特定するためのスタックトレース
   const stack = new Error().stack;
@@ -20,6 +20,12 @@ async function callSheetsAPI(range, method = 'GET', values = null) {
   }
   
   try {
+    // API使用量制限チェック（2,500回超過で遮断）
+    const isBlocked = await checkAPILimit();
+    if (isBlocked) {
+      throw new Error('API_LIMIT_EXCEEDED');
+    }
+
     // API使用量を記録（呼び出し前）
     await recordAPIUsage(range, method, caller);
     
@@ -48,8 +54,90 @@ async function callSheetsAPI(range, method = 'GET', values = null) {
     
     return result;
   } catch (error) {
+    if (error.message === 'API_LIMIT_EXCEEDED') {
+      console.error('🚫 API使用量制限に達しました');
+      // 制限超過エラーを再スロー（動的上限値付きメッセージ）
+      const apiLimit = getAPILimit();
+      const limitError = new Error(`API使用量が制限値（${apiLimit.toLocaleString()}回）を超過しました。管理者にご連絡ください。`);
+      limitError.code = 'API_LIMIT_EXCEEDED';
+      throw limitError;
+    }
+    
     console.error(`❌ API呼び出しエラー: ${method} ${range} |`, error)
     throw error
+  }
+}
+
+// API使用量制限チェック関数（管理画面設定の上限値で遮断）
+async function checkAPILimit() {
+  try {
+    // 管理画面で設定された上限値を取得
+    const apiLimit = getAPILimit();
+    
+    const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+      },
+      body: JSON.stringify({
+        action: 'get'
+      })
+    });
+
+    if (response.ok) {
+      const stats = await response.json();
+      const monthlyUsage = stats.monthly.total;
+      
+      // 設定された上限値を超えていたら遮断
+      if (monthlyUsage >= apiLimit) {
+        console.warn(`🚫 API使用量制限に達しました: ${monthlyUsage}回/${apiLimit}回`);
+        
+        // 使用量インジケーターを更新
+        updateIndicatorForBlocked(apiLimit);
+        
+        return true; // 遮断
+      }
+      
+      return false; // 通常動作
+    } else {
+      console.warn('⚠️ API使用量チェック失敗、通常動作を継続');
+      return false;
+    }
+  } catch (error) {
+    console.warn('⚠️ API使用量チェックエラー、通常動作を継続:', error);
+    return false;
+  }
+}
+
+// 管理画面設定のAPI上限値を取得
+function getAPILimit() {
+  try {
+    const saved = localStorage.getItem('apiLimitSettings');
+    if (saved) {
+      const settings = JSON.parse(saved);
+      return settings.apiLimit || 2500; // デフォルト2,500
+    }
+  } catch (error) {
+    console.warn('上限値設定読み込みエラー:', error);
+  }
+  return 2500; // デフォルト値
+}
+
+// 遮断時の使用量インジケーター更新
+function updateIndicatorForBlocked(apiLimit = null) {
+  const limit = apiLimit || getAPILimit();
+  const indicator = document.getElementById('usage-indicator');
+  const usageText = document.getElementById('usage-text');
+  
+  if (indicator) {
+    indicator.style.background = 'rgba(108, 117, 125, 0.9)'; // グレー
+    indicator.style.border = '2px solid #dc3545'; // 赤い枠
+  }
+  
+  if (usageText) {
+    usageText.textContent = '🚫 制限中';
+    usageText.title = `API使用量が制限値（${limit.toLocaleString()}回）を超過しました。管理者にご連絡ください。`;
   }
 }
 
@@ -218,6 +306,114 @@ window.resetAPIStats = function() {
   }
   console.log('✅ API使用量統計と履歴をリセットしました');
 };
+
+// API制限エラーの共通表示関数
+window.showAPILimitError = function() {
+  // カスタムエラーモーダルを表示
+  const errorModal = createAPILimitModal();
+  document.body.appendChild(errorModal);
+  errorModal.style.display = 'flex';
+  
+  // 5秒後に自動で閉じる
+  setTimeout(() => {
+    errorModal.remove();
+  }, 10000);
+};
+
+// API制限エラー用モーダルを作成
+function createAPILimitModal() {
+  const apiLimit = getAPILimit();
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: white;
+      padding: 40px;
+      border-radius: 15px;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    ">
+      <div style="
+        font-size: 60px;
+        margin-bottom: 20px;
+      ">🚫</div>
+      
+      <h2 style="
+        color: #dc3545;
+        margin: 0 0 20px 0;
+        font-size: 24px;
+      ">API使用量制限に達しました</h2>
+      
+      <p style="
+        color: #6c757d;
+        line-height: 1.6;
+        margin: 0 0 20px 0;
+        font-size: 16px;
+      ">
+        月間API使用量が制限値（${apiLimit.toLocaleString()}回）を超過したため、<br>
+        一時的にAPIアクセスを制限しています。
+      </p>
+      
+      <div style="
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+        border-left: 4px solid #dc3545;
+      ">
+        <h3 style="
+          color: #495057;
+          margin: 0 0 10px 0;
+          font-size: 18px;
+        ">📞 管理者にご連絡ください</h3>
+        
+        <p style="
+          color: #6c757d;
+          margin: 0;
+          font-size: 14px;
+        ">
+          システム管理者に連絡して、<br>
+          API使用量の調整をご依頼ください。
+        </p>
+      </div>
+      
+      <button onclick="this.parentElement.parentElement.remove()" style="
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 10px;
+      ">閉じる</button>
+    </div>
+  `;
+  
+  // クリックで閉じる
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+  
+  return modal;
+}
 
 // 管理者用: API呼び出しパターン分析
 window.analyzeAPIUsagePatterns = function() {
