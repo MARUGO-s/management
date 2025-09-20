@@ -832,44 +832,7 @@
       }
       
       console.log('✅ index.html 初期化完了');
-      
-      // フォーム送信後のアラートチェック
-      const form = document.getElementById('loanForm');
-      if (form) {
-        form.addEventListener('submit', async function(e) {
-          // 元の送信処理を実行
-          // 送信完了後にアラートチェックを実行
-          setTimeout(async () => {
-            await checkAndShowAlerts();
-          }, 2000); // 送信処理完了を待って実行
-        });
-      }
     });
-    
-    // 送信後のアラートチェック関数
-    async function checkAndShowAlerts() {
-      try {
-        console.log('📊 送信後アラートチェック開始');
-        
-        // アラートシステムが初期化されるまで待機
-        if (!window.quotaAlertSystem) {
-          console.log('⏳ アラートシステムの初期化を待機中...');
-          setTimeout(checkAndShowAlerts, 1000);
-          return;
-        }
-        
-        // 現在の使用量を取得
-        const usage = window.quotaAlertSystem.getCurrentUsage();
-        console.log('📊 現在の使用量:', usage);
-        
-        // 手動で閾値チェックを実行
-        await window.quotaAlertSystem.checkQuotaLimits();
-        
-        console.log('✅ アラートチェック完了');
-      } catch (error) {
-        console.error('❌ アラートチェックエラー:', error);
-      }
-    }
   </script>
 </body>
 </html>

@@ -1,9 +1,10 @@
-# 📁 プロジェクト構造（v3.0）
+# 📁 プロジェクト構造（v4.0）
 
-## 🎯 **最終整理済みフォルダ構成（Supabaseベース認証対応）**
+## 🎯 **最終整理済みフォルダ構成（包括的API管理システム対応）**
 
 ```
 management-main-41/
+├── 📄 admin.html                   # 管理画面（v4.0新機能）
 ├── 📄 config.js                    # メイン設定ファイル
 ├── 📄 favicon.ico                  # ファビコン
 ├── 📄 index.html                   # エントリーポイント
@@ -22,9 +23,15 @@ management-main-41/
 │   │   └── icon-512x512.png
 │   ├── 📁 images/                  # 画像ファイル
 │   │   └── finger.png
-│   ├── 📁 js/                      # 共通JavaScript
-│   │   └── main.js
+│   └── 📁 js/                      # 共通JavaScript（削除済み）
 │   └── 📄 site.webmanifest         # PWAマニフェスト
+│
+├── 📁 js/                          # 共通JavaScript（v4.0新構成）
+│   ├── quota-alert-system.js       # API使用量監視システム
+│   ├── simple-auth.js              # Supabaseベース認証
+│   ├── simple-optimization.js      # API最適化システム
+│   ├── unified-data-loader.js      # 統合データローダー
+│   └── usage-indicator.js          # 使用量インジケーター（v4.0新機能）
 │
 ├── 📁 docs/                        # ドキュメント
 │   ├── API_OPTIMIZATION_GUIDE.md   # API最適化ガイド
@@ -60,11 +67,11 @@ management-main-41/
 │   ├── 📁 migrations/              # データベースマイグレーション
 │   │   └── 📄 *_create_password_management.sql
 │   └── 📁 functions/               # Edge Functions
-│       ├── 📁 send-alert-email/    # メール送信機能（無効化済み）
+│       ├── 📁 api-usage-tracker/   # API使用量追跡（v4.0新機能）
 │       │   └── index.ts
-│       ├── 📁 sheets-api/          # Google Sheets API
+│       ├── 📁 password-manager/    # パスワード管理機能（v3.0）
 │       │   └── index.ts
-│       └── 📁 password-manager/    # パスワード管理機能（v3.0新機能）
+│       └── 📁 sheets-api/          # Google Sheets API
 │           └── index.ts
 │
 └── 📄 admin.html                   # 管理者画面
@@ -93,7 +100,7 @@ management-main-41/
 - ローカルストレージ統計管理
 
 #### **4. simple-auth.js**
-- パスワード認証（yoshito4411）
+- パスワード認証（初期値: SystemSecure2409!）
 - セッション管理
 
 ### **📱 アプリケーションページ**
@@ -122,9 +129,10 @@ management-main-41/
 ### **🗄️ バックエンド**
 
 #### **Supabase Edge Functions:**
-1. **sheets-api** - Google Sheets API プロキシ
-2. **password-manager** - パスワード管理・認証（v3.0新機能）
-3. **send-alert-email** - メール送信（無効化済み）
+1. **sheets-api** - Google Sheets API プロキシ（`GOOGLE_API_KEY` シークレットが必要）
+2. **password-manager** - パスワード管理・認証（`SERVICE_ROLE_KEY` シークレットが必要）
+3. **api-usage-tracker** - API使用量の記録・集計
+   - `action: 'record'` が使用量サマリを返すため、追加の `action: 'get'` 呼び出しは不要
 
 ## 📊 **API呼び出し最適化**
 
@@ -135,7 +143,7 @@ management-main-41/
 8回のAPI呼び出し → 2回のAPI呼び出し (75%削減)
 
 データ送信時:
-1回のデータ送信 → 1回のデータ送信 (変更なし)
+2回のAPI呼び出し → 2回のAPI呼び出し (GAS + Supabase記録)
 
 合計削減効果: 66%のAPI使用量削減
 ```
@@ -150,7 +158,7 @@ management-main-41/
    ├─ 店舗リスト抽出
    └─ 検索データ準備
 
-2. データ送信: POST via GAS_URL (送信時のみ)
+2. データ送信: POST via GAS_URL + Supabase `api-usage-tracker` (送信時のみ)
 ```
 
 #### **修正ページ (correction.html):**

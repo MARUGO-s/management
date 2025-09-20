@@ -1,8 +1,8 @@
 # 📊 貸借管理システム 完全ガイド
 
-**最終更新**: 2025年9月18日  
-**バージョン**: 3.0  
-**ステータス**: 本番運用中（Supabaseベース認証システム）
+**最終更新**: 2025年9月19日  
+**バージョン**: 4.0  
+**ステータス**: 本番運用中（包括的API管理システム）
 
 ---
 
@@ -17,6 +17,9 @@
 - 💰 **コスト分析**: 詳細なコスト計算とレポート
 - 🥬 **材料管理**: 在庫・材料データの管理
 - 📈 **CSV出力**: データのエクスポート機能
+- 🎛️ **包括的管理画面**: API監視・設定管理・グラフ表示
+- 📱 **使用量インジケーター**: 全ページ常時監視表示
+- 🚫 **API遮断機能**: 上限値超過時の自動制限
 
 ---
 
@@ -32,13 +35,16 @@
 - **Edge Functions**: Deno/TypeScript
 - **Google Sheets API v4**: データソース
 
-### **セキュリティ**
+### **セキュリティ & 監視**
 - **Supabaseベース認証**: データベース管理の認証システム
 - **自動パスワード変更**: 管理画面からの即座反映
 - **SHA256ハッシュ化**: 平文パスワード保存なし
 - **API キー管理**: Supabase環境変数で安全管理
 - **HTTPS通信**: 全通信の暗号化
-- **累計API使用量監視**: 全デバイス・ブラウザ合算管理
+- **真の累計API使用量監視**: 全デバイス・ブラウザ合算（Supabaseベース）
+- **月次自動リセット**: 正確な月間使用量管理
+- **動的API上限値設定**: 管理画面から柔軟な制限管理
+- **API遮断機能**: 上限値超過時の自動制限
 
 ---
 
@@ -82,8 +88,9 @@ management-main-41/
 └── ☁️ supabase/                    # バックエンド設定
     ├── config.toml                 # Supabase設定
     └── functions/                  # Supabase Edge Functions
-        ├── sheets-api/             # Google Sheets API連携
-        └── password-manager/       # パスワード管理機能
+        ├── sheets-api/             # Google Sheets API連携（`GOOGLE_API_KEY` 必須）
+        ├── password-manager/       # パスワード管理機能（`SERVICE_ROLE_KEY` 必須）
+        └── api-usage-tracker/      # API使用量監視
 ```
 
 ---
@@ -118,21 +125,21 @@ management-main-41/
 
 #### **🏠 システムアクセスパスワード**
 ```
-現在のパスワード: marugo2024
+現在のパスワード: SystemSecure2409! (初期設定)
 用途: 全ユーザーがシステムにアクセスする際のパスワード
 変更方法: 管理画面 → パスワード管理 → システムパスワード変更
 ```
 
 #### **🔧 管理者パスワード**
 ```
-現在のパスワード: yoshito4411
+現在のパスワード: AdminSecure2409! (初期設定)
 用途: 管理画面（admin.html）にアクセスする際のパスワード
 変更方法: 管理画面 → パスワード管理 → 管理者パスワード変更
 ```
 
 ### **変更プロセス**
 ```javascript
-1. 管理画面アクセス（yoshito4411）
+1. 管理画面アクセス（管理者パスワード）
 2. 「🔐 パスワード管理」セクション
 3. 現在のパスワード入力
 4. 新しいパスワード入力（6文字以上）
@@ -213,15 +220,16 @@ Google API無料枠: 3,000回/月
 
 #### **1. 環境設定**
 ```bash
-# Supabaseにログイン
+# Supabaseにログインしてプロジェクトへリンク
 supabase login
+supabase link --project-ref <PROJECT_REF>
 
-# Google APIキーを設定
-supabase secrets set GOOGLE_API_KEY=YOUR_API_KEY
+# シークレットを登録（CLIは SUPABASE_ プレフィックスを拒否）
+supabase secrets set SERVICE_ROLE_KEY="<Service role key>"
+supabase secrets set GOOGLE_API_KEY="<Google API key>"
 
 # Functionsをデプロイ
-supabase functions deploy sheets-api
-supabase functions deploy password-manager
+supabase functions deploy --project-ref <PROJECT_REF>
 ```
 
 #### **2. システム起動**

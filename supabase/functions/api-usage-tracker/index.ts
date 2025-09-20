@@ -6,6 +6,81 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+type UsageCounts = {
+  daily: {
+    total: number
+    api_calls?: number
+    data_submissions?: number
+  }
+  monthly: {
+    total: number
+    api_calls?: number
+    data_submissions?: number
+  }
+  total: {
+    total: number
+    api_calls?: number
+    data_submissions?: number
+  }
+  devices: {
+    count: number
+    details?: any[]
+  }
+  timestamp: string
+}
+
+async function fetchUsageSnapshot(
+  client: ReturnType<typeof createClient>,
+  today: string,
+  currentMonth: string,
+): Promise<UsageCounts> {
+  const { data: usageData, error: usageError } = await client
+    .from('api_usage_stats')
+    .select('*')
+    .in('usage_type', ['daily', 'monthly', 'total'])
+    .in('date_key', [today, currentMonth, 'total'])
+
+  if (usageError) {
+    console.error('使用量取得エラー:', usageError)
+    throw usageError
+  }
+
+  const dailyStats = usageData?.find(row => row.usage_type === 'daily') || { api_calls: 0, data_submissions: 0 }
+  const monthlyStats = usageData?.find(row => row.usage_type === 'monthly') || { api_calls: 0, data_submissions: 0 }
+  const totalStats = usageData?.find(row => row.usage_type === 'total') || { api_calls: 0, data_submissions: 0 }
+
+  const { data: deviceData, error: deviceError } = await client
+    .from('device_usage_stats')
+    .select('device_id, total_api_calls, total_data_submissions, last_access')
+
+  if (deviceError) {
+    console.error('デバイス統計取得エラー:', deviceError)
+  }
+
+  return {
+    daily: {
+      api_calls: dailyStats.api_calls || 0,
+      data_submissions: dailyStats.data_submissions || 0,
+      total: (dailyStats.api_calls || 0) + (dailyStats.data_submissions || 0),
+    },
+    monthly: {
+      api_calls: monthlyStats.api_calls || 0,
+      data_submissions: monthlyStats.data_submissions || 0,
+      total: (monthlyStats.api_calls || 0) + (monthlyStats.data_submissions || 0),
+    },
+    total: {
+      api_calls: totalStats.api_calls || 0,
+      data_submissions: totalStats.data_submissions || 0,
+      total: (totalStats.api_calls || 0) + (totalStats.data_submissions || 0),
+    },
+    devices: {
+      count: deviceData?.length || 0,
+      details: deviceData || [],
+    },
+    timestamp: new Date().toISOString(),
+  }
+}
+
 serve(async (req) => {
   // CORS対応
   if (req.method === 'OPTIONS') {
@@ -13,9 +88,15 @@ serve(async (req) => {
   }
 
   try {
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
+
+    if (!serviceRoleKey) {
+      throw new Error('Service role key is not configured')
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      serviceRoleKey
     )
 
     // リクエストボディを一度だけ読み取り
@@ -91,64 +172,21 @@ serve(async (req) => {
       // 5. デバイス数更新
       await updateDeviceCount(supabaseClient)
 
-      return new Response(JSON.stringify({ 
-        success: true, 
+      const usageSnapshot = await fetchUsageSnapshot(supabaseClient, today, currentMonth)
+
+      return new Response(JSON.stringify({
+        success: true,
         message: 'API使用量を記録しました',
-        timestamp: new Date().toISOString()
+        usage: usageSnapshot,
+        timestamp: usageSnapshot.timestamp,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
 
     } else if (action === 'get') {
-      // 使用量取得
-      const { data: usageData, error: usageError } = await supabaseClient
-        .from('api_usage_stats')
-        .select('*')
-        .in('usage_type', ['daily', 'monthly', 'total'])
-        .in('date_key', [today, currentMonth, 'total'])
+      const usageSnapshot = await fetchUsageSnapshot(supabaseClient, today, currentMonth)
 
-      if (usageError) {
-        console.error('使用量取得エラー:', usageError)
-        throw usageError
-      }
-
-      // デバイス統計取得
-      const { data: deviceData, error: deviceError } = await supabaseClient
-        .from('device_usage_stats')
-        .select('device_id, total_api_calls, total_data_submissions, last_access')
-
-      if (deviceError) {
-        console.error('デバイス統計取得エラー:', deviceError)
-      }
-
-      const dailyStats = usageData.find(row => row.usage_type === 'daily') || { api_calls: 0, data_submissions: 0 }
-      const monthlyStats = usageData.find(row => row.usage_type === 'monthly') || { api_calls: 0, data_submissions: 0 }
-      const totalStats = usageData.find(row => row.usage_type === 'total') || { api_calls: 0, data_submissions: 0 }
-
-      const result = {
-        daily: {
-          api_calls: dailyStats.api_calls || 0,
-          data_submissions: dailyStats.data_submissions || 0,
-          total: (dailyStats.api_calls || 0) + (dailyStats.data_submissions || 0)
-        },
-        monthly: {
-          api_calls: monthlyStats.api_calls || 0,
-          data_submissions: monthlyStats.data_submissions || 0,
-          total: (monthlyStats.api_calls || 0) + (monthlyStats.data_submissions || 0)
-        },
-        total: {
-          api_calls: totalStats.api_calls || 0,
-          data_submissions: totalStats.data_submissions || 0,
-          total: (totalStats.api_calls || 0) + (totalStats.data_submissions || 0)
-        },
-        devices: {
-          count: deviceData?.length || 0,
-          details: deviceData || []
-        },
-        timestamp: new Date().toISOString()
-      }
-
-      return new Response(JSON.stringify(result), {
+      return new Response(JSON.stringify(usageSnapshot), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
 
@@ -438,4 +476,3 @@ async function updateDeviceCount(supabaseClient: any) {
     console.error('デバイス数更新エラー:', updateError)
   }
 }
-

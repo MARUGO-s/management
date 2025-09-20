@@ -498,12 +498,32 @@ window.recordDataSubmission = async function(operation, method, description) {
 
       if (response.ok) {
         const result = await response.json();
+
+        if (result?.usage) {
+          if (window.usageIndicator && typeof window.usageIndicator.updateDisplay === 'function') {
+            window.usageIndicator.updateDisplay(result.usage);
+          }
+
+          if (window.quotaAlertSystem && typeof window.quotaAlertSystem.checkQuotaLimits === 'function') {
+            const usageSummary = {
+              daily: result.usage.daily.total,
+              monthly: result.usage.monthly.total,
+              total: result.usage.total.total,
+              devices: result.usage.devices.count,
+              timestamp: result.usage.timestamp
+            };
+            window.quotaAlertSystem.checkQuotaLimits(usageSummary);
+          }
+        } else {
+          scheduleUsageFallback();
+        }
       } else {
         const errorText = await response.text();
         throw new Error(`Supabase記録エラー: ${response.status} - ${errorText}`);
       }
     } catch (supabaseError) {
       console.warn('⚠️ Supabase記録失敗、ローカルにフォールバック:', supabaseError.message);
+      scheduleUsageFallback();
       
       // フォールバック: ローカルストレージに記録
       const today = new Date().toDateString();
@@ -544,13 +564,18 @@ window.recordDataSubmission = async function(operation, method, description) {
     }
     
     // アラートシステムに通知（存在する場合）
-    if (window.quotaAlertSystem) {
-      window.quotaAlertSystem.checkQuotaLimits();
-    }
   } catch (error) {
     console.warn('データ送信記録エラー:', error);
   }
 };
+
+function scheduleUsageFallback() {
+  if (window.quotaAlertSystem && typeof window.quotaAlertSystem.checkQuotaLimits === 'function') {
+    setTimeout(() => {
+      window.quotaAlertSystem.checkQuotaLimits();
+    }, 1000);
+  }
+}
 
 // 管理者用: 累計API使用量表示（Supabaseベース）
 window.showCumulativeAPIUsage = async function() {

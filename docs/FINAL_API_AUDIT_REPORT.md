@@ -37,8 +37,9 @@
 ##### **データ送信時**:
 ```javascript
 📤 データ送信
-└─ fetch(GAS_URL, POST) ✅ 1回のみ
-   └─ recordDataSubmission() でカウント
+├─ fetch(GAS_URL, POST) ✅ 行ごとに1回
+└─ fetch(api-usage-tracker, POST { action: 'record' }) ✅ バッチで1回
+   └─ レスポンスの使用量サマリでインジケーター・警告を即時更新
 ```
 
 ##### **検索機能使用時**:
@@ -86,7 +87,7 @@
 #### **通常の使用パターン**:
 ```
 1. メインページ読み込み: 1回 (貸借表!A:K)
-2. データ送信: 1回 (GAS_URL POST)
+2. データ送信: 2回 (GAS_URL POST + api-usage-tracker record)
 3. 原価ページ使用時: 1回 (原価リスト!B:L)
 4. 食材ページ使用時: 1回 (食材コスト!A:AI)
 

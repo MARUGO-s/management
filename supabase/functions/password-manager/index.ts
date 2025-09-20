@@ -18,9 +18,15 @@ serve(async (req) => {
     const { action, passwordType, currentPassword, newPassword } = await req.json()
     
     // Supabaseクライアントを初期化
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
+
+    if (!serviceRoleKey) {
+      throw new Error('Service role key is not configured')
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      serviceRoleKey
     )
     
     // SHA256ハッシュ生成関数
@@ -54,12 +60,7 @@ serve(async (req) => {
         const storedHash = passwordData.password_hash
         const isValid = inputHash === storedHash
         
-        console.log(`🔍 パスワード検証詳細:`)
-        console.log(`  タイプ: ${passwordType}`)
-        console.log(`  入力値: "${currentPassword}"`)
-        console.log(`  入力ハッシュ: ${inputHash}`)
-        console.log(`  保存ハッシュ: ${storedHash}`)
-        console.log(`  検証結果: ${isValid}`)
+        console.log(`🔍 パスワード検証: type=${passwordType}, match=${isValid}`)
         
         return new Response(JSON.stringify({
           success: true,

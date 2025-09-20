@@ -173,10 +173,31 @@ class QuotaAlertSystem {
     }
 
     // クォータ制限のチェック
-    async checkQuotaLimits() {
-        const usage = await this.getCurrentUsage();
-        
-        // 月次制限チェック（累計ベース）のみ
+    async checkQuotaLimits(usageOverride = null) {
+        let usage = usageOverride;
+
+        if (!usage) {
+            usage = await this.getCurrentUsage();
+        }
+
+        if (!usage) {
+            return;
+        }
+
+        if (typeof usage.dailyPercentage === 'undefined') {
+            usage.dailyPercentage = this.DAILY_LIMIT > 0
+                ? Math.round((usage.daily / this.DAILY_LIMIT) * 100)
+                : 0;
+        }
+
+        if (typeof usage.monthlyPercentage === 'undefined') {
+            usage.monthlyPercentage = this.MONTHLY_LIMIT > 0
+                ? Math.round((usage.monthly / this.MONTHLY_LIMIT) * 100)
+                : 0;
+        }
+
+        usage.timestamp = usage.timestamp || new Date().toISOString();
+
         await this.checkMonthlyLimitByCount(usage);
     }
 
