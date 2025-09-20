@@ -501,7 +501,9 @@ window.recordDataSubmission = async function(operation, method, description) {
 
         if (result?.usage) {
           if (window.usageIndicator && typeof window.usageIndicator.updateDisplay === 'function') {
-            window.usageIndicator.updateDisplay(result.usage);
+            window.usageIndicator.updateDisplay(result.usage).catch(error => {
+              console.warn('使用量インジケーターの更新に失敗しました:', error);
+            });
           }
 
           if (window.quotaAlertSystem && typeof window.quotaAlertSystem.checkQuotaLimits === 'function') {

@@ -311,6 +311,225 @@
             gap: 10px;
         }
 
+        .card-subtitle {
+            font-size: 0.95rem;
+            color: rgba(31, 42, 61, 0.6);
+            margin: -8px 0 18px 0;
+        }
+
+        .access-log-list {
+            max-height: 320px;
+            overflow-y: auto;
+            display: grid;
+            gap: 12px;
+            padding-right: 6px;
+        }
+
+        .access-log-item {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            border: 1px solid rgba(28, 36, 52, 0.08);
+            padding: 14px 16px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .access-log-item.alert {
+            border-color: rgba(214, 69, 65, 0.32);
+            box-shadow: 0 6px 20px rgba(214, 69, 65, 0.18);
+            background: rgba(255, 247, 244, 0.95);
+        }
+
+        .access-log-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: rgba(31, 42, 61, 0.6);
+            gap: 12px;
+        }
+
+        .access-log-event {
+            font-weight: 600;
+            color: #3c6ee8;
+        }
+
+        .access-log-time {
+            font-family: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
+        }
+
+        .access-log-description {
+            font-size: 0.95rem;
+            color: #1f2a3d;
+        }
+
+        .access-log-device {
+            font-size: 0.8rem;
+            color: rgba(31, 42, 61, 0.55);
+        }
+
+        .access-log-stats {
+            font-size: 0.8rem;
+            color: rgba(31, 42, 61, 0.55);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 12px;
+        }
+
+        .access-log-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            background: rgba(148, 163, 184, 0.15);
+            color: rgba(71, 85, 105, 0.9);
+        }
+
+        .access-log-status.pending {
+            background: rgba(246, 185, 59, 0.18);
+            color: #b76100;
+        }
+
+        .access-log-status.resolved {
+            background: rgba(34, 193, 165, 0.18);
+            color: #1f6f5a;
+        }
+
+        .access-log-status.normal {
+            background: rgba(148, 163, 184, 0.12);
+            color: rgba(71, 85, 105, 0.9);
+        }
+
+        .access-log-actions {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .access-log-action {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            background: rgba(60, 110, 232, 0.12);
+            color: #3c6ee8;
+        }
+
+        .access-log-action:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(60, 110, 232, 0.15);
+        }
+
+        .access-log-action.danger {
+            background: rgba(214, 69, 65, 0.15);
+            color: #a8322f;
+        }
+
+        .access-log-action.primary {
+            background: rgba(43, 182, 122, 0.18);
+            color: #1f6f5a;
+        }
+
+        .access-log-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .system-alert-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(14, 20, 36, 0.55);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20000;
+            padding: 24px;
+        }
+
+        .system-alert-modal {
+            background: rgba(244, 247, 254, 0.96);
+            border-radius: 18px;
+            padding: clamp(28px, 5vw, 36px);
+            width: min(480px, 100%);
+            box-shadow: 0 24px 48px rgba(14, 20, 36, 0.3);
+            border: 1px solid rgba(60, 110, 232, 0.18);
+            display: grid;
+            gap: 18px;
+        }
+
+        .system-alert-modal h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #d64541;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .system-alert-modal p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: rgba(31, 42, 61, 0.75);
+            line-height: 1.6;
+        }
+
+        .system-alert-modal button {
+            justify-self: end;
+            background: linear-gradient(120deg, #3c6ee8, #44bbaa);
+            color: #fff;
+            border: none;
+            border-radius: 999px;
+            padding: 10px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 12px 24px rgba(60, 110, 232, 0.25);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .system-alert-modal button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 28px rgba(60, 110, 232, 0.28);
+        }
+
+        .access-log-placeholder {
+            text-align: center;
+            color: rgba(31, 42, 61, 0.55);
+            padding: 18px 12px;
+            border: 1px dashed rgba(60, 110, 232, 0.25);
+            border-radius: 12px;
+        }
+
+        .access-log-warning {
+            background: rgba(214, 69, 65, 0.12);
+            border: 1px solid rgba(214, 69, 65, 0.3);
+            color: #7c1f1c;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .access-log-footer {
+            margin-top: 18px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .access-log-footer .btn {
+            margin: 0;
+        }
+
         .usage-display {
             font-size: 2rem;
             font-weight: 700;
@@ -543,6 +762,7 @@
             </div>
             <nav class="nav-section">
                 <a class="nav-link" href="#card-usage">📊 使用量サマリ</a>
+                <a class="nav-link" href="#card-access">🛂 アクセス履歴</a>
                 <a class="nav-link" href="#card-limit">⚙️ 上限設定</a>
                 <a class="nav-link" href="#card-indicator">🎨 インジケーター</a>
                 <a class="nav-link" href="#card-alerts">🚨 アラート設定</a>
@@ -613,6 +833,22 @@
                     margin-top: 20px;
                 ">
                     <div style="color: rgba(31, 42, 61, 0.55);">読み込み中...</div>
+                </div>
+            </div>
+
+            <!-- アクセス履歴 -->
+            <div class="dashboard-card" id="card-access">
+                <h3 class="card-title">🛂 アクセス履歴</h3>
+                <p class="card-subtitle">最新50件をSupabaseに保存し、自動で古い履歴を整理します。</p>
+                <div class="access-log-warning" id="access-log-warning">
+                    ⚠️ 短時間に大量のAPI呼び出しが検知されました。管理者へ連絡して状況を確認してください。
+                </div>
+                <div class="access-log-list" id="access-log-list">
+                    <div class="access-log-placeholder">読み込み中...</div>
+                </div>
+                <div class="access-log-footer">
+                    <button class="btn secondary" type="button" onclick="loadAccessLogs(true)">🔄 履歴を更新</button>
+                    <button class="btn" type="button" onclick="exportAccessLogsCSV()">⬇️ CSVダウンロード</button>
                 </div>
             </div>
 
@@ -961,8 +1197,21 @@
                     
                     if (result.success && result.isValid) {
                         this.setAuthenticated();
-                        errorDiv.style.display = 'none';
-                        this.showAdminPanel();
+
+                        const baseline = await fetchTotalApiInteractions();
+                        if (typeof baseline === 'number') {
+                            setApiBaseline(baseline);
+                        }
+
+                        await recordAdminAccess('admin_login', '管理者パスワード認証に成功', 0);
+                        if (errorDiv) {
+                            errorDiv.style.display = 'none';
+                        }
+                        const passwordInputEl = document.getElementById('admin-password');
+                        if (passwordInputEl) {
+                            passwordInputEl.value = '';
+                        }
+                        this.showAdminPanel(true);
                         console.log('✅ 管理者認証成功（Supabase）');
                     } else {
                         errorDiv.style.display = 'block';
@@ -1015,10 +1264,14 @@
                 }, 300);
             }
 
-            showAdminPanel() {
+            showAdminPanel(skipAccessRecord = false) {
                 document.getElementById('admin-auth-screen').style.display = 'none';
                 document.getElementById('admin-main').style.display = 'grid';
-                
+
+                prepareAccessLogRecord(skipAccessRecord).catch(error => {
+                    console.warn('アクセス履歴準備エラー:', error);
+                });
+
                 // 管理画面の初期化
                 setTimeout(() => {
                     initializeAdminPanel();
@@ -1027,7 +1280,568 @@
 
             logout() {
                 localStorage.removeItem(this.SESSION_KEY);
+                if (window._accessLogRefresh) {
+                    clearInterval(window._accessLogRefresh);
+                    window._accessLogRefresh = null;
+                }
+                clearApiBaseline();
                 this.showAuthScreen();
+            }
+        }
+
+        const ACCESS_EVENT_LABELS = {
+            admin_login: '🟢 管理者ログイン',
+            admin_session: '📘 セッション再開',
+            admin_logout: '🚪 ログアウト'
+        };
+        const ACCESS_LOG_BASELINE_KEY = 'adminSessionApiBaseline';
+
+        function loadStoredApiBaseline() {
+            if (typeof sessionStorage === 'undefined') return;
+            try {
+                const stored = sessionStorage.getItem(ACCESS_LOG_BASELINE_KEY);
+                if (stored !== null) {
+                    const parsed = Number(stored);
+                    if (Number.isFinite(parsed)) {
+                        window._adminSessionApiBaseline = parsed;
+                    }
+                }
+            } catch (error) {
+                console.warn('アクセスログ基準値の読み込みエラー:', error);
+            }
+        }
+
+        function setApiBaseline(value) {
+            if (typeof value !== 'number' || !Number.isFinite(value)) return;
+            const normalized = Math.max(0, Math.round(value));
+            window._adminSessionApiBaseline = normalized;
+            if (typeof sessionStorage === 'undefined') return;
+            try {
+                sessionStorage.setItem(ACCESS_LOG_BASELINE_KEY, String(normalized));
+            } catch (error) {
+                console.warn('アクセスログ基準値の保存エラー:', error);
+            }
+        }
+
+        function clearApiBaseline() {
+            window._adminSessionApiBaseline = null;
+            if (typeof sessionStorage === 'undefined') return;
+            try {
+                sessionStorage.removeItem(ACCESS_LOG_BASELINE_KEY);
+            } catch (error) {
+                console.warn('アクセスログ基準値の削除エラー:', error);
+            }
+        }
+
+        loadStoredApiBaseline();
+
+        async function fetchTotalApiInteractions() {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({ action: 'get' })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const stats = await response.json();
+                const total = stats?.total?.total;
+
+                if (typeof total === 'number' && Number.isFinite(total)) {
+                    return total;
+                }
+
+                if (typeof total === 'string') {
+                    const parsed = Number(total);
+                    if (Number.isFinite(parsed)) {
+                        return parsed;
+                    }
+                }
+
+                return null;
+            } catch (error) {
+                console.warn('アクセスログ用API使用量取得エラー:', error);
+                return null;
+            }
+        }
+
+        async function ensureApiBaseline() {
+            if (typeof window._adminSessionApiBaseline === 'number' && Number.isFinite(window._adminSessionApiBaseline)) {
+                return window._adminSessionApiBaseline;
+            }
+
+            loadStoredApiBaseline();
+
+            if (typeof window._adminSessionApiBaseline === 'number' && Number.isFinite(window._adminSessionApiBaseline)) {
+                return window._adminSessionApiBaseline;
+            }
+
+            const fetched = await fetchTotalApiInteractions();
+            if (typeof fetched === 'number') {
+                setApiBaseline(fetched);
+                return fetched;
+            }
+
+            return null;
+        }
+
+        async function calculateSessionApiDelta() {
+            const baseline = await ensureApiBaseline();
+            if (typeof baseline !== 'number') {
+                return 0;
+            }
+
+            const current = await fetchTotalApiInteractions();
+            if (typeof current === 'number') {
+                const diff = current - baseline;
+                return diff > 0 ? Math.round(diff) : 0;
+            }
+
+            return 0;
+        }
+
+        function escapeHtml(value) {
+            if (value === null || value === undefined) {
+                return '';
+            }
+            const stringValue = typeof value === 'string' ? value : String(value);
+            const replacements = {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                "\"": "&quot;",
+                "'": "&#39;"
+            };
+            return stringValue.replace(/[&<>"']/g, (char) => replacements[char] || char);
+        }
+
+        function formatAccessDeviceInfo(info) {
+            if (!info || typeof info !== 'object') {
+                return 'クライアント情報なし';
+            }
+            const segments = [];
+            if (info.platform) segments.push(info.platform);
+            if (info.timezone) segments.push(info.timezone);
+            if (info.screen) segments.push(`画面 ${info.screen}`);
+            if (info.language) segments.push(info.language);
+            return segments.join(' ・ ') || 'クライアント情報なし';
+        }
+
+        function getAccessDeviceInfo() {
+            try {
+                const timezone = Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone;
+                const screenInfo = window.screen ? `${window.screen.width}x${window.screen.height}` : undefined;
+                return {
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    platform: navigator.platform,
+                    timezone,
+                    screen: screenInfo
+                };
+            } catch (_error) {
+                return {};
+            }
+        }
+
+        function renderAccessLogs(logs) {
+            const container = document.getElementById('access-log-list');
+            const warningBox = document.getElementById('access-log-warning');
+            if (!container) return;
+
+            const logList = Array.isArray(logs) ? logs : [];
+            window._accessLogCache = logList.slice();
+
+            if (logList.length === 0) {
+                container.innerHTML = '<div class="access-log-placeholder">📭 アクセス履歴はまだありません</div>';
+                if (warningBox) warningBox.style.display = 'none';
+                updatePendingAlertState([]);
+                return;
+            }
+
+            let hasHighUsage = false;
+            const pendingAlerts = [];
+
+            const rows = logList.map((log) => {
+                const apiCount = typeof log.api_call_count === 'number' ? log.api_call_count : Number(log.api_call_count || 0);
+                const isAlert = !!log.alert_flag;
+                const isAcknowledged = !!log.acknowledged;
+                const isActiveAlert = isAlert && !isAcknowledged;
+                if (isActiveAlert) {
+                    hasHighUsage = true;
+                    pendingAlerts.push(log);
+                }
+
+                const label = ACCESS_EVENT_LABELS[log.event_type] || log.event_type;
+                const timestamp = log.created_at ? new Date(log.created_at).toLocaleString('ja-JP') : '日時不明';
+                const description = log.description ? escapeHtml(log.description) : '詳細情報なし';
+                const actorName = log.actor ? escapeHtml(log.actor) : '管理者';
+                const deviceInfo = escapeHtml(formatAccessDeviceInfo(log.device_info));
+
+                const statusClass = isAlert ? (isAcknowledged ? 'resolved' : 'pending') : 'normal';
+                const statusIcon = isAlert ? (isAcknowledged ? '✅' : '⚠️') : 'ℹ️';
+                let statusText = isAlert ? (isAcknowledged ? '確認済み' : '未確認') : '通常';
+                if (isAcknowledged && log.acknowledged_at) {
+                    const ackTime = new Date(log.acknowledged_at).toLocaleString('ja-JP');
+                    statusText += ` (${ackTime})`;
+                }
+                if (isAcknowledged && log.acknowledged_by) {
+                    statusText += ` / ${escapeHtml(log.acknowledged_by)}`;
+                }
+
+                const actions = [];
+
+                if (isAlert) {
+                    actions.push(`<button class="access-log-action ${isAcknowledged ? '' : 'primary'}" data-id="${log.id}" data-action="${isAcknowledged ? 'unack' : 'ack'}">${isAcknowledged ? '未確認に戻す' : '確認済みにする'}</button>`);
+                }
+
+                const deleteDisabled = isAlert && !isAcknowledged;
+                actions.push(`<button class="access-log-action danger" data-id="${log.id}" data-action="delete" ${deleteDisabled ? 'disabled title=\"確認後に削除できます\"' : ''}>🗑️ 削除</button>`);
+
+                return `
+                    <div class="access-log-item${isActiveAlert ? ' alert' : ''}" data-log-id="${log.id}">
+                        <div class="access-log-meta">
+                            <span class="access-log-event">${escapeHtml(label)}</span>
+                            <span class="access-log-time">${escapeHtml(timestamp)}</span>
+                        </div>
+                        <div class="access-log-description">${description}</div>
+                        <div class="access-log-stats">
+                            <span class="access-log-status ${statusClass}">${statusIcon} ${statusText}</span>
+                            <span>👤 ${actorName}</span>
+                            <span>🖥️ ${deviceInfo}</span>
+                            <span>🔁 API ${apiCount}回</span>
+                        </div>
+                        <div class="access-log-actions">${actions.join('')}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = rows.join('');
+
+            if (warningBox) {
+                warningBox.style.display = hasHighUsage ? 'block' : 'none';
+            }
+
+            updatePendingAlertState(pendingAlerts);
+            setupAccessLogActionHandlers();
+        }
+
+        function updatePendingAlertState(pendingAlerts) {
+            const pendingIds = pendingAlerts.map(log => log.id).sort((a, b) => a - b).join(',');
+            window._pendingAlertSnapshot = pendingIds;
+            window._pendingAlertCount = pendingAlerts.length;
+            checkAndShowSystemAlert();
+        }
+
+        function checkAndShowSystemAlert(force = false) {
+            const overlay = document.getElementById('system-alert-overlay');
+            const messageEl = document.getElementById('system-alert-message');
+            const confirmBtn = document.getElementById('system-alert-confirm');
+            if (!overlay || !messageEl || !confirmBtn) return;
+
+            const pendingCount = window._pendingAlertCount || 0;
+            if (pendingCount === 0) {
+                overlay.style.display = 'none';
+                return;
+            }
+
+            const snapshot = window._pendingAlertSnapshot || '';
+            const storageKey = 'adminPendingAlertsShown';
+            let alreadyShown = false;
+            try {
+                const stored = sessionStorage.getItem(storageKey);
+                alreadyShown = stored === snapshot;
+            } catch (error) {
+                console.warn('アラート表示状態の取得エラー:', error);
+            }
+
+            if (!force && alreadyShown) {
+                return;
+            }
+
+            messageEl.innerHTML = `⚠️ 大量のAPI呼び出しが ${pendingCount} 件確認されました。<br>アクセス履歴を確認し、必要に応じて「確認済みにする」を押してください。`;
+            overlay.style.display = 'flex';
+
+            confirmBtn.onclick = () => {
+                overlay.style.display = 'none';
+                try {
+                    sessionStorage.setItem(storageKey, snapshot);
+                } catch (error) {
+                    console.warn('アラート表示状態の保存エラー:', error);
+                }
+            };
+        }
+
+
+
+        function setupAccessLogActionHandlers() {
+            const container = document.getElementById('access-log-list');
+            if (!container || container.dataset.bound === 'true') return;
+
+            container.addEventListener('click', async (event) => {
+                const target = event.target;
+                if (!(target instanceof HTMLElement)) return;
+                const button = target.closest('.access-log-action');
+                if (!button || !(button instanceof HTMLButtonElement) || button.disabled) return;
+
+                const logId = Number(button.dataset.id);
+                if (!Number.isFinite(logId) || logId <= 0) return;
+
+                const action = button.dataset.action;
+                if (action === 'ack') {
+                    await updateAccessLogAcknowledgement(logId, true);
+                } else if (action === 'unack') {
+                    await updateAccessLogAcknowledgement(logId, false);
+                } else if (action === 'delete') {
+                    await deleteAccessLog(logId);
+                }
+            });
+
+            container.dataset.bound = 'true';
+        }
+
+        async function updateAccessLogAcknowledgement(logId, acknowledged) {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'acknowledge',
+                        logId,
+                        acknowledged,
+                        updatedBy: 'admin_panel'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'アクセス履歴の更新に失敗しました');
+                }
+
+                renderAccessLogs(result.logs);
+
+                if (acknowledged) {
+                    alert('⚠️ 対象の履歴を確認済みにしました。');
+                } else {
+                    alert('対象の履歴を未確認に戻しました。');
+                }
+            } catch (error) {
+                console.error('アクセス履歴確認エラー:', error);
+                alert(`❌ 履歴の更新に失敗しました
+${error.message || ''}`);
+            }
+        }
+
+        async function deleteAccessLog(logId) {
+            if (!confirm('選択したアクセス履歴を削除しますか？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'delete',
+                        logId,
+                        updatedBy: 'admin_panel'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'アクセス履歴の削除に失敗しました');
+                }
+
+                renderAccessLogs(result.logs);
+                alert('🗑️ 履歴を削除しました。');
+            } catch (error) {
+                console.error('アクセス履歴削除エラー:', error);
+                alert(`❌ 履歴の削除に失敗しました
+${error.message || ''}`);
+            }
+        }
+
+
+        async function exportAccessLogsCSV() {
+            try {
+                let logs = Array.isArray(window._accessLogCache) ? window._accessLogCache : [];
+
+                if (!logs.length) {
+                    await loadAccessLogs(true);
+                    logs = Array.isArray(window._accessLogCache) ? window._accessLogCache : [];
+                    if (!logs.length) {
+                        alert('CSVに出力できる履歴がありません');
+                        return;
+                    }
+                }
+
+                const headers = [
+                    'ID',
+                    '日時',
+                    'イベント種別',
+                    '実行者',
+                    '説明',
+                    'API回数',
+                    'アラート',
+                    '確認済み',
+                    '確認日時',
+                    '確認者',
+                    '端末情報'
+                ];
+
+                const escapeCsv = (value) => {
+                    if (value === null || value === undefined) return '';
+                    const str = typeof value === 'string' ? value : String(value);
+                    return '"' + str.replace(/"/g, '""') + '"';
+                };
+
+                const rows = logs.map((log) => {
+                    const deviceInfo = log.device_info ? JSON.stringify(log.device_info) : '';
+                    return [
+                        log.id,
+                        log.created_at ? new Date(log.created_at).toLocaleString('ja-JP') : '',
+                        log.event_type || '',
+                        log.actor || '',
+                        log.description || '',
+                        typeof log.api_call_count === 'number' ? log.api_call_count : '',
+                        log.alert_flag ? 'TRUE' : 'FALSE',
+                        log.acknowledged ? 'TRUE' : 'FALSE',
+                        log.acknowledged_at ? new Date(log.acknowledged_at).toLocaleString('ja-JP') : '',
+                        log.acknowledged_by || '',
+                        deviceInfo
+                    ].map(escapeCsv).join(',');
+                });
+
+                const csvContent = [headers.join(','), ...rows].join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const timestamp = new Date().toISOString().replace(/[:T]/g, '-').split('.')[0];
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `access-logs-${timestamp}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('アクセス履歴CSV出力エラー:', error);
+                alert(`❌ CSVの生成に失敗しました\n${error.message || ''}`);
+            }
+        }
+
+        async function loadAccessLogs(showLoading = false) {
+            const container = document.getElementById('access-log-list');
+            if (!container) return;
+
+            if (showLoading) {
+                container.innerHTML = '<div class="access-log-placeholder">🔄 履歴を更新中...</div>';
+            }
+
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({ action: 'list' })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'アクセス履歴の取得に失敗しました');
+                }
+
+                renderAccessLogs(result.logs);
+            } catch (error) {
+                console.error('アクセス履歴取得エラー:', error);
+                container.innerHTML = '<div class="access-log-placeholder">❌ 履歴の取得に失敗しました</div>';
+            }
+        }
+
+        async function recordAdminAccess(eventType, description, apiCallCount = 0, options = {}) {
+            try {
+                const normalizedCount = typeof apiCallCount === 'number' && Number.isFinite(apiCallCount)
+                    ? Math.max(0, Math.round(apiCallCount))
+                    : 0;
+
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'record',
+                        eventType,
+                        actor: 'admin',
+                        description,
+                        deviceInfo: getAccessDeviceInfo(),
+                        apiCallCount: normalizedCount,
+                        updatedBy: 'admin_panel'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'アクセス履歴の記録に失敗しました');
+                }
+
+                renderAccessLogs(result.logs);
+
+                if (options.showWarning && normalizedCount >= 30 && typeof alert === 'function') {
+                    alert('⚠️ 短時間に30回以上のAPI呼び出しが行われました。管理者に連絡して状況を確認してください。');
+                }
+
+                return true;
+            } catch (error) {
+                console.warn('アクセス履歴記録エラー:', error);
+                return false;
+            }
+        }
+
+        async function prepareAccessLogRecord(skipAccessRecord) {
+            await ensureApiBaseline();
+
+            if (!skipAccessRecord) {
+                const recorded = await recordAdminAccess('admin_session', '既存セッションで管理画面を表示', 0);
+                if (!recorded) {
+                    await loadAccessLogs();
+                }
+            } else {
+                await loadAccessLogs();
+            }
+
+            if (typeof checkAndShowSystemAlert === 'function') {
+                checkAndShowSystemAlert(true);
             }
         }
 
@@ -1356,14 +2170,23 @@
                 loadSimpleUsageDisplay();
                 refreshUsageData(); // API使用量監視セクションの更新
                 loadMonthlyChart(); // 月次グラフも初期読み込み
-                loadIndicatorSettings(); // インジケーター設定読み込み
+                loadIndicatorSettings().catch(error => {
+                    console.warn('インジケーター設定の読み込みに失敗しました:', error);
+                }); // インジケーター設定読み込み
                 loadAPILimitSettings(); // API上限値設定読み込み
+                loadAccessLogs(); // アクセス履歴の初期読み込み
                 
                 // リアルタイム更新（30秒ごと）
                 setInterval(() => {
                     loadSimpleUsageDisplay();
                     refreshUsageData(); // API使用量監視も定期更新
                 }, 30000);
+
+                if (!window._accessLogRefresh) {
+                    window._accessLogRefresh = setInterval(() => {
+                        loadAccessLogs();
+                    }, 60000);
+                }
             }, 2000); // 2秒待機してからスタート
         }
 
@@ -1947,8 +2770,16 @@
         }
 
         // 管理者ログアウト
-        function adminLogout() {
+        async function adminLogout() {
             if (confirm('管理者画面からログアウトしますか？')) {
+                const apiDelta = await calculateSessionApiDelta();
+                const description = apiDelta >= 30
+                    ? '⚠️ 短時間に30回以上のAPI呼び出しがありました。管理者に連絡してください。'
+                    : '管理画面からログアウトしました';
+                const recorded = await recordAdminAccess('admin_logout', description, apiDelta, { showWarning: apiDelta >= 30 });
+                if (!recorded) {
+                    await loadAccessLogs();
+                }
                 window.adminAuth.logout();
             }
         }
@@ -2050,14 +2881,64 @@
         `;
         document.head.appendChild(style);
 
-        // 使用量インジケーター設定管理
-        function saveIndicatorSettings() {
-            try {
-                const orangeThreshold = parseInt(document.getElementById('orange-threshold').value) || 900;
-                const yellowThreshold = parseInt(document.getElementById('yellow-threshold').value) || 1500;
-                const redThreshold = parseInt(document.getElementById('red-threshold').value) || 2400;
+        window._accessLogCache = [];
 
-                // 値の妥当性チェック
+        // 使用量インジケーター設定管理
+        const DEFAULT_INDICATOR_SETTINGS = { orange: 900, yellow: 1500, red: 2400 };
+
+        function persistIndicatorSettings(settings) {
+            try {
+                localStorage.setItem('indicatorColorSettings', JSON.stringify({
+                    ...settings,
+                    updated: new Date().toISOString()
+                }));
+            } catch (error) {
+                console.warn('インジケーター設定のローカル保存エラー:', error);
+            }
+        }
+
+        function applyIndicatorSettingsToUI(settings) {
+            document.getElementById('orange-threshold').value = settings.orange;
+            document.getElementById('yellow-threshold').value = settings.yellow;
+            document.getElementById('red-threshold').value = settings.red;
+            updateIndicatorPreview(settings);
+
+            if (window.usageIndicator && typeof window.usageIndicator.applyColorSettings === 'function') {
+                window.usageIndicator.applyColorSettings(settings, true);
+                if (typeof window.usageIndicator.latestMonthlyValue === 'number') {
+                    const indicatorEl = document.getElementById('usage-indicator');
+                    if (indicatorEl) {
+                        window.usageIndicator.updateIndicatorColor(indicatorEl, window.usageIndicator.latestMonthlyValue, settings);
+                    }
+                }
+            }
+        }
+
+        function getStoredIndicatorSettings() {
+            try {
+                const saved = localStorage.getItem('indicatorColorSettings');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && typeof parsed.orange === 'number' && typeof parsed.yellow === 'number' && typeof parsed.red === 'number') {
+                        return {
+                            orange: parsed.orange,
+                            yellow: parsed.yellow,
+                            red: parsed.red
+                        };
+                    }
+                }
+            } catch (error) {
+                console.warn('インジケーター設定の読み込みエラー:', error);
+            }
+            return { ...DEFAULT_INDICATOR_SETTINGS };
+        }
+
+        async function saveIndicatorSettings() {
+            try {
+                const orangeThreshold = parseInt(document.getElementById('orange-threshold').value, 10) || DEFAULT_INDICATOR_SETTINGS.orange;
+                const yellowThreshold = parseInt(document.getElementById('yellow-threshold').value, 10) || DEFAULT_INDICATOR_SETTINGS.yellow;
+                const redThreshold = parseInt(document.getElementById('red-threshold').value, 10) || DEFAULT_INDICATOR_SETTINGS.red;
+
                 if (orangeThreshold >= yellowThreshold || yellowThreshold >= redThreshold) {
                     alert('⚠️ 閾値は 緑色 < 黄色 < 赤色 の順序で設定してください');
                     return;
@@ -2066,60 +2947,117 @@
                 const settings = {
                     orange: orangeThreshold,
                     yellow: yellowThreshold,
-                    red: redThreshold,
-                    updated: new Date().toISOString()
+                    red: redThreshold
                 };
 
-                localStorage.setItem('indicatorColorSettings', JSON.stringify(settings));
-                
-                // プレビュー更新
-                updateIndicatorPreview(settings);
-                
-                alert('✅ 使用量インジケーターの色設定を保存しました\\n\\n設定は全ページのインジケーターに即座に反映されます。');
-                
-            } catch (error) {
-                console.error('設定保存エラー:', error);
-                alert('❌ 設定の保存に失敗しました');
-            }
-        }
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'save',
+                        settings,
+                        updatedBy: 'admin_panel'
+                    })
+                });
 
-        function loadIndicatorSettings() {
-            try {
-                const saved = localStorage.getItem('indicatorColorSettings');
-                let settings;
-                
-                if (saved) {
-                    settings = JSON.parse(saved);
-                } else {
-                    // デフォルト設定
-                    settings = { orange: 900, yellow: 1500, red: 2400 };
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
                 }
 
-                document.getElementById('orange-threshold').value = settings.orange;
-                document.getElementById('yellow-threshold').value = settings.yellow;
-                document.getElementById('red-threshold').value = settings.red;
-                
-                updateIndicatorPreview(settings);
-                
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'インジケーター設定の保存に失敗しました');
+                }
+
+                const savedSettings = result.settings || settings;
+                persistIndicatorSettings(savedSettings);
+                applyIndicatorSettingsToUI(savedSettings);
+
+                alert('✅ 使用量インジケーターの色設定を保存しました\n\n設定は全ページのインジケーターに即座に反映されます。');
+
             } catch (error) {
-                console.error('設定読み込みエラー:', error);
-                resetIndicatorSettings();
+                console.error('設定保存エラー:', error);
+                alert(`❌ 設定の保存に失敗しました\n${error.message || ''}`);
             }
         }
 
-        function resetIndicatorSettings() {
-            const defaultSettings = { orange: 900, yellow: 1500, red: 2400 };
-            
-            document.getElementById('orange-threshold').value = defaultSettings.orange;
-            document.getElementById('yellow-threshold').value = defaultSettings.yellow;
-            document.getElementById('red-threshold').value = defaultSettings.red;
-            
-            updateIndicatorPreview(defaultSettings);
-            
-            // ローカルストレージからも削除
-            localStorage.removeItem('indicatorColorSettings');
-            
-            alert('🔄 デフォルト設定に戻しました');
+        async function loadIndicatorSettings(showAlertOnFailure = false) {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({ action: 'get' })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'インジケーター設定の取得に失敗しました');
+                }
+
+                const settings = result.settings || { ...DEFAULT_INDICATOR_SETTINGS };
+                persistIndicatorSettings(settings);
+                applyIndicatorSettingsToUI(settings);
+
+            } catch (error) {
+                console.warn('設定読み込みエラー:', error);
+                if (showAlertOnFailure) {
+                    alert('⚠️ インジケーター設定の取得に失敗しました。ローカル設定を使用します。');
+                }
+
+                const fallbackSettings = getStoredIndicatorSettings();
+                persistIndicatorSettings(fallbackSettings);
+                applyIndicatorSettingsToUI(fallbackSettings);
+            }
+        }
+
+        async function resetIndicatorSettings() {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'reset',
+                        updatedBy: 'admin_panel'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'インジケーター設定のリセットに失敗しました');
+                }
+
+                const settings = result.settings || { ...DEFAULT_INDICATOR_SETTINGS };
+                localStorage.removeItem('indicatorColorSettings');
+                persistIndicatorSettings(settings);
+                applyIndicatorSettingsToUI(settings);
+
+                alert('🔄 デフォルト設定に戻しました');
+
+            } catch (error) {
+                console.error('設定リセットエラー:', error);
+                localStorage.removeItem('indicatorColorSettings');
+                const fallbackSettings = { ...DEFAULT_INDICATOR_SETTINGS };
+                persistIndicatorSettings(fallbackSettings);
+                applyIndicatorSettingsToUI(fallbackSettings);
+                alert('⚠️ Supabaseへのリセットに失敗しました。ローカルでデフォルト値に戻しました。');
+            }
         }
 
         function updateIndicatorPreview(settings) {
@@ -2271,5 +3209,13 @@
             window.adminAuth = new AdminAuth();
         });
     </script>
+    <div class="system-alert-overlay" id="system-alert-overlay">
+        <div class="system-alert-modal">
+            <h3>⚠️ システム警告</h3>
+            <p id="system-alert-message">大量のAPI呼び出しが検知されました。アクセス履歴を確認してください。</p>
+            <button id="system-alert-confirm">了解</button>
+        </div>
+    </div>
+
 </body>
 </html>

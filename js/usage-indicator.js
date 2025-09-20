@@ -1,8 +1,13 @@
 // 🔍 API使用量インジケーター（全ページ共通）
+const INDICATOR_DEFAULT_SETTINGS = { orange: 900, yellow: 1500, red: 2400 };
+
 class UsageIndicator {
     constructor() {
         this.isDetailsVisible = false; // 詳細表示は常に非表示がデフォルト
         this.updateInterval = null;
+        this.colorSettings = null;
+        this.colorSettingsPromise = null;
+        this.latestMonthlyValue = 0;
         this.init();
     }
 
@@ -10,6 +15,7 @@ class UsageIndicator {
     init() {
         this.createIndicator();
         this.ensureDetailsHidden(); // 確実に詳細を非表示に
+        this.ensureColorSettings().catch(error => console.warn('色設定の初期取得エラー:', error));
         this.loadUsageData();
         
         // 5分ごとに更新（軽微な負荷）
@@ -155,7 +161,7 @@ class UsageIndicator {
 
             if (response.ok) {
                 const usageData = await response.json();
-                this.updateDisplay(usageData);
+                await this.updateDisplay(usageData);
             } else {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -164,16 +170,18 @@ class UsageIndicator {
             console.warn('⚠️ 使用量インジケーター取得失敗:', error.message);
             
             // フォールバック: ローカルストレージから取得
-            this.loadFromLocalStorage();
+            await this.loadFromLocalStorage();
         }
     }
 
     // 表示を更新
-    updateDisplay(usageData) {
+    async updateDisplay(usageData) {
         const today = usageData.daily.total;
         const monthly = usageData.monthly.total;
         const total = usageData.total.total;
         const devices = usageData.devices.count;
+
+        this.latestMonthlyValue = monthly;
 
         // メイン表示（簡潔）
         document.getElementById('usage-text').textContent = `📊 ${monthly}/3,000`;
@@ -192,12 +200,13 @@ class UsageIndicator {
 
         // 色の変更（管理画面設定に基づく）
         const indicator = document.getElementById('usage-indicator');
-        this.updateIndicatorColor(indicator, monthly);
+        const settings = await this.ensureColorSettings();
+        this.updateIndicatorColor(indicator, monthly, settings);
 
     }
 
     // ローカルストレージからのフォールバック
-    loadFromLocalStorage() {
+    async loadFromLocalStorage() {
         try {
             const today = new Date().toDateString();
             const currentMonth = new Date().toISOString().slice(0, 7);
@@ -209,6 +218,8 @@ class UsageIndicator {
             const dailyUsage = dailyStats[today] || 0;
             const monthlyUsage = monthlyStats[currentMonth] || 0;
             const totalUsage = totalStats.total || 0;
+
+            this.latestMonthlyValue = monthlyUsage;
 
             // 表示更新
             document.getElementById('usage-text').textContent = `📊 ${monthlyUsage}/3,000`;
@@ -225,7 +236,9 @@ class UsageIndicator {
 
             // 色の変更（管理画面設定に基づく・ローカル版）
             const indicator = document.getElementById('usage-indicator');
-            this.updateIndicatorColor(indicator, monthlyUsage);
+            const settings = this.getLocalColorSettings();
+            this.applyColorSettings(settings, false);
+            this.updateIndicatorColor(indicator, monthlyUsage, settings);
 
 
         } catch (error) {
@@ -235,7 +248,7 @@ class UsageIndicator {
     }
 
     // 管理画面設定に基づく色変更
-    updateIndicatorColor(indicator, monthlyUsage) {
+    updateIndicatorColor(indicator, monthlyUsage, settings = null) {
         if (!indicator) return;
         
         // 動的API上限値を取得
@@ -254,37 +267,114 @@ class UsageIndicator {
         }
         
         // 通常の色変更処理
-        const settings = this.getColorSettings();
+        const activeSettings = settings || this.getColorSettings();
         indicator.style.border = 'none'; // 枠をリセット
         
-        if (monthlyUsage >= settings.red) {
+        if (monthlyUsage >= activeSettings.red) {
             indicator.style.background = 'rgba(220, 53, 69, 0.9)'; // 赤
-        } else if (monthlyUsage >= settings.yellow) {
+        } else if (monthlyUsage >= activeSettings.yellow) {
             indicator.style.background = 'rgba(255, 193, 7, 0.9)'; // 黄
-        } else if (monthlyUsage >= settings.orange) {
+        } else if (monthlyUsage >= activeSettings.orange) {
             indicator.style.background = 'rgba(40, 167, 69, 0.8)'; // 緑
         } else {
             indicator.style.background = 'rgba(0, 0, 0, 0.8)'; // 黒
         }
     }
 
-    // 色設定を取得（管理画面設定 or デフォルト）
-    getColorSettings() {
+    // 色設定のローカル取得
+    getLocalColorSettings() {
         try {
             const saved = localStorage.getItem('indicatorColorSettings');
             if (saved) {
-                return JSON.parse(saved);
+                const parsed = JSON.parse(saved);
+                if (parsed && typeof parsed.orange === 'number' && typeof parsed.yellow === 'number' && typeof parsed.red === 'number') {
+                    return parsed;
+                }
             }
         } catch (error) {
             console.warn('色設定読み込みエラー:', error);
         }
-        
-        // デフォルト設定
-        return {
-            orange: 900,
-            yellow: 1500,
-            red: 2400
+        return { ...INDICATOR_DEFAULT_SETTINGS };
+    }
+
+    applyColorSettings(settings, persist = true) {
+        if (!settings) return;
+        const normalized = {
+            orange: Number(settings.orange) || INDICATOR_DEFAULT_SETTINGS.orange,
+            yellow: Number(settings.yellow) || INDICATOR_DEFAULT_SETTINGS.yellow,
+            red: Number(settings.red) || INDICATOR_DEFAULT_SETTINGS.red
         };
+
+        if (!(normalized.orange < normalized.yellow && normalized.yellow < normalized.red)) {
+            console.warn('色設定の順序が不正なため、デフォルト値を使用します');
+            this.colorSettings = { ...INDICATOR_DEFAULT_SETTINGS };
+        } else {
+            this.colorSettings = normalized;
+        }
+
+        if (persist) {
+            try {
+                localStorage.setItem('indicatorColorSettings', JSON.stringify({
+                    ...this.colorSettings,
+                    updated: new Date().toISOString()
+                }));
+            } catch (error) {
+                console.warn('色設定の保存エラー:', error);
+            }
+        }
+        return this.colorSettings;
+    }
+
+    async ensureColorSettings(forceRefresh = false) {
+        if (!forceRefresh && this.colorSettings) {
+            return this.colorSettings;
+        }
+
+        if (!forceRefresh && this.colorSettingsPromise) {
+            return this.colorSettingsPromise;
+        }
+
+        const fetchPromise = (async () => {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({ action: 'get' })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.settings) {
+                        this.applyColorSettings(result.settings, true);
+                        return this.colorSettings;
+                    }
+                }
+                throw new Error('Supabase response error');
+            } catch (error) {
+                console.warn('色設定のSupabase取得エラー:', error);
+                const fallback = this.getLocalColorSettings();
+                this.applyColorSettings(fallback, false);
+                return this.colorSettings;
+            }
+        })();
+
+        this.colorSettingsPromise = fetchPromise;
+        const resolved = await fetchPromise;
+        this.colorSettingsPromise = null;
+        return resolved;
+    }
+
+    // 色設定を取得（管理画面設定 or デフォルト）
+    getColorSettings() {
+        if (this.colorSettings) {
+            return this.colorSettings;
+        }
+        const local = this.getLocalColorSettings();
+        this.colorSettings = local;
+        return local;
     }
 
     // API上限値を取得（管理画面設定 or デフォルト）

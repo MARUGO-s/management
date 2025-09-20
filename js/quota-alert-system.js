@@ -58,7 +58,7 @@ class QuotaAlertSystem {
         
         console.log('🚨 API使用量監視・アラートシステムを初期化しました');
         console.log('📊 現在の閾値:', this.WARNING_THRESHOLDS);
-        console.log('📧 管理者メール:', this.ADMIN_EMAIL);
+        console.log('📧 管理者メール情報を読み込みました');
     }
 
     // 閾値設定の読み込み
@@ -861,7 +861,7 @@ ${this.generateRecommendationsByLevel(level, usage, remaining)}
         window.setAdminEmail = (email) => {
             this.ADMIN_EMAIL = email;
             localStorage.setItem('adminEmail', email);
-            console.log(`📧 管理者メールを設定: ${email}`);
+            console.log('📧 管理者メールアドレスを更新しました');
         };
 
         window.getQuotaUsage = () => {
