@@ -45,8 +45,8 @@ async function fetchUsageSnapshot(
     throw usageError
   }
 
-  const dailyStats = usageData?.find(row => row.usage_type === 'daily') || { api_calls: 0, data_submissions: 0 }
-  const monthlyStats = usageData?.find(row => row.usage_type === 'monthly') || { api_calls: 0, data_submissions: 0 }
+  const dailyStats = usageData?.find(row => row.usage_type === 'daily' && row.date_key === today) || { api_calls: 0, data_submissions: 0 };
+  const monthlyStats = usageData?.find(row => row.usage_type === 'monthly' && row.date_key === currentMonth) || { api_calls: 0, data_submissions: 0 };
   const totalStats = usageData?.find(row => row.usage_type === 'total') || { api_calls: 0, data_submissions: 0 }
 
   const { data: deviceData, error: deviceError } = await client
@@ -160,11 +160,11 @@ serve(async (req) => {
         }
       }
 
-      // 2. 日次統計更新（日変更チェック付き）
-      await updateDailyStatsWithReset(supabaseClient, today, currentMonth, usageType)
+      // 2. 日次統計更新
+      await updateUsageStats(supabaseClient, today, currentMonth, 'daily', usageType)
 
-      // 3. 月次統計更新（月変更チェック付き）
-      await updateMonthlyStatsWithReset(supabaseClient, currentMonth, usageType)
+      // 3. 月次統計更新
+      await updateUsageStats(supabaseClient, currentMonth, currentMonth, 'monthly', usageType)
 
       // 4. 総計統計更新
       await updateUsageStats(supabaseClient, 'total', 'total', 'total', usageType)
@@ -258,14 +258,14 @@ serve(async (req) => {
       if (resetTypeToUse === 'daily' || resetTypeToUse === 'all') {
         await supabaseClient
           .from('api_usage_stats')
-          .update({ api_calls: 0, data_submissions: 0, device_count: 0 })
+          .delete()
           .eq('usage_type', 'daily')
       }
 
       if (resetTypeToUse === 'monthly' || resetTypeToUse === 'all') {
         await supabaseClient
           .from('api_usage_stats')
-          .update({ api_calls: 0, data_submissions: 0, device_count: 0 })
+          .delete()
           .eq('usage_type', 'monthly')
       }
 
@@ -341,7 +341,7 @@ async function updateUsageStats(supabaseClient: any, dateKey: string, monthKey: 
     if (updateError) {
       console.error(`${usageType}統計更新エラー:`, updateError)
     }
-  } else {
+} else {
     const insertData = {
       date_key: dateKey,
       month_key: monthKey,
@@ -358,98 +358,6 @@ async function updateUsageStats(supabaseClient: any, dateKey: string, monthKey: 
     if (insertError) {
       console.error(`${usageType}統計挿入エラー:`, insertError)
     }
-  }
-}
-
-// 日次統計更新（日変更時の自動リセット付き）
-async function updateDailyStatsWithReset(supabaseClient: any, today: string, currentMonth: string, recordType: string) {
-  // 既存の日次統計を取得
-  const { data: existingDailyData, error: selectError } = await supabaseClient
-    .from('api_usage_stats')
-    .select('*')
-    .eq('usage_type', 'daily')
-    .single()
-
-  if (selectError && selectError.code !== 'PGRST116') {
-    console.error('日次統計取得エラー:', selectError)
-    return
-  }
-
-  // 日が変わったかチェック
-  const shouldReset = existingDailyData && existingDailyData.date_key !== today
-
-  if (shouldReset) {
-    // 新しい日の統計を0から開始
-    const newDailyData = {
-      date_key: today,
-      month_key: currentMonth,
-      usage_type: 'daily',
-      api_calls: recordType === 'api_call' ? 1 : 0,
-      data_submissions: recordType === 'data_submission' ? 1 : 0,
-      device_count: 0,
-      updated_at: new Date().toISOString()
-    }
-
-    // 既存レコードを更新（新日データで上書き）
-    const { error: resetError } = await supabaseClient
-      .from('api_usage_stats')
-      .update(newDailyData)
-      .eq('usage_type', 'daily')
-
-    if (resetError) {
-      console.error('日次統計リセットエラー:', resetError)
-    } else {
-      console.log(`📅 日次統計を新日 ${today} でリセットしました`)
-    }
-  } else {
-    // 通常の日次統計更新
-    await updateUsageStats(supabaseClient, today, currentMonth, 'daily', recordType)
-  }
-}
-
-// 月次統計更新（月変更時の自動リセット付き）
-async function updateMonthlyStatsWithReset(supabaseClient: any, currentMonth: string, recordType: string) {
-  // 既存の月次統計を取得
-  const { data: existingMonthlyData, error: selectError } = await supabaseClient
-    .from('api_usage_stats')
-    .select('*')
-    .eq('usage_type', 'monthly')
-    .single()
-
-  if (selectError && selectError.code !== 'PGRST116') {
-    console.error('月次統計取得エラー:', selectError)
-    return
-  }
-
-  // 月が変わったかチェック
-  const shouldReset = existingMonthlyData && existingMonthlyData.date_key !== currentMonth
-
-  if (shouldReset) {
-    // 新しい月の統計を0から開始
-    const newMonthlyData = {
-      date_key: currentMonth,
-      month_key: currentMonth,
-      usage_type: 'monthly',
-      api_calls: recordType === 'api_call' ? 1 : 0,
-      data_submissions: recordType === 'data_submission' ? 1 : 0,
-      device_count: 0,
-      updated_at: new Date().toISOString()
-    }
-
-    // 既存レコードを更新（新月データで上書き）
-    const { error: resetError } = await supabaseClient
-      .from('api_usage_stats')
-      .update(newMonthlyData)
-      .eq('usage_type', 'monthly')
-
-    if (resetError) {
-      console.error('月次統計リセットエラー:', resetError)
-    } else {
-      console.log(`🗓️ 月次統計を新月 ${currentMonth} でリセットしました`)
-    }
-  } else {
-    // 通常の月次統計更新
-    await updateUsageStats(supabaseClient, currentMonth, currentMonth, 'monthly', recordType)
   }
 }
 
