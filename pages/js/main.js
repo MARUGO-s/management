@@ -1,12 +1,38 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbw9rr3ooPCxcFE35Y_HCKLarVG9Jo765cR49qDyxLxPsBcFqmm481-17J7Vsw1ZKMxW/exec"; // Google Apps ScriptのURL
 const shops = [ // 店舗名のリスト
-  "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
+  "本部", "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
   "マルゴ新橋", "MARUGO YOTSUYA", "371BAR", "三三五五",
   "BAR PELOTA", "Claudia2", "BISTRO CAVACAVA", "eric'S",
   "MITAN", "焼肉マルゴ", "SOBA‑JU", "Bar Violet",
   "X&C", "トラットリア ブリッコラ"
 ];
+
+// Populate Shopsを修正
+function populateShops() {
+  const lenderSelect = document.getElementById("lender");
+  const borrowerSelect = document.getElementById("borrower");
+
+  // 重複を削除し、本部を先頭に追加
+  const uniqueShops = ["本部", ...new Set(shops.filter(s => s !== "本部"))];
+
+  // 既存のオプションをクリア
+  lenderSelect.innerHTML = '<option value="">選択してください</option>';
+  borrowerSelect.innerHTML = '<option value="">選択してください</option>';
+
+  uniqueShops.forEach(shop => {
+    const option1 = document.createElement("option");
+    option1.value = shop;
+    option1.textContent = shop;
+    lenderSelect.appendChild(option1);
+
+    const option2 = document.createElement("option");
+    option2.value = shop;
+    option2.textContent = shop;
+    borrowerSelect.appendChild(option2);
+  });
+}
+
 
 let cachedNames = null;
 let cachedItems = null;

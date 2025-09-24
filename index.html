@@ -821,11 +821,6 @@
       // 日付を今日に設定
       document.getElementById('date').valueAsDate = new Date();
       
-      // 店舗リストを初期化
-      if (typeof populateShops === 'function') {
-        populateShops();
-      }
-      
       // フォーム要素を初期化
       if (typeof initializeElements === 'function') {
         initializeElements();
