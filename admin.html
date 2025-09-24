@@ -1,0 +1,3221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 管理者画面 - 貸借管理システム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+            background: radial-gradient(circle at 30% 20%, rgba(60, 90, 160, 0.3) 0%, rgba(22, 26, 38, 0.92) 70%);
+            min-height: 100vh;
+            padding: clamp(24px, 5vw, 48px);
+            color: #1e293b;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: minmax(240px, 280px) 1fr;
+            gap: 32px;
+            align-items: start;
+            transition: grid-template-columns 0.25s ease;
+        }
+
+        .app-shell.nav-collapsed {
+            grid-template-columns: 0px 1fr;
+        }
+
+        .app-shell.nav-collapsed .sidebar {
+            transform: translateX(-120%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .sidebar {
+            transform: translateX(0);
+            transition: transform 0.25s ease, opacity 0.25s ease;
+        }
+
+        .sidebar {
+            background: rgba(238, 241, 249, 0.94);
+            border-radius: 24px;
+            border: 1px solid rgba(28, 36, 52, 0.14);
+            padding: 28px 24px;
+            box-shadow: 0 28px 50px rgba(14, 20, 36, 0.22);
+            position: sticky;
+            top: clamp(24px, 5vw, 48px);
+            height: fit-content;
+            display: grid;
+            gap: 28px;
+        }
+
+        .sidebar h2 {
+            font-size: 1.1rem;
+            letter-spacing: 0.12em;
+            color: #1f2a3d;
+        }
+
+        .sidebar p {
+            font-size: 13px;
+            color: rgba(31, 42, 61, 0.62);
+            line-height: 1.5;
+        }
+
+        .nav-section {
+            display: grid;
+            gap: 12px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid transparent;
+            color: rgba(31, 42, 61, 0.75);
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            border-color: rgba(60, 110, 232, 0.3);
+            background: rgba(60, 110, 232, 0.12);
+            color: #3c6ee8;
+        }
+
+        .nav-link.subtle {
+            font-weight: 500;
+            color: rgba(31, 42, 61, 0.55);
+        }
+
+        .main-view {
+            background: rgba(244, 247, 254, 0.94);
+            border-radius: 28px;
+            border: 1px solid rgba(28, 36, 52, 0.14);
+            box-shadow: 0 32px 60px rgba(14, 20, 36, 0.22);
+            padding: clamp(28px, 4vw, 40px);
+            display: grid;
+            gap: 32px;
+        }
+
+        /* 認証画面 */
+        .auth-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: radial-gradient(circle at 30% 20%, rgba(60, 90, 160, 0.35) 0%, rgba(22, 26, 38, 0.94) 70%);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.5s ease-out;
+            padding: 24px;
+        }
+
+        .auth-card {
+            background: rgba(244, 247, 254, 0.95);
+            border-radius: 24px;
+            padding: clamp(32px, 4vw, 44px);
+            box-shadow: 0 30px 60px rgba(14, 20, 36, 0.3);
+            max-width: 420px;
+            width: min(420px, 100%);
+            backdrop-filter: blur(24px);
+            text-align: center;
+            border: 1px solid rgba(30, 45, 78, 0.14);
+        }
+
+        .auth-title {
+            font-size: 2rem;
+            background: linear-gradient(120deg, #3c6ee8, #44bbaa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid rgba(60, 90, 160, 0.2);
+            border-radius: 14px;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: rgba(60, 90, 160, 0.55);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(76, 130, 255, 0.18);
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(120deg, #3c6ee8, #44bbaa);
+            color: #fff;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 16px 24px rgba(60, 110, 232, 0.25);
+        }
+
+        .auth-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 32px rgba(60, 110, 232, 0.3);
+        }
+
+        .auth-error {
+            background: rgba(214, 69, 65, 0.18);
+            color: #d64541;
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 15px;
+            text-align: center;
+            display: none;
+        }
+
+        /* メイン画面 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(30, 45, 78, 0.14);
+        }
+
+        .admin-title {
+            font-size: 2.5rem;
+            background: linear-gradient(120deg, #3c6ee8, #44bbaa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+
+        .main-subtitle {
+            margin-top: 6px;
+            color: rgba(31, 42, 61, 0.62);
+            font-size: 14px;
+        }
+
+        .main-subtitle {
+            margin-top: 6px;
+            color: rgba(31, 42, 61, 0.62);
+            font-size: 14px;
+        }
+
+        .logout-btn {
+            background: linear-gradient(120deg, #64748b, #475569);
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(71, 85, 105, 0.25);
+        }
+
+        .nav-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(60, 90, 160, 0.16);
+            color: #3c6ee8;
+            border: 1px solid rgba(60, 110, 232, 0.25);
+            border-radius: 12px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-toggle:hover {
+            background: rgba(60, 90, 160, 0.22);
+            box-shadow: 0 12px 20px rgba(60, 110, 232, 0.18);
+        }
+
+        .nav-toggle.active {
+            background: rgba(60, 110, 232, 0.24);
+            color: #fff;
+        }
+
+        .dashboard-section {
+            display: grid;
+            gap: 24px;
+        }
+
+        .section-heading {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2a3d;
+        }
+
+        .section-description {
+            font-size: 14px;
+            color: rgba(31, 42, 61, 0.62);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .dashboard-card {
+            background: rgba(235, 239, 247, 0.95);
+            border-radius: 18px;
+            padding: clamp(22px, 3vw, 28px);
+            box-shadow: 0 18px 32px rgba(14, 20, 36, 0.18);
+            border: 1px solid rgba(28, 36, 52, 0.12);
+            transition: all 0.3s ease;
+            scroll-margin-top: 120px;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 26px 40px rgba(14, 20, 36, 0.22);
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-subtitle {
+            font-size: 0.95rem;
+            color: rgba(31, 42, 61, 0.6);
+            margin: -8px 0 18px 0;
+        }
+
+        .access-log-list {
+            max-height: 320px;
+            overflow-y: auto;
+            display: grid;
+            gap: 12px;
+            padding-right: 6px;
+        }
+
+        .access-log-item {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            border: 1px solid rgba(28, 36, 52, 0.08);
+            padding: 14px 16px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .access-log-item.alert {
+            border-color: rgba(214, 69, 65, 0.32);
+            box-shadow: 0 6px 20px rgba(214, 69, 65, 0.18);
+            background: rgba(255, 247, 244, 0.95);
+        }
+
+        .access-log-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: rgba(31, 42, 61, 0.6);
+            gap: 12px;
+        }
+
+        .access-log-event {
+            font-weight: 600;
+            color: #3c6ee8;
+        }
+
+        .access-log-time {
+            font-family: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
+        }
+
+        .access-log-description {
+            font-size: 0.95rem;
+            color: #1f2a3d;
+        }
+
+        .access-log-device {
+            font-size: 0.8rem;
+            color: rgba(31, 42, 61, 0.55);
+        }
+
+        .access-log-stats {
+            font-size: 0.8rem;
+            color: rgba(31, 42, 61, 0.55);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 12px;
+        }
+
+        .access-log-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            background: rgba(148, 163, 184, 0.15);
+            color: rgba(71, 85, 105, 0.9);
+        }
+
+        .access-log-status.pending {
+            background: rgba(246, 185, 59, 0.18);
+            color: #b76100;
+        }
+
+        .access-log-status.resolved {
+            background: rgba(34, 193, 165, 0.18);
+            color: #1f6f5a;
+        }
+
+        .access-log-status.normal {
+            background: rgba(148, 163, 184, 0.12);
+            color: rgba(71, 85, 105, 0.9);
+        }
+
+        .access-log-actions {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .access-log-action {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            background: rgba(60, 110, 232, 0.12);
+            color: #3c6ee8;
+        }
+
+        .access-log-action:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(60, 110, 232, 0.15);
+        }
+
+        .access-log-action.danger {
+            background: rgba(214, 69, 65, 0.15);
+            color: #a8322f;
+        }
+
+        .access-log-action.primary {
+            background: rgba(43, 182, 122, 0.18);
+            color: #1f6f5a;
+        }
+
+        .access-log-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .system-alert-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(14, 20, 36, 0.55);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20000;
+            padding: 24px;
+        }
+
+        .system-alert-modal {
+            background: rgba(244, 247, 254, 0.96);
+            border-radius: 18px;
+            padding: clamp(28px, 5vw, 36px);
+            width: min(480px, 100%);
+            box-shadow: 0 24px 48px rgba(14, 20, 36, 0.3);
+            border: 1px solid rgba(60, 110, 232, 0.18);
+            display: grid;
+            gap: 18px;
+        }
+
+        .system-alert-modal h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #d64541;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .system-alert-modal p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: rgba(31, 42, 61, 0.75);
+            line-height: 1.6;
+        }
+
+        .system-alert-modal button {
+            justify-self: end;
+            background: linear-gradient(120deg, #3c6ee8, #44bbaa);
+            color: #fff;
+            border: none;
+            border-radius: 999px;
+            padding: 10px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 12px 24px rgba(60, 110, 232, 0.25);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .system-alert-modal button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 28px rgba(60, 110, 232, 0.28);
+        }
+
+        .access-log-placeholder {
+            text-align: center;
+            color: rgba(31, 42, 61, 0.55);
+            padding: 18px 12px;
+            border: 1px dashed rgba(60, 110, 232, 0.25);
+            border-radius: 12px;
+        }
+
+        .access-log-warning {
+            background: rgba(214, 69, 65, 0.12);
+            border: 1px solid rgba(214, 69, 65, 0.3);
+            color: #7c1f1c;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .access-log-footer {
+            margin-top: 18px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .access-log-footer .btn {
+            margin: 0;
+        }
+
+        .usage-display {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 15px 0;
+        }
+
+        .usage-bar {
+            width: 100%;
+            height: 18px;
+            background: rgba(60, 90, 160, 0.12);
+            border-radius: 999px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .usage-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+            border-radius: 999px;
+            background: linear-gradient(120deg, #3c6ee8, #44bbaa);
+        }
+
+        .usage-fill.safe { background: linear-gradient(120deg, #2bb67a, #22c1a5); }
+        .usage-fill.warning { background: linear-gradient(120deg, #f6b93b, #f08a24); }
+        .usage-fill.danger { background: linear-gradient(120deg, #d64541, #ef5f5f); }
+
+        .form-group {
+            margin: 20px 0;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1f2a3d;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(60, 90, 160, 0.2);
+            border-radius: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.92);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: rgba(60, 90, 160, 0.6);
+            box-shadow: 0 0 0 3px rgba(60, 110, 232, 0.18);
+        }
+
+        .btn {
+            background: linear-gradient(120deg, #3c6ee8, #44bbaa);
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 12px 24px rgba(60, 110, 232, 0.25);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 28px rgba(60, 110, 232, 0.28);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(120deg, #94a3b8, #64748b);
+            box-shadow: 0 12px 24px rgba(100, 116, 139, 0.2);
+        }
+
+        .btn.success {
+            background: linear-gradient(120deg, #2bb67a, #22c1a5);
+            box-shadow: 0 12px 24px rgba(34, 193, 165, 0.24);
+        }
+
+        .btn.warning {
+            background: linear-gradient(120deg, #f6b93b, #f08a24);
+            box-shadow: 0 12px 24px rgba(240, 138, 36, 0.22);
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+
+        .status-success {
+            background: rgba(43, 182, 122, 0.15);
+            color: #1f513b;
+            border: 1px solid rgba(43, 182, 122, 0.3);
+        }
+
+        .status-error {
+            background: rgba(214, 69, 65, 0.15);
+            color: #7c1f1c;
+            border: 1px solid rgba(214, 69, 65, 0.28);
+        }
+
+        .status-warning {
+            background: rgba(246, 185, 59, 0.16);
+            color: #7a5200;
+            border: 1px solid rgba(246, 185, 59, 0.28);
+        }
+
+        .status-info {
+            background: rgba(68, 104, 185, 0.14);
+            color: #1f2f5c;
+            border: 1px solid rgba(68, 104, 185, 0.28);
+        }
+
+        .alert-history {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid rgba(28, 36, 52, 0.14);
+            border-radius: 12px;
+            padding: 18px;
+            background: rgba(244, 247, 254, 0.9);
+            box-shadow: inset 0 12px 24px rgba(14, 20, 36, 0.06);
+        }
+
+        .alert-item {
+            padding: 14px 18px;
+            border-left: 4px solid #3c6ee8;
+            background: rgba(255, 255, 255, 0.94);
+            border-radius: 10px;
+            margin: 10px 0;
+            box-shadow: 0 10px 22px rgba(14, 20, 36, 0.14);
+        }
+
+        .alert-item.first { border-left-color: #44bbaa; }
+        .alert-item.middle { border-left-color: #f6b93b; }
+        .alert-item.final { border-left-color: #d64541; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* レスポンシブ */
+        @media (max-width: 1080px) {
+            .app-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .admin-title {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 管理者認証画面 -->
+    <div class="auth-screen" id="admin-auth-screen">
+        <div class="auth-card">
+            <h1 class="auth-title">🔧 管理者ログイン</h1>
+            <div style="margin-bottom: 30px; color: rgba(30, 41, 59, 0.65);">
+                システム管理者専用画面です<br>
+                管理者パスワードを入力してください
+            </div>
+            <form id="admin-auth-form">
+                <input 
+                    type="password" 
+                    id="admin-password" 
+                    class="auth-input"
+                    placeholder="管理者パスワードを入力"
+                    required
+                />
+                <button type="submit" class="auth-btn">
+                    🔐 管理者ログイン
+                </button>
+            </form>
+            <div class="auth-error" id="auth-error">
+                ❌ パスワードが正しくありません
+            </div>
+            <div style="margin-top: 30px;">
+                <a href="pages/marugo.html" style="color: #3c6ee8; text-decoration: none;">
+                    ← メインシステムに戻る
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理者メイン画面 -->
+    <div class="app-shell" id="admin-main" style="display: none;">
+        <aside class="sidebar">
+            <div>
+                <h2>MARUGO 管理</h2>
+                <p>運用状況と設定をまとめて管理できます。</p>
+            </div>
+            <nav class="nav-section">
+                <a class="nav-link" href="#card-usage">📊 使用量サマリ</a>
+                <a class="nav-link" href="#card-access">🛂 アクセス履歴</a>
+                <a class="nav-link" href="#card-limit">⚙️ 上限設定</a>
+                <a class="nav-link" href="#card-indicator">🎨 インジケーター</a>
+                <a class="nav-link" href="#card-alerts">🚨 アラート設定</a>
+                <a class="nav-link" href="#card-password">🔐 パスワード管理</a>
+                <a class="nav-link" href="#card-chart">📈 月次グラフ</a>
+                <a class="nav-link" href="#card-system">🧭 システム状態</a>
+            </nav>
+            <div class="nav-section">
+                <a class="nav-link subtle" href="pages/marugo.html">← メインに戻る</a>
+            </div>
+        </aside>
+        <div class="main-view">
+        <div class="header">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button class="nav-toggle" id="nav-toggle" type="button" aria-label="サイドバー切替" aria-expanded="true">☰</button>
+                <div>
+                    <h1 class="admin-title">🔧 システム管理画面</h1>
+                    <p class="main-subtitle">API 使用量とシステム設定を一元管理</p>
+                </div>
+            </div>
+            <button class="logout-btn" onclick="adminLogout()">
+                🚪 ログアウト
+            </button>
+        </div>
+
+        <section class="dashboard-section" id="section-overview">
+            <h2 class="section-heading">📊 使用量サマリ</h2>
+            <p class="section-description">日次・月次の利用状況と端末別の概要を確認できます。</p>
+            <div class="dashboard-grid">
+            <!-- API使用量監視 -->
+            <div class="dashboard-card" id="card-usage">
+                <h3 class="card-title">📊 API使用量監視</h3>
+                
+                <div style="margin-bottom: 20px;">
+                    <div style="font-weight: 600; margin-bottom: 10px;">📅 今日の使用量</div>
+                    <div class="usage-display" id="daily-usage">0/300</div>
+                    <div class="usage-bar">
+                        <div class="usage-fill safe" id="daily-usage-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <div style="font-weight: 600; margin-bottom: 10px;">📆 今月の使用量</div>
+                    <div class="usage-display" id="monthly-usage">0/3,000</div>
+                    <div class="usage-bar">
+                        <div class="usage-fill safe" id="monthly-usage-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn secondary" onclick="refreshUsageData()">
+                        🔄 使用量更新
+                    </button>
+                    <button class="btn warning" onclick="resetUsageStats()">
+                        🗑️ 統計リセット
+                    </button>
+                </div>
+            </div>
+
+            <!-- シンプルなAPI使用量表示 -->
+            <div class="dashboard-card" id="card-simple">
+                <h3 class="card-title">📊 使用状況</h3>
+                
+                <div id="simple-usage-display" style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                    gap: 20px;
+                    margin-top: 20px;
+                ">
+                    <div style="color: rgba(31, 42, 61, 0.55);">読み込み中...</div>
+                </div>
+            </div>
+
+            <!-- アクセス履歴 -->
+            <div class="dashboard-card" id="card-access">
+                <h3 class="card-title">🛂 アクセス履歴</h3>
+                <p class="card-subtitle">最新50件をSupabaseに保存し、自動で古い履歴を整理します。</p>
+                <div class="access-log-warning" id="access-log-warning">
+                    ⚠️ 短時間に大量のAPI呼び出しが検知されました。管理者へ連絡して状況を確認してください。
+                </div>
+                <div class="access-log-list" id="access-log-list">
+                    <div class="access-log-placeholder">読み込み中...</div>
+                </div>
+                <div class="access-log-footer">
+                    <button class="btn secondary" type="button" onclick="loadAccessLogs(true)">🔄 履歴を更新</button>
+                    <button class="btn" type="button" onclick="exportAccessLogsCSV()">⬇️ CSVダウンロード</button>
+                </div>
+            </div>
+
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="section-settings">
+            <h2 class="section-heading">⚙️ 上限とインジケーター</h2>
+            <p class="section-description">API 使用量の閾値やインジケーター表示を調整します。</p>
+            <div class="dashboard-grid">
+            <!-- API使用量上限設定 -->
+            <div class="dashboard-card" id="card-limit">
+                <h3 class="card-title">🚫 API使用量上限設定</h3>
+                
+                <div style="margin-bottom: 20px; padding: 15px; background: rgba(246, 185, 59, 0.2); border-radius: 8px; border-left: 4px solid #f6b93b;">
+                    <p style="font-size: 14px; color: #856404; margin: 0 0 15px 0;">
+                        月間API使用量の上限値を設定します。この値を超えるとAPIアクセスが自動的に遮断されます。
+                    </p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">📊 月間API使用量上限（回数）</label>
+                        <input type="number" id="api-limit" class="form-input" placeholder="2500" min="100" max="10000" step="100">
+                        <small style="color: rgba(31, 42, 61, 0.55);">推奨値: 2,500回 (Google Sheets API無料枠の約83%)</small>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button onclick="saveAPILimitSettings()" class="btn">💾 上限値を保存</button>
+                        <button onclick="loadAPILimitSettings()" class="btn secondary">🔄 設定を読み込み</button>
+                        <button onclick="resetAPILimitSettings()" class="btn secondary">🔄 デフォルトに戻す</button>
+                    </div>
+                </div>
+                
+                <div style="background: rgba(214, 69, 65, 0.15); padding: 15px; border-radius: 10px; border-left: 4px solid #d64541;">
+                    <h4 style="margin: 0 0 10px 0; color: #721c24;">⚠️ 重要な注意事項</h4>
+                    <ul style="margin: 0; color: #721c24; font-size: 14px;">
+                        <li>上限値を下げると、現在の使用量が上限を超えた場合は即座に遮断されます</li>
+                        <li>Google Sheets API無料枠は月間3,000回です</li>
+                        <li>安全マージンを考慮して2,500回程度に設定することを推奨します</li>
+                    </ul>
+                </div>
+                
+                <div id="limit-status" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <h4 style="margin: 0 0 10px 0;">📊 現在の設定状況</h4>
+                    <div id="limit-status-content">読み込み中...</div>
+                </div>
+            </div>
+
+            <!-- 使用量インジケーター設定 -->
+            <div class="dashboard-card" id="card-indicator">
+                <h3 class="card-title">🎨 使用量インジケーター色設定</h3>
+                
+                <div style="margin-bottom: 20px; padding: 15px; background: rgba(244, 247, 254, 0.9); border-radius: 8px;">
+                    <p style="font-size: 14px; color: rgba(31, 42, 61, 0.55); margin: 0 0 15px 0;">
+                        全ページに表示される使用量インジケーターの色変化の閾値を設定できます。
+                    </p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">🟢 緑色の閾値（回数）</label>
+                        <input type="number" id="orange-threshold" class="form-input" placeholder="900" min="1" max="3000">
+                        <small style="color: rgba(31, 42, 61, 0.55);">この回数以上で緑色に変化</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">🟡 黄色の閾値（回数）</label>
+                        <input type="number" id="yellow-threshold" class="form-input" placeholder="1500" min="1" max="3000">
+                        <small style="color: rgba(31, 42, 61, 0.55);">この回数以上で黄色に変化</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">🔴 赤色の閾値（回数）</label>
+                        <input type="number" id="red-threshold" class="form-input" placeholder="2400" min="1" max="3000">
+                        <small style="color: rgba(31, 42, 61, 0.55);">この回数以上で赤色に変化</small>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button onclick="saveIndicatorSettings()" class="btn">💾 設定を保存</button>
+                        <button onclick="loadIndicatorSettings()" class="btn secondary">🔄 設定を読み込み</button>
+                        <button onclick="resetIndicatorSettings()" class="btn secondary">🔄 デフォルトに戻す</button>
+                    </div>
+                </div>
+                
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0;">📊 現在の設定プレビュー</h4>
+                    <div id="indicator-preview" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <!-- プレビューがここに表示される -->
+                    </div>
+                </div>
+            </div>
+
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="section-alerts">
+            <h2 class="section-heading">🚨 アラート設定</h2>
+            <p class="section-description">通知や閾値を調整し、上限到達時の対応を定義します。</p>
+            <div class="dashboard-grid">
+            <!-- アラート設定 -->
+            <div class="dashboard-card" id="card-alerts">
+                <h3 class="card-title">🚨 アラート設定</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">📊 初回警告 (件数):</label>
+                    <input type="number" id="first-warning-threshold" class="form-input" value="1000" min="1" max="3000">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">⚠️ 中間警告 (件数):</label>
+                    <input type="number" id="middle-warning-threshold" class="form-input" value="2000" min="1" max="3000">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">🚨 最終警告 (件数):</label>
+                    <input type="number" id="final-warning-threshold" class="form-input" value="2800" min="1" max="3000">
+                </div>
+
+                <button class="btn" onclick="saveAlertSettings()">
+                    💾 アラート設定保存
+                </button>
+
+                <div id="alert-settings-status"></div>
+            </div>
+
+            <!-- 警告システム説明は削除されました -->
+
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="section-security">
+            <h2 class="section-heading">🔐 パスワード管理</h2>
+            <p class="section-description">システム全体と管理画面のパスワードを安全に更新します。</p>
+            <div class="dashboard-grid">
+            <!-- パスワード管理 -->
+            <div class="dashboard-card" id="card-password">
+                <h3 class="card-title">🔐 パスワード管理</h3>
+                
+                <div style="margin-bottom: 30px; padding: 15px; background: rgba(244, 247, 254, 0.9); border-radius: 8px;">
+                    <h4 style="margin: 0 0 15px 0; color: #495057;">🏠 システムアクセスパスワード</h4>
+                    <p style="font-size: 14px; color: rgba(31, 42, 61, 0.55); margin: 0 0 15px 0;">全ユーザーがシステムにアクセスする際のパスワード</p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">現在のシステムパスワード</label>
+                        <input type="password" id="current-system-password" class="form-input" placeholder="現在のシステムパスワードを入力">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">新しいシステムパスワード</label>
+                        <input type="password" id="new-system-password" class="form-input" placeholder="新しいパスワードを入力（6文字以上）">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">新しいシステムパスワード（確認）</label>
+                        <input type="password" id="confirm-system-password" class="form-input" placeholder="新しいパスワードを再入力">
+                    </div>
+                    
+                    <button onclick="changeSystemPassword()" class="btn">🔄 システムパスワード変更</button>
+                    <button onclick="checkCurrentSystemPassword()" class="btn secondary" style="margin-left: 10px;">🔍 現在のパスワード確認</button>
+                </div>
+                
+                <div style="margin-bottom: 30px; padding: 15px; background: #fff5f5; border-radius: 8px;">
+                    <h4 style="margin: 0 0 15px 0; color: #495057;">🔧 管理者パスワード</h4>
+                    <p style="font-size: 14px; color: rgba(31, 42, 61, 0.55); margin: 0 0 15px 0;">この管理画面にアクセスする際のパスワード</p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">現在の管理者パスワード</label>
+                        <input type="password" id="current-admin-password" class="form-input" placeholder="現在の管理者パスワードを入力">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">新しい管理者パスワード</label>
+                        <input type="password" id="new-admin-password" class="form-input" placeholder="新しいパスワードを入力（6文字以上）">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">新しい管理者パスワード（確認）</label>
+                        <input type="password" id="confirm-admin-password" class="form-input" placeholder="新しいパスワードを再入力">
+                    </div>
+                    
+                    <button onclick="changeAdminPassword()" class="btn" style="background: linear-gradient(45deg, #d64541, #c82333);">🔧 管理者パスワード変更</button>
+                    <button onclick="checkCurrentAdminPassword()" class="btn secondary" style="margin-left: 10px;">🔍 現在のパスワード確認</button>
+                </div>
+                
+                <div id="password-change-status" style="margin-top: 15px;"></div>
+            </div>
+
+            </div>
+        </section>
+
+        <section class="dashboard-section" id="section-analytics">
+            <h2 class="section-heading">📈 ログとシステム状態</h2>
+            <p class="section-description">月次の使用量推移とバックエンドの稼働状況を確認します。</p>
+            <div class="dashboard-grid">
+            <!-- 月次使用量グラフ -->
+            <div class="dashboard-card" id="card-chart">
+                <h3 class="card-title">📈 月次使用量グラフ</h3>
+                
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                    <label for="month-selector" style="font-weight: 600;">表示月:</label>
+                    <select id="month-selector" class="form-input" style="width: auto; min-width: 150px;" onchange="loadMonthlyChart()">
+                        <!-- 動的に生成 -->
+                    </select>
+                    <button class="btn secondary" onclick="loadMonthlyChart()">
+                        🔄 更新
+                    </button>
+                </div>
+
+                <div id="chart-container" style="position: relative;">
+                    <canvas id="monthly-chart" width="800" height="400" style="max-width: 100%; border: 1px solid rgba(28, 36, 52, 0.16); border-radius: 12px; background: rgba(244, 247, 254, 0.95);"></canvas>
+                </div>
+
+                <div id="chart-summary" style="
+                    margin-top: 20px;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                    gap: 15px;
+                    padding: 15px;
+                    background: rgba(60, 90, 160, 0.12);
+                    border-radius: 14px;
+                ">
+                    <!-- 動的に生成 -->
+                </div>
+            </div>
+
+            <!-- システム状態 -->
+            <div class="dashboard-card" id="card-system">
+                <h3 class="card-title">⚙️ システム状態</h3>
+                
+                <div id="system-status-display">
+                    <div style="color: rgba(31, 42, 61, 0.55);">読み込み中...</div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn secondary" onclick="checkSystemStatus()">
+                        🔍 状態確認
+                    </button>
+                    <button class="btn success" onclick="runSystemOptimization()">
+                        ⚡ 最適化実行
+                    </button>
+                </div>
+            </div>
+
+            </div>
+        </section>
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(28, 36, 52, 0.16);">
+            <a href="pages/marugo.html" style="
+                color: #3c6ee8;
+                text-decoration: none;
+                font-weight: 600;
+                padding: 12px 24px;
+                border: 2px solid rgba(60, 110, 232, 0.4);
+                border-radius: 10px;
+                transition: all 0.3s ease;
+                display: inline-flex;
+                gap: 8px;
+                align-items: center;
+            " onmouseover="this.style.boxShadow='0 16px 28px rgba(60,110,232,0.24)';" onmouseout="this.style.boxShadow='none';">📊 メインシステムに戻る</a>
+        </div>
+    </div>
+</div>
+
+    <script src="config.js"></script>
+    <script src="js/quota-alert-system.js"></script>
+    <script src="js/simple-optimization.js"></script>
+    
+    <script>
+        // 管理者認証システム
+        class AdminAuth {
+            constructor() {
+                this.SESSION_KEY = 'adminSession';
+                this.SESSION_DURATION = 2 * 60 * 60 * 1000; // 2時間
+                
+                this.init();
+            }
+
+            init() {
+                if (this.isAuthenticated()) {
+                    this.showAdminPanel();
+                } else {
+                    this.showAuthScreen();
+                }
+
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                const authForm = document.getElementById('admin-auth-form');
+                if (authForm) {
+                    authForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        console.log('🔍 管理者ログインフォーム送信');
+                        this.handleAuth();
+                    });
+                }
+
+                const passwordInput = document.getElementById('admin-password');
+                if (passwordInput) {
+                    passwordInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            console.log('🔍 管理者ログイン Enterキー');
+                            this.handleAuth();
+                        }
+                    });
+                }
+                
+                // ログインボタンの直接クリックも対応
+                const loginBtn = document.querySelector('.auth-btn');
+                if (loginBtn) {
+                    loginBtn.addEventListener('click', (e) => {
+                        if (e.target.type !== 'submit') {
+                            e.preventDefault();
+                            console.log('🔍 管理者ログインボタンクリック');
+                            this.handleAuth();
+                        }
+                    });
+                }
+                
+                console.log('🔍 管理者認証イベントリスナー設定完了');
+            }
+
+            async handleAuth() {
+                const password = document.getElementById('admin-password').value;
+                const errorDiv = document.getElementById('auth-error');
+                const loginBtn = document.querySelector('.auth-btn');
+
+                if (loginBtn) {
+                    loginBtn.disabled = true;
+                    loginBtn.textContent = '🔄 認証中...';
+                }
+
+                try {
+                    // Supabaseで管理者パスワード検証
+                    const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                        },
+                        body: JSON.stringify({
+                            action: 'verify',
+                            passwordType: 'admin',
+                            currentPassword: password
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success && result.isValid) {
+                        this.setAuthenticated();
+
+                        const baseline = await fetchTotalApiInteractions();
+                        if (typeof baseline === 'number') {
+                            setApiBaseline(baseline);
+                        }
+
+                        await recordAdminAccess('admin_login', '管理者パスワード認証に成功', 0);
+                        if (errorDiv) {
+                            errorDiv.style.display = 'none';
+                        }
+                        const passwordInputEl = document.getElementById('admin-password');
+                        if (passwordInputEl) {
+                            passwordInputEl.value = '';
+                        }
+                        this.showAdminPanel(true);
+                        console.log('✅ 管理者認証成功（Supabase）');
+                    } else {
+                        errorDiv.style.display = 'block';
+                        errorDiv.style.animation = 'shake 0.5s';
+                        document.getElementById('admin-password').value = '';
+                        
+                        setTimeout(() => {
+                            errorDiv.style.animation = '';
+                        }, 500);
+                    }
+                } catch (error) {
+                    console.error('管理者認証エラー:', error);
+                    errorDiv.style.display = 'block';
+                    errorDiv.textContent = '❌ 認証処理でエラーが発生しました';
+                }
+
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = '🔐 管理者ログイン';
+                }
+            }
+
+            isAuthenticated() {
+                const session = localStorage.getItem(this.SESSION_KEY);
+                if (!session) return false;
+
+                try {
+                    const data = JSON.parse(session);
+                    const now = Date.now();
+                    return (now - data.timestamp) < this.SESSION_DURATION;
+                } catch {
+                    return false;
+                }
+            }
+
+            setAuthenticated() {
+                const sessionData = {
+                    timestamp: Date.now(),
+                    authenticated: true
+                };
+                localStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionData));
+            }
+
+            showAuthScreen() {
+                document.getElementById('admin-auth-screen').style.display = 'flex';
+                document.getElementById('admin-main').style.display = 'none';
+                
+                setTimeout(() => {
+                    document.getElementById('admin-password').focus();
+                }, 300);
+            }
+
+            showAdminPanel(skipAccessRecord = false) {
+                document.getElementById('admin-auth-screen').style.display = 'none';
+                document.getElementById('admin-main').style.display = 'grid';
+
+                prepareAccessLogRecord(skipAccessRecord).catch(error => {
+                    console.warn('アクセス履歴準備エラー:', error);
+                });
+
+                // 管理画面の初期化
+                setTimeout(() => {
+                    initializeAdminPanel();
+                }, 100);
+            }
+
+            logout() {
+                localStorage.removeItem(this.SESSION_KEY);
+                if (window._accessLogRefresh) {
+                    clearInterval(window._accessLogRefresh);
+                    window._accessLogRefresh = null;
+                }
+                clearApiBaseline();
+                this.showAuthScreen();
+            }
+        }
+
+        const ACCESS_EVENT_LABELS = {
+            admin_login: '🟢 管理者ログイン',
+            admin_session: '📘 セッション再開',
+            admin_logout: '🚪 ログアウト'
+        };
+        const ACCESS_LOG_BASELINE_KEY = 'adminSessionApiBaseline';
+
+        function loadStoredApiBaseline() {
+            if (typeof sessionStorage === 'undefined') return;
+            try {
+                const stored = sessionStorage.getItem(ACCESS_LOG_BASELINE_KEY);
+                if (stored !== null) {
+                    const parsed = Number(stored);
+                    if (Number.isFinite(parsed)) {
+                        window._adminSessionApiBaseline = parsed;
+                    }
+                }
+            } catch (error) {
+                console.warn('アクセスログ基準値の読み込みエラー:', error);
+            }
+        }
+
+        function setApiBaseline(value) {
+            if (typeof value !== 'number' || !Number.isFinite(value)) return;
+            const normalized = Math.max(0, Math.round(value));
+            window._adminSessionApiBaseline = normalized;
+            if (typeof sessionStorage === 'undefined') return;
+            try {
+                sessionStorage.setItem(ACCESS_LOG_BASELINE_KEY, String(normalized));
+            } catch (error) {
+                console.warn('アクセスログ基準値の保存エラー:', error);
+            }
+        }
+
+        function clearApiBaseline() {
+            window._adminSessionApiBaseline = null;
+            if (typeof sessionStorage === 'undefined') return;
+            try {
+                sessionStorage.removeItem(ACCESS_LOG_BASELINE_KEY);
+            } catch (error) {
+                console.warn('アクセスログ基準値の削除エラー:', error);
+            }
+        }
+
+        loadStoredApiBaseline();
+
+        async function fetchTotalApiInteractions() {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({ action: 'get' })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const stats = await response.json();
+                const total = stats?.total?.total;
+
+                if (typeof total === 'number' && Number.isFinite(total)) {
+                    return total;
+                }
+
+                if (typeof total === 'string') {
+                    const parsed = Number(total);
+                    if (Number.isFinite(parsed)) {
+                        return parsed;
+                    }
+                }
+
+                return null;
+            } catch (error) {
+                console.warn('アクセスログ用API使用量取得エラー:', error);
+                return null;
+            }
+        }
+
+        async function ensureApiBaseline() {
+            if (typeof window._adminSessionApiBaseline === 'number' && Number.isFinite(window._adminSessionApiBaseline)) {
+                return window._adminSessionApiBaseline;
+            }
+
+            loadStoredApiBaseline();
+
+            if (typeof window._adminSessionApiBaseline === 'number' && Number.isFinite(window._adminSessionApiBaseline)) {
+                return window._adminSessionApiBaseline;
+            }
+
+            const fetched = await fetchTotalApiInteractions();
+            if (typeof fetched === 'number') {
+                setApiBaseline(fetched);
+                return fetched;
+            }
+
+            return null;
+        }
+
+        async function calculateSessionApiDelta() {
+            const baseline = await ensureApiBaseline();
+            if (typeof baseline !== 'number') {
+                return 0;
+            }
+
+            const current = await fetchTotalApiInteractions();
+            if (typeof current === 'number') {
+                const diff = current - baseline;
+                return diff > 0 ? Math.round(diff) : 0;
+            }
+
+            return 0;
+        }
+
+        function escapeHtml(value) {
+            if (value === null || value === undefined) {
+                return '';
+            }
+            const stringValue = typeof value === 'string' ? value : String(value);
+            const replacements = {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                "\"": "&quot;",
+                "'": "&#39;"
+            };
+            return stringValue.replace(/[&<>"']/g, (char) => replacements[char] || char);
+        }
+
+        function formatAccessDeviceInfo(info) {
+            if (!info || typeof info !== 'object') {
+                return 'クライアント情報なし';
+            }
+            const segments = [];
+            if (info.platform) segments.push(info.platform);
+            if (info.timezone) segments.push(info.timezone);
+            if (info.screen) segments.push(`画面 ${info.screen}`);
+            if (info.language) segments.push(info.language);
+            return segments.join(' ・ ') || 'クライアント情報なし';
+        }
+
+        function getAccessDeviceInfo() {
+            try {
+                const timezone = Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone;
+                const screenInfo = window.screen ? `${window.screen.width}x${window.screen.height}` : undefined;
+                return {
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    platform: navigator.platform,
+                    timezone,
+                    screen: screenInfo
+                };
+            } catch (_error) {
+                return {};
+            }
+        }
+
+        function renderAccessLogs(logs) {
+            const container = document.getElementById('access-log-list');
+            const warningBox = document.getElementById('access-log-warning');
+            if (!container) return;
+
+            const logList = Array.isArray(logs) ? logs : [];
+            window._accessLogCache = logList.slice();
+
+            if (logList.length === 0) {
+                container.innerHTML = '<div class="access-log-placeholder">📭 アクセス履歴はまだありません</div>';
+                if (warningBox) warningBox.style.display = 'none';
+                updatePendingAlertState([]);
+                return;
+            }
+
+            let hasHighUsage = false;
+            const pendingAlerts = [];
+
+            const rows = logList.map((log) => {
+                const apiCount = typeof log.api_call_count === 'number' ? log.api_call_count : Number(log.api_call_count || 0);
+                const isAlert = !!log.alert_flag;
+                const isAcknowledged = !!log.acknowledged;
+                const isActiveAlert = isAlert && !isAcknowledged;
+                if (isActiveAlert) {
+                    hasHighUsage = true;
+                    pendingAlerts.push(log);
+                }
+
+                const label = ACCESS_EVENT_LABELS[log.event_type] || log.event_type;
+                const timestamp = log.created_at ? new Date(log.created_at).toLocaleString('ja-JP') : '日時不明';
+                const description = log.description ? escapeHtml(log.description) : '詳細情報なし';
+                const actorName = log.actor ? escapeHtml(log.actor) : '管理者';
+                const deviceInfo = escapeHtml(formatAccessDeviceInfo(log.device_info));
+
+                const statusClass = isAlert ? (isAcknowledged ? 'resolved' : 'pending') : 'normal';
+                const statusIcon = isAlert ? (isAcknowledged ? '✅' : '⚠️') : 'ℹ️';
+                let statusText = isAlert ? (isAcknowledged ? '確認済み' : '未確認') : '通常';
+                if (isAcknowledged && log.acknowledged_at) {
+                    const ackTime = new Date(log.acknowledged_at).toLocaleString('ja-JP');
+                    statusText += ` (${ackTime})`;
+                }
+                if (isAcknowledged && log.acknowledged_by) {
+                    statusText += ` / ${escapeHtml(log.acknowledged_by)}`;
+                }
+
+                const actions = [];
+
+                if (isAlert) {
+                    actions.push(`<button class="access-log-action ${isAcknowledged ? '' : 'primary'}" data-id="${log.id}" data-action="${isAcknowledged ? 'unack' : 'ack'}">${isAcknowledged ? '未確認に戻す' : '確認済みにする'}</button>`);
+                }
+
+                const deleteDisabled = isAlert && !isAcknowledged;
+                actions.push(`<button class="access-log-action danger" data-id="${log.id}" data-action="delete" ${deleteDisabled ? 'disabled title=\"確認後に削除できます\"' : ''}>🗑️ 削除</button>`);
+
+                return `
+                    <div class="access-log-item${isActiveAlert ? ' alert' : ''}" data-log-id="${log.id}">
+                        <div class="access-log-meta">
+                            <span class="access-log-event">${escapeHtml(label)}</span>
+                            <span class="access-log-time">${escapeHtml(timestamp)}</span>
+                        </div>
+                        <div class="access-log-description">${description}</div>
+                        <div class="access-log-stats">
+                            <span class="access-log-status ${statusClass}">${statusIcon} ${statusText}</span>
+                            <span>👤 ${actorName}</span>
+                            <span>🖥️ ${deviceInfo}</span>
+                            <span>🔁 API ${apiCount}回</span>
+                        </div>
+                        <div class="access-log-actions">${actions.join('')}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = rows.join('');
+
+            if (warningBox) {
+                warningBox.style.display = hasHighUsage ? 'block' : 'none';
+            }
+
+            updatePendingAlertState(pendingAlerts);
+            setupAccessLogActionHandlers();
+        }
+
+        function updatePendingAlertState(pendingAlerts) {
+            const pendingIds = pendingAlerts.map(log => log.id).sort((a, b) => a - b).join(',');
+            window._pendingAlertSnapshot = pendingIds;
+            window._pendingAlertCount = pendingAlerts.length;
+            checkAndShowSystemAlert();
+        }
+
+        function checkAndShowSystemAlert(force = false) {
+            const overlay = document.getElementById('system-alert-overlay');
+            const messageEl = document.getElementById('system-alert-message');
+            const confirmBtn = document.getElementById('system-alert-confirm');
+            if (!overlay || !messageEl || !confirmBtn) return;
+
+            const pendingCount = window._pendingAlertCount || 0;
+            if (pendingCount === 0) {
+                overlay.style.display = 'none';
+                return;
+            }
+
+            const snapshot = window._pendingAlertSnapshot || '';
+            const storageKey = 'adminPendingAlertsShown';
+            let alreadyShown = false;
+            try {
+                const stored = sessionStorage.getItem(storageKey);
+                alreadyShown = stored === snapshot;
+            } catch (error) {
+                console.warn('アラート表示状態の取得エラー:', error);
+            }
+
+            if (!force && alreadyShown) {
+                return;
+            }
+
+            messageEl.innerHTML = `⚠️ 大量のAPI呼び出しが ${pendingCount} 件確認されました。<br>アクセス履歴を確認し、必要に応じて「確認済みにする」を押してください。`;
+            overlay.style.display = 'flex';
+
+            confirmBtn.onclick = () => {
+                overlay.style.display = 'none';
+                try {
+                    sessionStorage.setItem(storageKey, snapshot);
+                } catch (error) {
+                    console.warn('アラート表示状態の保存エラー:', error);
+                }
+            };
+        }
+
+
+
+        function setupAccessLogActionHandlers() {
+            const container = document.getElementById('access-log-list');
+            if (!container || container.dataset.bound === 'true') return;
+
+            container.addEventListener('click', async (event) => {
+                const target = event.target;
+                if (!(target instanceof HTMLElement)) return;
+                const button = target.closest('.access-log-action');
+                if (!button || !(button instanceof HTMLButtonElement) || button.disabled) return;
+
+                const logId = Number(button.dataset.id);
+                if (!Number.isFinite(logId) || logId <= 0) return;
+
+                const action = button.dataset.action;
+                if (action === 'ack') {
+                    await updateAccessLogAcknowledgement(logId, true);
+                } else if (action === 'unack') {
+                    await updateAccessLogAcknowledgement(logId, false);
+                } else if (action === 'delete') {
+                    await deleteAccessLog(logId);
+                }
+            });
+
+            container.dataset.bound = 'true';
+        }
+
+        async function updateAccessLogAcknowledgement(logId, acknowledged) {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'acknowledge',
+                        logId,
+                        acknowledged,
+                        updatedBy: 'admin_panel'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'アクセス履歴の更新に失敗しました');
+                }
+
+                renderAccessLogs(result.logs);
+
+                if (acknowledged) {
+                    alert('⚠️ 対象の履歴を確認済みにしました。');
+                } else {
+                    alert('対象の履歴を未確認に戻しました。');
+                }
+            } catch (error) {
+                console.error('アクセス履歴確認エラー:', error);
+                alert(`❌ 履歴の更新に失敗しました
+${error.message || ''}`);
+            }
+        }
+
+        async function deleteAccessLog(logId) {
+            if (!confirm('選択したアクセス履歴を削除しますか？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'delete',
+                        logId,
+                        updatedBy: 'admin_panel'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'アクセス履歴の削除に失敗しました');
+                }
+
+                renderAccessLogs(result.logs);
+                alert('🗑️ 履歴を削除しました。');
+            } catch (error) {
+                console.error('アクセス履歴削除エラー:', error);
+                alert(`❌ 履歴の削除に失敗しました
+${error.message || ''}`);
+            }
+        }
+
+
+        async function exportAccessLogsCSV() {
+            try {
+                let logs = Array.isArray(window._accessLogCache) ? window._accessLogCache : [];
+
+                if (!logs.length) {
+                    await loadAccessLogs(true);
+                    logs = Array.isArray(window._accessLogCache) ? window._accessLogCache : [];
+                    if (!logs.length) {
+                        alert('CSVに出力できる履歴がありません');
+                        return;
+                    }
+                }
+
+                const headers = [
+                    'ID',
+                    '日時',
+                    'イベント種別',
+                    '実行者',
+                    '説明',
+                    'API回数',
+                    'アラート',
+                    '確認済み',
+                    '確認日時',
+                    '確認者',
+                    '端末情報'
+                ];
+
+                const escapeCsv = (value) => {
+                    if (value === null || value === undefined) return '';
+                    const str = typeof value === 'string' ? value : String(value);
+                    return '"' + str.replace(/"/g, '""') + '"';
+                };
+
+                const rows = logs.map((log) => {
+                    const deviceInfo = log.device_info ? JSON.stringify(log.device_info) : '';
+                    return [
+                        log.id,
+                        log.created_at ? new Date(log.created_at).toLocaleString('ja-JP') : '',
+                        log.event_type || '',
+                        log.actor || '',
+                        log.description || '',
+                        typeof log.api_call_count === 'number' ? log.api_call_count : '',
+                        log.alert_flag ? 'TRUE' : 'FALSE',
+                        log.acknowledged ? 'TRUE' : 'FALSE',
+                        log.acknowledged_at ? new Date(log.acknowledged_at).toLocaleString('ja-JP') : '',
+                        log.acknowledged_by || '',
+                        deviceInfo
+                    ].map(escapeCsv).join(',');
+                });
+
+                const csvContent = [headers.join(','), ...rows].join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const timestamp = new Date().toISOString().replace(/[:T]/g, '-').split('.')[0];
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `access-logs-${timestamp}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('アクセス履歴CSV出力エラー:', error);
+                alert(`❌ CSVの生成に失敗しました\n${error.message || ''}`);
+            }
+        }
+
+        async function loadAccessLogs(showLoading = false) {
+            const container = document.getElementById('access-log-list');
+            if (!container) return;
+
+            if (showLoading) {
+                container.innerHTML = '<div class="access-log-placeholder">🔄 履歴を更新中...</div>';
+            }
+
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({ action: 'list' })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'アクセス履歴の取得に失敗しました');
+                }
+
+                renderAccessLogs(result.logs);
+            } catch (error) {
+                console.error('アクセス履歴取得エラー:', error);
+                container.innerHTML = '<div class="access-log-placeholder">❌ 履歴の取得に失敗しました</div>';
+            }
+        }
+
+        async function recordAdminAccess(eventType, description, apiCallCount = 0, options = {}) {
+            try {
+                const normalizedCount = typeof apiCallCount === 'number' && Number.isFinite(apiCallCount)
+                    ? Math.max(0, Math.round(apiCallCount))
+                    : 0;
+
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'record',
+                        eventType,
+                        actor: 'admin',
+                        description,
+                        deviceInfo: getAccessDeviceInfo(),
+                        apiCallCount: normalizedCount,
+                        updatedBy: 'admin_panel'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'アクセス履歴の記録に失敗しました');
+                }
+
+                renderAccessLogs(result.logs);
+
+                if (options.showWarning && normalizedCount >= 30 && typeof alert === 'function') {
+                    alert('⚠️ 短時間に30回以上のAPI呼び出しが行われました。管理者に連絡して状況を確認してください。');
+                }
+
+                return true;
+            } catch (error) {
+                console.warn('アクセス履歴記録エラー:', error);
+                return false;
+            }
+        }
+
+        async function prepareAccessLogRecord(skipAccessRecord) {
+            await ensureApiBaseline();
+
+            if (!skipAccessRecord) {
+                const recorded = await recordAdminAccess('admin_session', '既存セッションで管理画面を表示', 0);
+                if (!recorded) {
+                    await loadAccessLogs();
+                }
+            } else {
+                await loadAccessLogs();
+            }
+
+            if (typeof checkAndShowSystemAlert === 'function') {
+                checkAndShowSystemAlert(true);
+            }
+        }
+
+        // 管理画面の初期化
+        // 月次グラフ関連の関数
+        
+        // 月選択プルダウンを初期化
+        function initializeMonthSelector() {
+            const selector = document.getElementById('month-selector');
+            const currentDate = new Date();
+            
+            // 過去12ヶ月分の選択肢を生成
+            for (let i = 0; i < 12; i++) {
+                const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+                
+                // 時間帯に依存しない月キー生成
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1; // 0ベース→1ベース変換
+                const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+                const monthName = date.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' });
+                
+                const option = document.createElement('option');
+                option.value = monthKey;
+                option.textContent = monthName;
+                
+                if (i === 0) option.selected = true; // 今月を選択
+                
+                selector.appendChild(option);
+            }
+        }
+        
+        // 月次チャートデータを取得
+        async function getMonthlyChartData(targetMonth) {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get_monthly_chart',
+                        targetMonth: targetMonth
+                    })
+                });
+
+                if (response.ok) {
+                    const chartData = await response.json();
+                    return chartData;
+                } else {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+            } catch (error) {
+                console.error('月次チャートデータ取得エラー:', error);
+                throw error;
+            }
+        }
+        
+        // グラフを描画
+        function drawMonthlyChart(chartData) {
+            const canvas = document.getElementById('monthly-chart');
+            const ctx = canvas.getContext('2d');
+            
+            if (!canvas || !ctx) {
+                console.error('❌ キャンバス要素が見つかりません');
+                return;
+            }
+            
+            // キャンバスをクリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 描画設定
+            const padding = 60;
+            const chartWidth = canvas.width - padding * 2;
+            const chartHeight = canvas.height - padding * 2;
+            const maxValue = Math.max(chartData.summary.maxDailyUsage, 10); // 最小10に設定
+            
+            // 背景グリッド
+            ctx.strokeStyle = 'rgba(30, 45, 78, 0.14)';
+            ctx.lineWidth = 1;
+            
+            // 横線（使用量）
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (chartHeight / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(padding + chartWidth, y);
+                ctx.stroke();
+                
+                // Y軸ラベル
+                ctx.fillStyle = 'rgba(31, 42, 61, 0.55)';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(Math.round(maxValue - (maxValue / 5) * i), padding - 10, y + 4);
+            }
+            
+            // 縦線（日付）
+            const dayStep = Math.ceil(chartData.daysInMonth / 10); // 最大10本の縦線
+            for (let day = 1; day <= chartData.daysInMonth; day += dayStep) {
+                const x = padding + (chartWidth / chartData.daysInMonth) * (day - 1);
+                ctx.beginPath();
+                ctx.moveTo(x, padding);
+                ctx.lineTo(x, padding + chartHeight);
+                ctx.stroke();
+                
+                // X軸ラベル
+                ctx.fillStyle = 'rgba(31, 42, 61, 0.55)';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${day}日`, x, padding + chartHeight + 20);
+            }
+            
+            // データ線を描画
+            if (chartData.dailyData.length > 0) {
+                
+                // API呼び出し（青）
+                ctx.strokeStyle = '#3c6ee8';
+                ctx.fillStyle = 'rgba(0, 123, 255, 0.1)';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                chartData.dailyData.forEach((day, index) => {
+                    const x = padding + (chartWidth / chartData.daysInMonth) * index;
+                    const y = padding + chartHeight - (day.api_calls / maxValue) * chartHeight;
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                ctx.stroke();
+                
+                // データ送信（緑）
+                ctx.strokeStyle = '#2bb67a';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                chartData.dailyData.forEach((day, index) => {
+                    const x = padding + (chartWidth / chartData.daysInMonth) * index;
+                    const y = padding + chartHeight - (day.data_submissions / maxValue) * chartHeight;
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                ctx.stroke();
+                
+                // 合計（赤、太線）
+                ctx.strokeStyle = '#d64541';
+                ctx.lineWidth = 3;
+                
+                ctx.beginPath();
+                chartData.dailyData.forEach((day, index) => {
+                    const x = padding + (chartWidth / chartData.daysInMonth) * index;
+                    const y = padding + chartHeight - (day.total / maxValue) * chartHeight;
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    // データポイントを描画
+                    if (day.total > 0) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                        ctx.fillStyle = '#d64541';
+                        ctx.fill();
+                    }
+                });
+                ctx.stroke();
+            }
+            
+            // 凡例
+            const legendY = 30;
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'left';
+            
+            // API呼び出し
+            ctx.strokeStyle = '#3c6ee8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(padding, legendY);
+            ctx.lineTo(padding + 20, legendY);
+            ctx.stroke();
+            ctx.fillStyle = '#3c6ee8';
+            ctx.fillText('API呼び出し', padding + 30, legendY + 5);
+            
+            // データ送信
+            ctx.strokeStyle = '#2bb67a';
+            ctx.beginPath();
+            ctx.moveTo(padding + 120, legendY);
+            ctx.lineTo(padding + 140, legendY);
+            ctx.stroke();
+            ctx.fillStyle = '#2bb67a';
+            ctx.fillText('データ送信', padding + 150, legendY + 5);
+            
+            // 合計
+            ctx.strokeStyle = '#d64541';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(padding + 240, legendY);
+            ctx.lineTo(padding + 260, legendY);
+            ctx.stroke();
+            ctx.fillStyle = '#d64541';
+            ctx.fillText('合計', padding + 270, legendY + 5);
+        }
+        
+        // サマリーを表示
+        function displayChartSummary(chartData) {
+            const summaryContainer = document.getElementById('chart-summary');
+            
+            summaryContainer.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #d64541;">${chartData.summary.monthlyTotal}</div>
+                    <div style="font-size: 14px; color: rgba(31, 42, 61, 0.55);">月間合計</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 20px; font-weight: bold; color: #3c6ee8;">${chartData.summary.maxDailyUsage}</div>
+                    <div style="font-size: 14px; color: rgba(31, 42, 61, 0.55);">最大日使用量</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 18px; font-weight: bold; color: #2bb67a;">${chartData.summary.avgDailyUsage}</div>
+                    <div style="font-size: 14px; color: rgba(31, 42, 61, 0.55);">平均日使用量</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 18px; font-weight: bold; color: #6f42c1;">${chartData.summary.activeDays}</div>
+                    <div style="font-size: 14px; color: rgba(31, 42, 61, 0.55);">アクティブ日数</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 16px; font-weight: bold; color: #44bbaa;">${chartData.daysInMonth}</div>
+                    <div style="font-size: 14px; color: rgba(31, 42, 61, 0.55);">総日数</div>
+                </div>
+            `;
+        }
+        
+        // 月次チャートを読み込み
+        async function loadMonthlyChart() {
+            const selector = document.getElementById('month-selector');
+            const selectedMonth = selector.value;
+            
+            try {
+                // ローディング表示
+                const chartContainer = document.getElementById('chart-container');
+                const summaryContainer = document.getElementById('chart-summary');
+                
+                chartContainer.style.opacity = '0.5';
+                summaryContainer.innerHTML = '<div style="color: rgba(31, 42, 61, 0.55); text-align: center;">読み込み中...</div>';
+                
+                // データ取得
+                const chartData = await getMonthlyChartData(selectedMonth);
+                
+                // グラフ描画
+                drawMonthlyChart(chartData);
+                displayChartSummary(chartData);
+                
+                chartContainer.style.opacity = '1';
+                
+            } catch (error) {
+                console.error('月次チャート読み込みエラー:', error);
+                
+                const summaryContainer = document.getElementById('chart-summary');
+                summaryContainer.innerHTML = `
+                    <div style="color: #d64541; text-align: center;">
+                        ❌ データの読み込みに失敗しました<br>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+                
+                document.getElementById('chart-container').style.opacity = '1';
+            }
+        }
+
+        function initializeAdminPanel() {
+            const layoutShell = document.getElementById('admin-main');
+            const navToggle = document.getElementById('nav-toggle');
+            if (!layoutShell) return;
+            const updateNavState = () => {
+                if (!navToggle) return;
+                const collapsed = layoutShell.classList.contains('nav-collapsed');
+                navToggle.classList.toggle('active', collapsed);
+                navToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            };
+            if (navToggle && layoutShell && !navToggle.dataset.bound) {
+                navToggle.addEventListener('click', () => {
+                    layoutShell.classList.toggle('nav-collapsed');
+                    updateNavState();
+                });
+                window.addEventListener('resize', () => {
+                    if (window.innerWidth > 1080) {
+                        layoutShell.classList.remove('nav-collapsed');
+                        updateNavState();
+                    }
+                });
+                navToggle.dataset.bound = 'true';
+            }
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth <= 1080) {
+                        layoutShell.classList.add('nav-collapsed');
+                        updateNavState();
+                    }
+                });
+            });
+            if (window.innerWidth <= 1080) {
+                layoutShell.classList.add('nav-collapsed');
+                updateNavState();
+            } else {
+                layoutShell.classList.remove('nav-collapsed');
+                updateNavState();
+            }
+
+            loadCurrentSettings();
+            checkSystemStatus();
+            
+            // 月選択プルダウンを初期化
+            initializeMonthSelector();
+            
+            // quota-alert-systemの初期化を待ってから使用量表示
+            setTimeout(() => {
+                loadSimpleUsageDisplay();
+                refreshUsageData(); // API使用量監視セクションの更新
+                loadMonthlyChart(); // 月次グラフも初期読み込み
+                loadIndicatorSettings().catch(error => {
+                    console.warn('インジケーター設定の読み込みに失敗しました:', error);
+                }); // インジケーター設定読み込み
+                loadAPILimitSettings(); // API上限値設定読み込み
+                loadAccessLogs(); // アクセス履歴の初期読み込み
+                
+                // リアルタイム更新（30秒ごと）
+                setInterval(() => {
+                    loadSimpleUsageDisplay();
+                    refreshUsageData(); // API使用量監視も定期更新
+                }, 30000);
+
+                if (!window._accessLogRefresh) {
+                    window._accessLogRefresh = setInterval(() => {
+                        loadAccessLogs();
+                    }, 60000);
+                }
+            }, 2000); // 2秒待機してからスタート
+        }
+
+        // 現在の設定を読み込み
+        function loadCurrentSettings() {
+            // メール機能は削除されました
+
+            // 保存されているアラート閾値を読み込み
+            const savedThresholds = localStorage.getItem('alertThresholds');
+            if (savedThresholds) {
+                const thresholds = JSON.parse(savedThresholds);
+                document.getElementById('first-warning-threshold').value = thresholds.first || 1000;
+                document.getElementById('middle-warning-threshold').value = thresholds.middle || 2000;
+                document.getElementById('final-warning-threshold').value = thresholds.final || 2800;
+            }
+        }
+
+        // 使用量データの更新（Supabaseベース）
+        async function refreshUsageData() {
+            try {
+                console.log('🔄 API使用量監視セクション更新開始...');
+                
+                let usage;
+                
+                // quota-alert-systemが利用可能な場合は使用
+                if (window.quotaAlertSystem && typeof window.quotaAlertSystem.getCurrentUsage === 'function') {
+                    usage = await window.quotaAlertSystem.getCurrentUsage();
+                } else {
+                    
+                    // 直接Supabaseから取得
+                    const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                        },
+                        body: JSON.stringify({
+                            action: 'get'
+                        })
+                    });
+
+                    if (response.ok) {
+                        const usageData = await response.json();
+                        usage = {
+                            daily: usageData.daily.total,
+                            monthly: usageData.monthly.total,
+                            total: usageData.total.total,
+                            dailyPercentage: Math.round((usageData.daily.total / 300) * 100),
+                            monthlyPercentage: Math.round((usageData.monthly.total / 3000) * 100)
+                        };
+                    } else {
+                        throw new Error(`Supabase取得エラー: ${response.status}`);
+                    }
+                }
+                
+                // 画面更新
+                if (usage && typeof usage.daily !== 'undefined' && typeof usage.monthly !== 'undefined') {
+                    updateUsageDisplay(usage);
+                } else {
+                    throw new Error('使用量データが不正です');
+                }
+                
+            } catch (error) {
+                console.error('❌ API使用量監視更新エラー:', error);
+                
+                // エラー表示
+                document.getElementById('daily-usage').textContent = 'エラー/300';
+                document.getElementById('monthly-usage').textContent = 'エラー/3,000';
+            }
+        }
+
+        // 使用量表示の更新
+        function updateUsageDisplay(usage) {
+            // 日次使用量
+            document.getElementById('daily-usage').textContent = `${usage.daily}/300`;
+            const dailyBar = document.getElementById('daily-usage-bar');
+            dailyBar.style.width = `${Math.min(usage.dailyPercentage, 100)}%`;
+            dailyBar.className = `usage-fill ${usage.dailyPercentage >= 85 ? 'danger' : usage.dailyPercentage >= 70 ? 'warning' : 'safe'}`;
+
+            // 月次使用量
+            document.getElementById('monthly-usage').textContent = `${usage.monthly}/3,000`;
+            const monthlyBar = document.getElementById('monthly-usage-bar');
+            monthlyBar.style.width = `${Math.min(usage.monthlyPercentage, 100)}%`;
+            monthlyBar.className = `usage-fill ${usage.monthlyPercentage >= 85 ? 'danger' : usage.monthlyPercentage >= 70 ? 'warning' : 'safe'}`;
+        }
+
+        // 管理者メールの保存
+        function saveAdminEmail() {
+            const email = document.getElementById('admin-email-input').value;
+            const statusDiv = document.getElementById('email-settings-status');
+
+            if (!email) {
+                statusDiv.innerHTML = '<div class="status-error">❌ メールアドレスを入力してください</div>';
+                return;
+            }
+
+            if (!email.includes('@') || !email.includes('.')) {
+                statusDiv.innerHTML = '<div class="status-error">❌ 有効なメールアドレスを入力してください</div>';
+                return;
+            }
+
+            // メールアドレスを保存
+            localStorage.setItem('adminEmail', email);
+            
+            // アラートシステムにも設定
+            if (typeof window.setAdminEmail === 'function') {
+                window.setAdminEmail(email);
+            }
+
+            statusDiv.innerHTML = '<div class="status-success">✅ 管理者メールアドレスを保存しました</div>';
+            
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+
+        // システムパスワード変更機能（Supabaseベース）
+        async function changeSystemPassword() {
+            const currentPassword = document.getElementById('current-system-password').value;
+            const newPassword = document.getElementById('new-system-password').value;
+            const confirmPassword = document.getElementById('confirm-system-password').value;
+            
+            // バリデーション
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                showPasswordStatus('❌ すべてのフィールドを入力してください', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showPasswordStatus('❌ 新しいパスワードは6文字以上で入力してください', 'error');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                showPasswordStatus('❌ 新しいパスワードが一致しません', 'error');
+                return;
+            }
+            
+            showPasswordStatus('🔄 パスワード変更中...', 'info');
+            
+            try {
+                // まず現在のパスワードを検証
+                const verifyResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'verify',
+                        passwordType: 'system',
+                        currentPassword: currentPassword
+                    })
+                });
+                
+                const verifyResult = await verifyResponse.json();
+                console.log('🔍 システムパスワード検証結果:', { success: verifyResult.success, match: verifyResult.isValid });
+                
+                if (!verifyResult.success || !verifyResult.isValid) {
+                    showPasswordStatus('❌ 現在のシステムパスワードが正しくありません。入力内容を確認してください。', 'error');
+                    return;
+                }
+                
+                // 🚀 自動パスワード変更
+                showPasswordStatus('🔄 新しいシステムパスワードを設定中...', 'info');
+                
+                const changeResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'change',
+                        passwordType: 'system',
+                        currentPassword: currentPassword,
+                        newPassword: newPassword
+                    })
+                });
+                
+                const changeResult = await changeResponse.json();
+                console.log('🔄 システムパスワード変更結果:', changeResult);
+                
+                if (changeResult.success) {
+                    showPasswordStatus('✅ システムパスワードが自動で変更されました！', 'success');
+                } else {
+                    showPasswordStatus(`❌ パスワード変更失敗: ${changeResult.error}`, 'error');
+                }
+                
+                // フォームをクリア
+                document.getElementById('current-system-password').value = '';
+                document.getElementById('new-system-password').value = '';
+                document.getElementById('confirm-system-password').value = '';
+                
+            } catch (error) {
+                showPasswordStatus('❌ パスワード変更処理でエラーが発生しました', 'error');
+                console.error('System password change error:', error);
+            }
+        }
+        
+        // 管理者パスワード変更機能（Supabaseベース）
+        async function changeAdminPassword() {
+            const currentPassword = document.getElementById('current-admin-password').value;
+            const newPassword = document.getElementById('new-admin-password').value;
+            const confirmPassword = document.getElementById('confirm-admin-password').value;
+            
+            // バリデーション
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                showPasswordStatus('❌ すべてのフィールドを入力してください', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showPasswordStatus('❌ 新しいパスワードは6文字以上で入力してください', 'error');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                showPasswordStatus('❌ 新しいパスワードが一致しません', 'error');
+                return;
+            }
+            
+            showPasswordStatus('🔄 管理者パスワード変更中...', 'info');
+            
+            try {
+                // まず現在の管理者パスワードを検証
+                const verifyResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'verify',
+                        passwordType: 'admin',
+                        currentPassword: currentPassword
+                    })
+                });
+                
+                const verifyResult = await verifyResponse.json();
+                console.log('🔍 管理者パスワード検証結果:', { success: verifyResult.success, match: verifyResult.isValid });
+                
+                if (!verifyResult.success || !verifyResult.isValid) {
+                    showPasswordStatus('❌ 現在の管理者パスワードが正しくありません。入力内容を確認してください。', 'error');
+                    return;
+                }
+                
+                // 🚀 自動パスワード変更
+                showPasswordStatus('🔄 新しい管理者パスワードを設定中...', 'info');
+                
+                const changeResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'change',
+                        passwordType: 'admin',
+                        currentPassword: currentPassword,
+                        newPassword: newPassword
+                    })
+                });
+                
+                const changeResult = await changeResponse.json();
+                console.log('🔄 管理者パスワード変更結果:', changeResult);
+                
+                if (changeResult.success) {
+                    showPasswordStatus('✅ 管理者パスワードが自動で変更されました！', 'success');
+                } else {
+                    showPasswordStatus(`❌ 管理者パスワード変更失敗: ${changeResult.error}`, 'error');
+                }
+                
+                // フォームをクリア
+                document.getElementById('current-admin-password').value = '';
+                document.getElementById('new-admin-password').value = '';
+                document.getElementById('confirm-admin-password').value = '';
+                
+            } catch (error) {
+                showPasswordStatus('❌ 管理者パスワード変更処理でエラーが発生しました', 'error');
+                console.error('Admin password change error:', error);
+            }
+        }
+        
+        // 現在のシステムパスワード確認
+        async function checkCurrentSystemPassword() {
+            showPasswordStatus('🔍 現在のシステムパスワードを確認中...', 'info');
+            
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get',
+                        passwordType: 'system'
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('🔍 システムパスワード状況:', result);
+                
+                const systemInfo = result.passwords?.system;
+                const systemStatus = systemInfo?.status || '確認できませんでした';
+                const systemUpdatedAt = systemInfo?.lastUpdated
+                    ? new Date(systemInfo.lastUpdated).toLocaleString('ja-JP')
+                    : '未登録';
+                showPasswordStatus(`📋 システムパスワード状況: ${systemStatus}<br>🕒 最終更新: ${systemUpdatedAt}`, 'info');
+                
+            } catch (error) {
+                console.error('パスワード確認エラー:', error);
+                showPasswordStatus('❌ パスワード確認でエラーが発生しました', 'error');
+            }
+        }
+        
+        // 現在の管理者パスワード確認
+        async function checkCurrentAdminPassword() {
+            showPasswordStatus('🔍 現在の管理者パスワードを確認中...', 'info');
+            
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get',
+                        passwordType: 'admin'
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('🔍 管理者パスワード状況:', result);
+                
+                const adminInfo = result.passwords?.admin;
+                const adminStatus = adminInfo?.status || '確認できませんでした';
+                const adminUpdatedAt = adminInfo?.lastUpdated
+                    ? new Date(adminInfo.lastUpdated).toLocaleString('ja-JP')
+                    : '未登録';
+                showPasswordStatus(`📋 管理者パスワード状況: ${adminStatus}<br>🕒 最終更新: ${adminUpdatedAt}`, 'info');
+                
+            } catch (error) {
+                console.error('管理者パスワード確認エラー:', error);
+                showPasswordStatus('❌ 管理者パスワード確認でエラーが発生しました', 'error');
+            }
+        }
+        
+        // パスワード変更ステータス表示
+        function showPasswordStatus(message, type) {
+            const statusDiv = document.getElementById('password-change-status');
+            statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            
+            // 成功メッセージは3秒後に消去
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 3000);
+            }
+        }
+
+        // アラート設定の保存
+        function saveAlertSettings() {
+            const settings = {
+                first: parseInt(document.getElementById('first-warning-threshold').value),
+                middle: parseInt(document.getElementById('middle-warning-threshold').value),
+                final: parseInt(document.getElementById('final-warning-threshold').value)
+            };
+
+            // 設定値の検証
+            if (settings.first >= settings.middle || settings.middle >= settings.final) {
+                document.getElementById('alert-settings-status').innerHTML = 
+                    '<div class="status-error">❌ 警告レベルは初回 < 中間 < 最終 の順序で設定してください</div>';
+                return;
+            }
+
+            if (settings.final > 3000) {
+                document.getElementById('alert-settings-status').innerHTML = 
+                    '<div class="status-error">❌ 最終警告は3000件以下で設定してください</div>';
+                return;
+            }
+
+            // 設定を保存
+            localStorage.setItem('alertThresholds', JSON.stringify(settings));
+            
+            // アラートシステムに反映
+            if (window.quotaAlertSystem) {
+                window.quotaAlertSystem.WARNING_THRESHOLDS.monthly = settings;
+            }
+
+            document.getElementById('alert-settings-status').innerHTML = 
+                '<div class="status-success">✅ アラート設定を保存しました</div>';
+            
+            setTimeout(() => {
+                document.getElementById('alert-settings-status').innerHTML = '';
+            }, 3000);
+        }
+
+        // アラートテスト
+        async function testAlert(level) {
+            if (typeof window.testQuotaAlert === 'function') {
+                try {
+                    await window.testQuotaAlert(level);
+                    const levelNames = {
+                        'first': '初回警告 (1000件)',
+                        'middle': '中間警告 (2000件)',
+                        'final': '最終警告 (2800件)'
+                    };
+                    document.getElementById('alert-test-status').innerHTML = 
+                        `<div class="status-success">✅ ${levelNames[level]} のテストを実行しました<br>📊 ポップアップ警告が表示されました</div>`;
+                    
+                    setTimeout(() => {
+                        document.getElementById('alert-test-status').innerHTML = '';
+                    }, 5000);
+                } catch (error) {
+                    document.getElementById('alert-test-status').innerHTML = 
+                        `<div class="status-error">❌ テストエラー: ${error.message}</div>`;
+                }
+            } else {
+                alert('アラートシステムが読み込まれていません');
+            }
+        }
+
+        // メール通知テスト
+        async function testEmailNotification() {
+            const email = document.getElementById('admin-email-input').value;
+            if (!email) {
+                document.getElementById('email-settings-status').innerHTML = 
+                    '<div class="status-error">❌ メールアドレスを入力してください</div>';
+                return;
+            }
+
+            try {
+                // テスト用のメールデータ
+                const testEmailData = {
+                    to: email,
+                    subject: '🧪 テスト送信 - 貸借管理システム アラート機能',
+                    body: `
+貸借管理システム アラート機能 テスト送信
+
+【送信時刻】: ${new Date().toLocaleString('ja-JP')}
+【送信元】: 管理者画面テスト機能
+
+このメールは、アラート機能の動作確認のために送信されています。
+
+実際のアラート発生時には、以下の情報が含まれます:
+- API使用量の詳細
+- アラートレベル
+- 推奨対応
+- システム状態
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+貸借管理システム 管理者画面
+テスト送信機能より
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    `,
+                    priority: 'normal'
+                };
+
+                // Supabase Function経由でメール送信
+                const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/send-alert-email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify(testEmailData)
+                });
+
+                if (response.ok) {
+                    document.getElementById('email-settings-status').innerHTML = 
+                        '<div class="status-success">✅ テストメールを送信しました</div>';
+                } else {
+                    throw new Error(`メール送信エラー: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('テストメール送信エラー:', error);
+                document.getElementById('email-settings-status').innerHTML = 
+                    '<div class="status-warning">⚠️ テストメール送信に失敗しました（開発環境ではログ出力のみ）</div>';
+            }
+        }
+
+        // システム状態確認
+        function checkSystemStatus() {
+            const status = {
+                'Config読み込み': typeof window.SUPABASE_CONFIG !== 'undefined',
+                'API関数': typeof window.callSheetsAPI === 'function',
+                '最適化システム': typeof window.simpleOptimization !== 'undefined',
+                'アラートシステム': typeof window.quotaAlertSystem !== 'undefined'
+            };
+
+            let html = '<div style="display: grid; gap: 10px;">';
+            let allOK = true;
+
+            Object.entries(status).forEach(([name, ok]) => {
+                const statusText = ok ? '✅ 正常' : '❌ エラー';
+                const statusClass = ok ? 'status-success' : 'status-error';
+                html += `<div class="${statusClass}" style="padding: 8px; font-size: 14px;">${name}: ${statusText}</div>`;
+                
+                if (!ok) allOK = false;
+            });
+
+            if (allOK) {
+                html += '<div class="status-success" style="padding: 8px; font-weight: 600;">🎉 すべてのシステムが正常に動作しています</div>';
+            }
+
+            html += '</div>';
+            document.getElementById('system-status-display').innerHTML = html;
+        }
+
+        // システム最適化の実行
+        async function runSystemOptimization() {
+            try {
+                if (typeof window.testSimpleOptimization === 'function') {
+                    await window.testSimpleOptimization();
+                }
+                
+                document.getElementById('system-status-display').innerHTML += 
+                    '<div class="status-success" style="margin-top: 10px;">⚡ システム最適化を実行しました</div>';
+            } catch (error) {
+                document.getElementById('system-status-display').innerHTML += 
+                    '<div class="status-error" style="margin-top: 10px;">❌ 最適化実行エラー: ' + error.message + '</div>';
+            }
+        }
+
+        // 使用量統計のリセット
+        function resetUsageStats() {
+            if (confirm('使用量統計をすべてリセットしますか？\n（アラート履歴も含めてすべて削除されます）')) {
+                localStorage.removeItem('dailyAPIStats');
+                localStorage.removeItem('monthlyAPIStats');
+                localStorage.removeItem('alertHistory');
+                localStorage.removeItem('simpleOptimizationStats');
+                
+                alert('🗑️ 使用量統計をリセットしました');
+                refreshUsageData();
+            }
+        }
+
+        // アラート履歴の読み込み
+        function loadAlertHistory() {
+            const history = JSON.parse(localStorage.getItem('alertHistory') || '[]');
+            const historyDiv = document.getElementById('alert-history-display');
+
+            if (history.length === 0) {
+                historyDiv.innerHTML = '<div style="color: rgba(31, 42, 61, 0.55); text-align: center;">📭 アラート履歴はありません</div>';
+                return;
+            }
+
+            let html = '';
+            history.slice(0, 20).forEach(alert => {
+                const date = new Date(alert.timestamp).toLocaleString('ja-JP');
+                const levelClass = alert.level.includes('first') ? 'first' : 
+                                 alert.level.includes('middle') ? 'middle' : 'final';
+                const icon = levelClass === 'first' ? '📊' : 
+                           levelClass === 'middle' ? '⚠️' : '🚨';
+                
+                html += `
+                    <div class="alert-item ${levelClass}">
+                        <div style="font-weight: 600;">${icon} ${alert.level.replace('_', ' ').toUpperCase()}</div>
+                        <div style="font-size: 14px; color: rgba(31, 42, 61, 0.55);">${date}</div>
+                        <div style="margin-top: 5px;">
+                            月間使用量: ${alert.usage.monthly}件 (${alert.usage.monthlyPercentage}%)
+                        </div>
+                    </div>
+                `;
+            });
+
+            historyDiv.innerHTML = html;
+        }
+
+        // アラート履歴のクリア
+        function clearAlertHistory() {
+            if (confirm('アラート履歴をすべて削除しますか？')) {
+                localStorage.removeItem('alertHistory');
+                document.getElementById('alert-history-display').innerHTML = 
+                    '<div style="color: rgba(31, 42, 61, 0.55); text-align: center;">📭 アラート履歴はありません</div>';
+                alert('🗑️ アラート履歴をクリアしました');
+            }
+        }
+
+        // 管理者ログアウト
+        async function adminLogout() {
+            if (confirm('管理者画面からログアウトしますか？')) {
+                const apiDelta = await calculateSessionApiDelta();
+                const description = apiDelta >= 30
+                    ? '⚠️ 短時間に30回以上のAPI呼び出しがありました。管理者に連絡してください。'
+                    : '管理画面からログアウトしました';
+                const recorded = await recordAdminAccess('admin_logout', description, apiDelta, { showWarning: apiDelta >= 30 });
+                if (!recorded) {
+                    await loadAccessLogs();
+                }
+                window.adminAuth.logout();
+            }
+        }
+
+        // デバッグモード切り替え
+        function toggleDebugMode() {
+            const currentMode = window._debugMode || false;
+            window._debugMode = !currentMode;
+            
+            const status = window._debugMode ? '有効' : '無効';
+            const color = window._debugMode ? '#2bb67a' : 'rgba(31, 42, 61, 0.55)';
+            
+            alert(`🔧 デバッグモード: ${status}\n\n詳細なAPI呼び出しログが${status}になりました。`);
+            
+            // ボタンの色を変更
+            const debugBtn = event.target;
+            debugBtn.style.background = color;
+            debugBtn.textContent = `🔧 デバッグ${window._debugMode ? 'ON' : 'OFF'}`;
+            
+            console.log(`🔧 デバッグモード: ${status}`);
+        }
+
+        // 使用量ダッシュボード関数は簡素化されました
+
+        // シンプルなAPI使用量表示（Supabaseベース・quota-alert-systemと同期）
+        async function loadSimpleUsageDisplay() {
+            try {
+                let usage;
+                
+                // quota-alert-systemが利用可能な場合は使用（非同期対応）
+                if (window.quotaAlertSystem) {
+                    usage = await window.quotaAlertSystem.getCurrentUsage();
+                } else {
+                    // フォールバック: 直接localStorage読み込み
+                    const today = new Date().toDateString();
+                    const currentMonth = new Date().toISOString().slice(0, 7);
+
+                    const dailyStats = JSON.parse(localStorage.getItem('dailyAPIStats') || '{}');
+                    const monthlyStats = JSON.parse(localStorage.getItem('monthlyAPIStats') || '{}');
+                    const totalStats = JSON.parse(localStorage.getItem('totalAPIStats') || '{"total": 0}');
+
+                    usage = {
+                        daily: dailyStats[today] || 0,
+                        monthly: monthlyStats[currentMonth] || 0,
+                        total: totalStats.total || 0
+                    };
+                }
+
+                const display = document.getElementById('simple-usage-display');
+                display.innerHTML = `
+                    <div style="
+                        text-align: center;
+                        padding: 20px;
+                        background: rgba(244, 247, 254, 0.9);
+                        border-radius: 8px;
+                        border: 1px solid #e9ecef;
+                    ">
+                        <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${usage.daily}</div>
+                        <div style="font-size: 0.875rem; color: rgba(31, 42, 61, 0.55);">本日累計 / 300</div>
+                    </div>
+
+                    <div style="
+                        text-align: center;
+                        padding: 20px;
+                        background: rgba(244, 247, 254, 0.9);
+                        border-radius: 8px;
+                        border: 1px solid #e9ecef;
+                    ">
+                        <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${usage.monthly}</div>
+                        <div style="font-size: 0.875rem; color: rgba(31, 42, 61, 0.55);">今月累計 / 3,000</div>
+                    </div>
+
+                    <div style="
+                        text-align: center;
+                        padding: 20px;
+                        background: rgba(244, 247, 254, 0.9);
+                        border-radius: 8px;
+                        border: 1px solid #e9ecef;
+                    ">
+                        <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${(usage.total || 0).toLocaleString()}</div>
+                        <div style="font-size: 0.875rem; color: rgba(31, 42, 61, 0.55);">総累計</div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('使用量表示エラー:', error);
+                const display = document.getElementById('simple-usage-display');
+                display.innerHTML = '<div style="color: #d64541;">❌ 使用量の読み込みに失敗しました</div>';
+            }
+        }
+
+        // CSS アニメーション
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        window._accessLogCache = [];
+
+        // 使用量インジケーター設定管理
+        const DEFAULT_INDICATOR_SETTINGS = { orange: 900, yellow: 1500, red: 2400 };
+
+        function persistIndicatorSettings(settings) {
+            try {
+                localStorage.setItem('indicatorColorSettings', JSON.stringify({
+                    ...settings,
+                    updated: new Date().toISOString()
+                }));
+            } catch (error) {
+                console.warn('インジケーター設定のローカル保存エラー:', error);
+            }
+        }
+
+        function applyIndicatorSettingsToUI(settings) {
+            document.getElementById('orange-threshold').value = settings.orange;
+            document.getElementById('yellow-threshold').value = settings.yellow;
+            document.getElementById('red-threshold').value = settings.red;
+            updateIndicatorPreview(settings);
+
+            if (window.usageIndicator && typeof window.usageIndicator.applyColorSettings === 'function') {
+                window.usageIndicator.applyColorSettings(settings, true);
+                if (typeof window.usageIndicator.latestMonthlyValue === 'number') {
+                    const indicatorEl = document.getElementById('usage-indicator');
+                    if (indicatorEl) {
+                        window.usageIndicator.updateIndicatorColor(indicatorEl, window.usageIndicator.latestMonthlyValue, settings);
+                    }
+                }
+            }
+        }
+
+        function getStoredIndicatorSettings() {
+            try {
+                const saved = localStorage.getItem('indicatorColorSettings');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && typeof parsed.orange === 'number' && typeof parsed.yellow === 'number' && typeof parsed.red === 'number') {
+                        return {
+                            orange: parsed.orange,
+                            yellow: parsed.yellow,
+                            red: parsed.red
+                        };
+                    }
+                }
+            } catch (error) {
+                console.warn('インジケーター設定の読み込みエラー:', error);
+            }
+            return { ...DEFAULT_INDICATOR_SETTINGS };
+        }
+
+        async function saveIndicatorSettings() {
+            try {
+                const orangeThreshold = parseInt(document.getElementById('orange-threshold').value, 10) || DEFAULT_INDICATOR_SETTINGS.orange;
+                const yellowThreshold = parseInt(document.getElementById('yellow-threshold').value, 10) || DEFAULT_INDICATOR_SETTINGS.yellow;
+                const redThreshold = parseInt(document.getElementById('red-threshold').value, 10) || DEFAULT_INDICATOR_SETTINGS.red;
+
+                if (orangeThreshold >= yellowThreshold || yellowThreshold >= redThreshold) {
+                    alert('⚠️ 閾値は 緑色 < 黄色 < 赤色 の順序で設定してください');
+                    return;
+                }
+
+                const settings = {
+                    orange: orangeThreshold,
+                    yellow: yellowThreshold,
+                    red: redThreshold
+                };
+
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'save',
+                        settings,
+                        updatedBy: 'admin_panel'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'インジケーター設定の保存に失敗しました');
+                }
+
+                const savedSettings = result.settings || settings;
+                persistIndicatorSettings(savedSettings);
+                applyIndicatorSettingsToUI(savedSettings);
+
+                alert('✅ 使用量インジケーターの色設定を保存しました\n\n設定は全ページのインジケーターに即座に反映されます。');
+
+            } catch (error) {
+                console.error('設定保存エラー:', error);
+                alert(`❌ 設定の保存に失敗しました\n${error.message || ''}`);
+            }
+        }
+
+        async function loadIndicatorSettings(showAlertOnFailure = false) {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({ action: 'get' })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'インジケーター設定の取得に失敗しました');
+                }
+
+                const settings = result.settings || { ...DEFAULT_INDICATOR_SETTINGS };
+                persistIndicatorSettings(settings);
+                applyIndicatorSettingsToUI(settings);
+
+            } catch (error) {
+                console.warn('設定読み込みエラー:', error);
+                if (showAlertOnFailure) {
+                    alert('⚠️ インジケーター設定の取得に失敗しました。ローカル設定を使用します。');
+                }
+
+                const fallbackSettings = getStoredIndicatorSettings();
+                persistIndicatorSettings(fallbackSettings);
+                applyIndicatorSettingsToUI(fallbackSettings);
+            }
+        }
+
+        async function resetIndicatorSettings() {
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'reset',
+                        updatedBy: 'admin_panel'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'インジケーター設定のリセットに失敗しました');
+                }
+
+                const settings = result.settings || { ...DEFAULT_INDICATOR_SETTINGS };
+                localStorage.removeItem('indicatorColorSettings');
+                persistIndicatorSettings(settings);
+                applyIndicatorSettingsToUI(settings);
+
+                alert('🔄 デフォルト設定に戻しました');
+
+            } catch (error) {
+                console.error('設定リセットエラー:', error);
+                localStorage.removeItem('indicatorColorSettings');
+                const fallbackSettings = { ...DEFAULT_INDICATOR_SETTINGS };
+                persistIndicatorSettings(fallbackSettings);
+                applyIndicatorSettingsToUI(fallbackSettings);
+                alert('⚠️ Supabaseへのリセットに失敗しました。ローカルでデフォルト値に戻しました。');
+            }
+        }
+
+        function updateIndicatorPreview(settings) {
+            const preview = document.getElementById('indicator-preview');
+            
+            preview.innerHTML = `
+                <div style="padding: 8px 15px; border-radius: 20px; background: rgba(0, 0, 0, 0.8); color: white; font-size: 12px; font-weight: bold;">
+                    ⚫ 黒: 0-${settings.orange - 1}回
+                </div>
+                <div style="padding: 8px 15px; border-radius: 20px; background: rgba(40, 167, 69, 0.8); color: white; font-size: 12px; font-weight: bold;">
+                    🟢 緑: ${settings.orange}-${settings.yellow - 1}回
+                </div>
+                <div style="padding: 8px 15px; border-radius: 20px; background: rgba(255, 193, 7, 0.9); color: white; font-size: 12px; font-weight: bold;">
+                    🟡 黄色: ${settings.yellow}-${settings.red - 1}回
+                </div>
+                <div style="padding: 8px 15px; border-radius: 20px; background: rgba(220, 53, 69, 0.9); color: white; font-size: 12px; font-weight: bold;">
+                    🔴 赤色: ${settings.red}回以上
+                </div>
+            `;
+        }
+
+        // API上限値設定管理
+        function saveAPILimitSettings() {
+            try {
+                const apiLimit = parseInt(document.getElementById('api-limit').value);
+                
+                if (!apiLimit || apiLimit < 100 || apiLimit > 10000) {
+                    alert('⚠️ 上限値は100-10,000回の範囲で入力してください');
+                    return;
+                }
+                
+                const settings = {
+                    apiLimit: apiLimit,
+                    updated: new Date().toISOString()
+                };
+
+                localStorage.setItem('apiLimitSettings', JSON.stringify(settings));
+                
+                updateLimitStatus(settings);
+                
+                alert(`✅ API使用量上限を${apiLimit}回に設定しました\\n\\n設定は即座にシステム全体に反映されます。`);
+                
+            } catch (error) {
+                console.error('上限値設定保存エラー:', error);
+                alert('❌ 設定の保存に失敗しました');
+            }
+        }
+
+        function loadAPILimitSettings() {
+            try {
+                const saved = localStorage.getItem('apiLimitSettings');
+                let settings;
+                
+                if (saved) {
+                    settings = JSON.parse(saved);
+                } else {
+                    // デフォルト設定
+                    settings = { apiLimit: 2500 };
+                }
+
+                document.getElementById('api-limit').value = settings.apiLimit;
+                updateLimitStatus(settings);
+                
+            } catch (error) {
+                console.error('上限値設定読み込みエラー:', error);
+                resetAPILimitSettings();
+            }
+        }
+
+        function resetAPILimitSettings() {
+            const defaultSettings = { apiLimit: 2500 };
+            
+            document.getElementById('api-limit').value = defaultSettings.apiLimit;
+            updateLimitStatus(defaultSettings);
+            
+            // ローカルストレージからも削除
+            localStorage.removeItem('apiLimitSettings');
+            
+            alert('🔄 デフォルト設定（2,500回）に戻しました');
+        }
+
+        async function updateLimitStatus(settings) {
+            try {
+                // 現在の使用量を取得
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get'
+                    })
+                });
+
+                if (response.ok) {
+                    const stats = await response.json();
+                    const monthlyUsage = stats.monthly.total;
+                    const usagePercentage = Math.round((monthlyUsage / settings.apiLimit) * 100);
+                    
+                    let statusColor, statusText;
+                    if (monthlyUsage >= settings.apiLimit) {
+                        statusColor = '#d64541';
+                        statusText = '🚫 遮断中';
+                    } else if (usagePercentage >= 90) {
+                        statusColor = '#fd7e14';
+                        statusText = '⚠️ 危険レベル';
+                    } else if (usagePercentage >= 70) {
+                        statusColor = '#f6b93b';
+                        statusText = '🟡 警告レベル';
+                    } else {
+                        statusColor = '#2bb67a';
+                        statusText = '✅ 正常';
+                    }
+                    
+                    const statusHtml = `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <p><strong>設定上限値:</strong> ${settings.apiLimit.toLocaleString()}回</p>
+                                <p><strong>現在の使用量:</strong> ${monthlyUsage.toLocaleString()}回</p>
+                                <p><strong>使用率:</strong> ${usagePercentage}%</p>
+                            </div>
+                            <div>
+                                <p style="font-size: 18px; font-weight: bold; color: ${statusColor};">
+                                    ${statusText}
+                                </p>
+                                <p><strong>残り使用可能:</strong> ${Math.max(0, settings.apiLimit - monthlyUsage).toLocaleString()}回</p>
+                                <p><small>最終更新: ${settings.updated ? new Date(settings.updated).toLocaleString() : '未設定'}</small></p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('limit-status-content').innerHTML = statusHtml;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+            } catch (error) {
+                console.error('状況更新エラー:', error);
+                document.getElementById('limit-status-content').innerHTML = `
+                    <p><strong>設定上限値:</strong> ${settings.apiLimit.toLocaleString()}回</p>
+                    <p style="color: #d64541;">使用量の取得に失敗しました</p>
+                `;
+            }
+        }
+
+        // 初期化
+        window.addEventListener('load', () => {
+            window.adminAuth = new AdminAuth();
+        });
+    </script>
+    <div class="system-alert-overlay" id="system-alert-overlay">
+        <div class="system-alert-modal">
+            <h3>⚠️ システム警告</h3>
+            <p id="system-alert-message">大量のAPI呼び出しが検知されました。アクセス履歴を確認してください。</p>
+            <button id="system-alert-confirm">了解</button>
+        </div>
+    </div>
+
+</body>
+</html>
