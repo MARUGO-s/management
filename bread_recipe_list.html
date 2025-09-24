@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>パン用レシピ一覧 - Recipe Box</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+    <link rel="icon" href="../favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="../config.js"></script>
+    <style>
+        :root{
+          /* 明度を全体的に上げたスレート系ダーク */
+          --bg:#1b2230;             /* 以前より+10%明るめ */
+          --surface:#222b3d;        /* カード */
+          --surface-2:#26334a;      /* 入力 */
+          --border:#33445f;         /* 枠線 */
+          --muted:#9aa6ba;          /* 補助テキスト */
+          --text:#f3f6fb;           /* 本文 */
+          --accent:#7aa2ff;
+          --shadow:0 10px 36px rgba(0,0,0,.28);
+        }
+        body{
+          background:
+            radial-gradient(1400px 640px at -10% -10%, rgba(255,255,255,.06) 0%, transparent 60%),
+            radial-gradient(1400px 640px at 110% -10%, rgba(255,255,255,.05) 0%, transparent 60%),
+            linear-gradient(180deg, #1e2634 0%, #182030 100%), var(--bg);
+          color: var(--text);
+        }
+        .container {
+          max-width: 980px;
+          margin: 32px auto;
+          padding: 0 20px;
+        }
+        .btn{
+          cursor:pointer;
+          background: linear-gradient(180deg, #253149, #212a3e);
+          color:#e5edff;
+          border:1px solid #344563;
+          padding:8px 12px;
+          border-radius:10px;
+          transition:.15s ease;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .btn:hover{
+          border-color:#3f5373;
+          transform: translateY(-1px);
+          box-shadow:0 8px 18px rgba(0,0,0,.18);
+        }
+        .btn.primary{
+          background: linear-gradient(180deg, #2541ff, #2037dc);
+          border-color:#2742ff;
+          color:white;
+        }
+        .row {
+          display:flex;
+          gap:10px;
+          align-items:center;
+          flex-wrap:wrap;
+        }
+        h1,h2{
+          letter-spacing:.3px;
+        }
+        h1{
+          font-size:1.5rem;
+          font-weight:700;
+        }
+
+        .recipe-card {
+            background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)), var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 18px 14px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(6px);
+            transition: all 0.3s ease;
+        }
+        
+        .recipe-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .recipe-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .recipe-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text);
+            margin: 0;
+        }
+        
+        .recipe-meta {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin: 4px 0 0 0;
+        }
+        
+        .recipe-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+        
+        .recipe-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 16px;
+        }
+        
+        .recipe-section {
+            background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)), var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+        }
+        
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin: 0 0 8px 0;
+        }
+        
+        .ingredient-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .ingredient-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .ingredient-item:last-child {
+            border-bottom: none;
+        }
+        
+        .ingredient-name {
+            color: var(--text);
+        }
+        
+        .ingredient-amount {
+            color: var(--muted);
+            font-weight: 500;
+        }
+        
+        .recipe-totals {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .total-item {
+            background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)), var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+        
+        .total-label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin: 0 0 4px 0;
+        }
+        
+        .total-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin: 0;
+        }
+        
+        .recipe-notes {
+            background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)), var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 16px;
+        }
+        
+        .notes-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin: 0 0 8px 0;
+        }
+        
+        .notes-content {
+            color: var(--text);
+            line-height: 1.5;
+            margin: 0;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-state h3 {
+            margin: 0 0 8px 0;
+            color: var(--text);
+        }
+        
+        .empty-state p {
+            margin: 0;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+        
+        .loading i {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* モーダルスタイル */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: var(--text);
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-close:hover {
+            color: var(--text);
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .batch-input-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .batch-input-section label {
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .batch-input-section input {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: var(--text);
+            width: 150px;
+        }
+        
+        .batch-results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .batch-section {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+        }
+        
+        .batch-section h5 {
+            margin: 0 0 12px 0;
+            color: var(--accent);
+            font-size: 0.9rem;
+        }
+        
+        .batch-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+        }
+        
+        .batch-item:last-child {
+            border-bottom: none;
+        }
+        
+        .batch-item-name {
+            color: var(--text);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+            flex: 1;
+            margin-right: 8px;
+        }
+        
+        .batch-item-amount {
+            color: var(--muted);
+            font-weight: 500;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .batch-total {
+            text-align: center;
+            padding: 16px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+        }
+        
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .recipe-content {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .recipe-totals {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .recipe-actions {
+                flex-direction: column;
+            }
+            
+            .batch-results-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .batch-input-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .batch-input-section input {
+                width: 100%;
+            }
+            
+            .batch-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+            
+            .batch-item-name {
+                margin-right: 0;
+                margin-bottom: 4px;
+            }
+            
+            .batch-item-amount {
+                align-self: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="margin: 0;">パン用レシピ一覧</h1>
+            <div class="row">
+                <a class="btn" href="../index.html">
+                    <i class="fas fa-home"></i> レシピ一覧
+                </a>
+                <a class="btn" href="bread_recipe.html">
+                    <i class="fas fa-plus"></i> 新規レシピ作成
+                </a>
+                <a class="btn" href="recipe_edit.html">
+                    <i class="fas fa-utensils"></i> 通常レシピ
+                </a>
+            </div>
+        </header>
+
+        <div id="loadingState" class="loading">
+            <i class="fas fa-spinner"></i>
+            <p>レシピを読み込み中...</p>
+        </div>
+
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <i class="fas fa-bread-slice"></i>
+            <h3>レシピがありません</h3>
+            <p>新しいパン用レシピを作成してください</p>
+            <a class="btn primary" href="bread_recipe.html" style="margin-top: 16px;">
+                <i class="fas fa-plus"></i> 新規レシピ作成
+            </a>
+        </div>
+
+        <div id="recipeList"></div>
+    </div>
+
+    <!-- 仕込み量調整ポップアップ -->
+    <div id="batchModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="batchModalTitle">仕込み量調整</h3>
+                <button class="modal-close" onclick="closeBatchModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="batch-input-section">
+                    <label for="targetWeight">目標総重量 (g):</label>
+                    <input type="number" id="targetWeight" min="1" step="1" placeholder="例: 1000">
+                    <button class="btn primary" onclick="calculateBatch()">計算</button>
+                </div>
+                
+                <div id="batchResults" style="display: none;">
+                    <h4>計算結果</h4>
+                    <div class="batch-results-grid">
+                        <div class="batch-section">
+                            <h5>粉グループ</h5>
+                            <div id="batchFlours"></div>
+                        </div>
+                        <div class="batch-section">
+                            <h5>材料（粉以外）</h5>
+                            <div id="batchIngredients"></div>
+                        </div>
+                    </div>
+                    <div class="batch-total">
+                        <strong>総重量: <span id="batchTotalWeight">0</span>g</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabaseクライアントの初期化
+        let sb;
+        if (typeof supabase !== 'undefined') {
+            sb = supabase.createClient(window.APP_CONFIG.SUPABASE_URL, window.APP_CONFIG.SUPABASE_ANON_KEY);
+        }
+
+        // レシピ一覧を読み込み
+        async function loadRecipes() {
+            try {
+                if (!sb) {
+                    throw new Error('データベース接続が利用できません');
+                }
+
+                // レシピ一覧を取得
+                const { data: recipes, error: recipesError } = await sb
+                    .from('bread_recipes')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (recipesError) throw recipesError;
+
+                // 各レシピの詳細データを取得
+                const recipesWithDetails = await Promise.all(
+                    recipes.map(async (recipe) => {
+                        // 粉データを取得
+                        const { data: flours } = await sb
+                            .from('bread_recipe_flours')
+                            .select('*')
+                            .eq('bread_recipe_id', recipe.id)
+                            .order('position');
+
+                        // 材料データを取得
+                        const { data: ingredients } = await sb
+                            .from('bread_recipe_ingredients')
+                            .select('*')
+                            .eq('bread_recipe_id', recipe.id)
+                            .order('position');
+
+                        return {
+                            ...recipe,
+                            flours: flours || [],
+                            ingredients: ingredients || []
+                        };
+                    })
+                );
+
+                // グローバル変数に保存
+                window.recipesData = recipesWithDetails;
+                displayRecipes(recipesWithDetails);
+                
+                // localStorageから選択されたレシピIDをチェック
+                const selectedRecipeId = localStorage.getItem('selectedBreadRecipeId');
+                if (selectedRecipeId) {
+                    // 選択されたレシピを自動的に仕込み量調整ポップアップで表示
+                    setTimeout(() => {
+                        openBatchModal(selectedRecipeId);
+                        // localStorageから削除
+                        localStorage.removeItem('selectedBreadRecipeId');
+                    }, 500);
+                }
+            } catch (error) {
+                console.error('レシピ読み込みエラー:', error);
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('emptyState').innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>読み込みエラー</h3>
+                    <p>レシピの読み込みに失敗しました: ${error.message}</p>
+                `;
+                document.getElementById('emptyState').style.display = 'block';
+            }
+        }
+
+        // 粉合計を計算
+        function calculateFlourTotal(recipe) {
+            return recipe.flours.reduce((total, flour) => total + (flour.grams || 0), 0);
+        }
+
+        // 材料合計を計算
+        function calculateIngredientTotal(recipe) {
+            return recipe.ingredients.reduce((total, ingredient) => total + (ingredient.grams || 0), 0);
+        }
+
+        // レシピ一覧を表示
+        function displayRecipes(recipes) {
+            const loadingState = document.getElementById('loadingState');
+            const emptyState = document.getElementById('emptyState');
+            const recipeList = document.getElementById('recipeList');
+
+            loadingState.style.display = 'none';
+
+            if (recipes.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            recipeList.innerHTML = recipes.map(recipe => createRecipeCard(recipe)).join('');
+        }
+
+        // レシピカードを作成
+        function createRecipeCard(recipe) {
+            const createdDate = new Date(recipe.created_at).toLocaleDateString('ja-JP');
+            const updatedDate = new Date(recipe.updated_at).toLocaleDateString('ja-JP');
+            
+            
+            return `
+                <div class="recipe-card">
+                    <div class="recipe-header">
+                        <div>
+                            <h3 class="recipe-title">${recipe.title}</h3>
+                            <p class="recipe-meta">
+                                作成日: ${createdDate} | 更新日: ${updatedDate}
+                            </p>
+                        </div>
+                        <div class="recipe-actions">
+                            <button class="btn btn-small" onclick="openBatchModal('${recipe.id}')">
+                                <i class="fas fa-calculator"></i> 仕込み量調整
+                            </button>
+                            <button class="btn btn-small" onclick="loadRecipe('${recipe.id}')">
+                                <i class="fas fa-edit"></i> 編集
+                            </button>
+                            <button class="btn btn-small" onclick="deleteRecipe('${recipe.id}')" style="background: #e74c3c; color: white;">
+                                <i class="fas fa-trash"></i> 削除
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="recipe-content">
+                        <div class="recipe-section">
+                            <h4 class="section-title">粉グループ</h4>
+                            <ul class="ingredient-list">
+                                ${recipe.flours.map(flour => `
+                                    <li class="ingredient-item">
+                                        <span class="ingredient-name">${flour.flour_name}</span>
+                                        <span class="ingredient-amount">${flour.grams}g (${flour.percentage}%)</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        
+                        <div class="recipe-section">
+                            <h4 class="section-title">材料（粉以外）</h4>
+                            <ul class="ingredient-list">
+                                ${recipe.ingredients.map(ingredient => `
+                                    <li class="ingredient-item">
+                                        <span class="ingredient-name">${ingredient.ingredient_name}</span>
+                                        <span class="ingredient-amount">${ingredient.grams}g (${ingredient.percentage}%)</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="recipe-totals">
+                        <div class="total-item">
+                            <p class="total-label">総重量</p>
+                            <p class="total-value">${recipe.flour_total_g}g</p>
+                        </div>
+                        <div class="total-item">
+                            <p class="total-label">粉合計</p>
+                            <p class="total-value">${calculateFlourTotal(recipe)}g</p>
+                        </div>
+                        <div class="total-item">
+                            <p class="total-label">材料合計</p>
+                            <p class="total-value">${calculateIngredientTotal(recipe)}g</p>
+                        </div>
+                    </div>
+                    
+                    
+                    ${recipe.notes ? `
+                        <div class="recipe-notes">
+                            <h4 class="notes-label">メモ</h4>
+                            <p class="notes-content">${recipe.notes}</p>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+
+        // レシピを編集画面で開く
+        function loadRecipe(recipeId) {
+            // レシピIDをlocalStorageに保存して編集画面に渡す
+            localStorage.setItem('editBreadRecipeId', recipeId);
+            window.location.href = 'bread_recipe.html';
+        }
+
+        // レシピを削除
+        async function deleteRecipe(recipeId) {
+            if (!confirm('このレシピを削除しますか？')) return;
+
+            try {
+                if (!sb) {
+                    throw new Error('データベース接続が利用できません');
+                }
+
+                // 関連データを削除（CASCADEで自動削除されるが、明示的に削除）
+                await sb.from('bread_recipe_flours').delete().eq('bread_recipe_id', recipeId);
+                await sb.from('bread_recipe_ingredients').delete().eq('bread_recipe_id', recipeId);
+                await sb.from('bread_recipes').delete().eq('id', recipeId);
+
+                alert('レシピを削除しました');
+                loadRecipes(); // 一覧を再読み込み
+            } catch (error) {
+                console.error('削除エラー:', error);
+                alert('削除に失敗しました: ' + error.message);
+            }
+        }
+
+        // 仕込み量調整モーダルを開く
+        function openBatchModal(recipeId) {
+            const recipe = window.recipesData.find(r => r.id === recipeId);
+            if (!recipe) return;
+            
+            document.getElementById('batchModalTitle').textContent = `${recipe.title} - 仕込み量調整`;
+            document.getElementById('targetWeight').value = recipe.flour_total_g;
+            document.getElementById('batchResults').style.display = 'none';
+            document.getElementById('batchModal').style.display = 'flex';
+            
+            // 現在のレシピデータを保存
+            window.currentBatchRecipe = recipe;
+        }
+
+        // 仕込み量調整モーダルを閉じる
+        function closeBatchModal() {
+            document.getElementById('batchModal').style.display = 'none';
+            window.currentBatchRecipe = null;
+        }
+
+        // 仕込み量を計算
+        function calculateBatch() {
+            const targetWeight = parseInt(document.getElementById('targetWeight').value);
+            if (!targetWeight || !window.currentBatchRecipe) return;
+            
+            const recipe = window.currentBatchRecipe;
+            const originalWeight = recipe.flour_total_g;
+            const ratio = targetWeight / originalWeight;
+            
+            // 粉グループの計算結果
+            const batchFlours = recipe.flours.map(flour => ({
+                name: flour.flour_name,
+                originalGrams: flour.grams,
+                newGrams: Math.round(flour.grams * ratio),
+                percentage: flour.percentage
+            }));
+            
+            // 材料の計算結果
+            const batchIngredients = recipe.ingredients.map(ingredient => ({
+                name: ingredient.ingredient_name,
+                originalGrams: ingredient.grams,
+                newGrams: Math.round(ingredient.grams * ratio),
+                percentage: ingredient.percentage
+            }));
+            
+            // 結果を表示
+            displayBatchResults(batchFlours, batchIngredients, targetWeight);
+        }
+
+        // 計算結果を表示
+        function displayBatchResults(flours, ingredients, totalWeight) {
+            // 粉グループの表示
+            const batchFloursDiv = document.getElementById('batchFlours');
+            batchFloursDiv.innerHTML = flours.map(flour => `
+                <div class="batch-item">
+                    <span class="batch-item-name">${flour.name}</span>
+                    <span class="batch-item-amount">${flour.newGrams}g (${flour.percentage}%)</span>
+                </div>
+            `).join('');
+            
+            // 材料の表示
+            const batchIngredientsDiv = document.getElementById('batchIngredients');
+            batchIngredientsDiv.innerHTML = ingredients.map(ingredient => `
+                <div class="batch-item">
+                    <span class="batch-item-name">${ingredient.name}</span>
+                    <span class="batch-item-amount">${ingredient.newGrams}g (${ingredient.percentage}%)</span>
+                </div>
+            `).join('');
+            
+            // 総重量の表示
+            document.getElementById('batchTotalWeight').textContent = totalWeight;
+            document.getElementById('batchResults').style.display = 'block';
+        }
+
+        // モーダル外クリックで閉じる
+        document.getElementById('batchModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeBatchModal();
+            }
+        });
+
+        // ページ読み込み時にレシピ一覧を読み込み
+        document.addEventListener('DOMContentLoaded', loadRecipes);
+    </script>
+</body>
+</html>

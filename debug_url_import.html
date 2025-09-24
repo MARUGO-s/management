@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL取り込みデバッグ</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .debug-output { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 3px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        input[type="url"] { width: 400px; padding: 8px; margin: 5px; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>URL取り込みデバッグツール</h1>
+    
+    <div class="debug-section">
+        <h2>テストURL</h2>
+        <input type="url" id="testUrl" placeholder="テストするURLを入力" value="https://www.felicimme.net/recipe/main/m060.html">
+        <button onclick="testUrlImport()">URL取り込みテスト</button>
+    </div>
+    
+    <div class="debug-section">
+        <h2>HTML取得デバッグ</h2>
+        <div id="htmlDebug" class="debug-output">HTML取得結果がここに表示されます...</div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>AI解析デバッグ</h2>
+        <div id="aiDebug" class="debug-output">AI解析結果がここに表示されます...</div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>手順抽出デバッグ</h2>
+        <div id="stepsDebug" class="debug-output">手順抽出結果がここに表示されます...</div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>材料抽出デバッグ</h2>
+        <div id="ingredientsDebug" class="debug-output">材料抽出結果がここに表示されます...</div>
+    </div>
+
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/database.js"></script>
+    <script>
+        // デバッグ用のログ出力関数
+        function debugLog(section, message, data = null) {
+            const element = document.getElementById(section + 'Debug');
+            if (element) {
+                const timestamp = new Date().toLocaleTimeString();
+                let logMessage = `[${timestamp}] ${message}`;
+                if (data) {
+                    logMessage += `\nデータ: ${JSON.stringify(data, null, 2)}`;
+                }
+                element.textContent += logMessage + '\n\n';
+                element.scrollTop = element.scrollHeight;
+            }
+        }
+
+        // HTML取得のテスト
+        async function fetchHTMLViaProxy(url) {
+            debugLog('html', 'HTML取得開始: ' + url);
+            
+            try {
+                // プロキシ経由でHTMLを取得
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                debugLog('html', 'プロキシURL: ' + proxyUrl);
+                
+                const response = await fetch(proxyUrl);
+                debugLog('html', 'プロキシレスポンス取得完了', { status: response.status, ok: response.ok });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                debugLog('html', 'JSON解析完了', { hasContents: !!data.contents, contentsLength: data.contents ? data.contents.length : 0 });
+                
+                if (!data.contents) {
+                    throw new Error('HTMLコンテンツが取得できませんでした');
+                }
+                
+                debugLog('html', 'HTML取得成功', { 
+                    length: data.contents.length,
+                    preview: data.contents.substring(0, 500) + '...'
+                });
+                
+                return data.contents;
+                
+            } catch (error) {
+                debugLog('html', 'HTML取得エラー: ' + error.message, { error: error.toString() });
+                throw error;
+            }
+        }
+
+        // サイト言語の判定
+        function detectSiteLanguage(url, html) {
+            const isJapaneseSite = url && (
+                url.includes('.jp') ||
+                url.includes('japanese') ||
+                url.includes('japan') ||
+                /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(url) ||
+                /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(html.substring(0, 1000))
+            );
+            
+            debugLog('html', 'サイト言語判定', { 
+                url: url, 
+                isJapaneseSite: isJapaneseSite,
+                hasJapaneseChars: /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(html.substring(0, 1000))
+            });
+            
+            return isJapaneseSite;
+        }
+
+        // 日本語サイト専用のデバッグ
+        function debugJapaneseSite(url, html) {
+            if (url && (url.includes('.jp') || url.includes('cuisine-kingdom.com'))) {
+                debugLog('html', '🇯🇵 日本語サイト: 詳細デバッグ開始');
+                
+                // 材料セクションの確認
+                const hasMaterials = html.includes('材料') || html.includes('【材料】');
+                debugLog('html', '🇯🇵 材料セクション存在確認', { hasMaterials });
+                
+                if (hasMaterials) {
+                    const materialIndex = html.indexOf('材料');
+                    debugLog('html', '🇯🇵 材料セクション位置', { 
+                        index: materialIndex,
+                        preview: html.substring(materialIndex, materialIndex + 500)
+                    });
+                }
+                
+                // 手順セクションの確認
+                const hasSteps = html.includes('手順') || html.includes('作り方') || html.includes('調理');
+                debugLog('html', '🇯🇵 手順セクション存在確認', { hasSteps });
+                
+                if (hasSteps) {
+                    const stepIndex = html.indexOf('手順');
+                    debugLog('html', '🇯🇵 手順セクション位置', { 
+                        index: stepIndex,
+                        preview: html.substring(stepIndex, stepIndex + 500)
+                    });
+                }
+                
+                // 番号付き手順の確認
+                const hasNumberedSteps = /\d+\.\s+[^0-9]/.test(html);
+                debugLog('html', '🇯🇵 番号付き手順存在確認', { hasNumberedSteps });
+                
+                if (hasNumberedSteps) {
+                    const stepMatches = html.match(/\d+\.\s+[^0-9][^0-9]*?(?=\d+\.|$)/g);
+                    debugLog('html', '🇯🇵 番号付き手順検出', { 
+                        count: stepMatches ? stepMatches.length : 0,
+                        steps: stepMatches ? stepMatches.slice(0, 3) : []
+                    });
+                }
+                
+                // 料理王国サイト専用の確認
+                if (url.includes('cuisine-kingdom.com')) {
+                    debugLog('html', '🍳 料理王国サイト専用デバッグ');
+                    
+                    const hasRecipeContent = html.includes('レシピ') || html.includes('recipe');
+                    debugLog('html', '🍳 レシピコンテンツ確認', { hasRecipeContent });
+                    
+                    const hasIngredients = html.includes('鹿ロース') || html.includes('フォワグラ');
+                    debugLog('html', '🍳 具体的材料確認', { hasIngredients });
+                    
+                    // 鹿ロースの詳細検索
+                    const deerIndex = html.indexOf('鹿ロース');
+                    if (deerIndex !== -1) {
+                        debugLog('html', '🍳 鹿ロース周辺', { 
+                            index: deerIndex,
+                            preview: html.substring(deerIndex - 100, deerIndex + 200)
+                        });
+                    }
+                }
+                
+                // フランスレストランウィークサイト専用の確認
+                if (url.includes('francerestaurantweek.com')) {
+                    debugLog('html', '🇫🇷 フランスレストランウィークサイト専用デバッグ');
+                    
+                    const hasRecipeContent = html.includes('レシピ') || html.includes('recipe');
+                    debugLog('html', '🇫🇷 レシピコンテンツ確認', { hasRecipeContent });
+                    
+                    const hasIngredients = html.includes('鹿バラ肉') || html.includes('赤ワイン') || html.includes('玉葱');
+                    debugLog('html', '🇫🇷 具体的材料確認', { hasIngredients });
+                    
+                    // 鹿バラ肉の詳細検索
+                    const deerIndex = html.indexOf('鹿バラ肉');
+                    if (deerIndex !== -1) {
+                        debugLog('html', '🇫🇷 鹿バラ肉周辺', { 
+                            index: deerIndex,
+                            preview: html.substring(deerIndex - 100, deerIndex + 200)
+                        });
+                    }
+                    
+                    // 作り方セクションの確認
+                    const hasSteps = html.includes('作り方') || html.includes('手順');
+                    debugLog('html', '🇫🇷 作り方セクション確認', { hasSteps });
+                    
+                    if (hasSteps) {
+                        const stepIndex = html.indexOf('作り方');
+                        debugLog('html', '🇫🇷 作り方セクション位置', { 
+                            index: stepIndex,
+                            preview: html.substring(stepIndex, stepIndex + 500)
+                        });
+                    }
+                    
+                    // 番号付き手順の確認
+                    const hasNumberedSteps = /①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩/.test(html);
+                    debugLog('html', '🇫🇷 番号付き手順確認', { hasNumberedSteps });
+                    
+                    if (hasNumberedSteps) {
+                        const stepMatches = html.match(/[①②③④⑤⑥⑦⑧⑨⑩][^①②③④⑤⑥⑦⑧⑨⑩]*?(?=[①②③④⑤⑥⑦⑧⑨⑩]|$)/g);
+                        debugLog('html', '🇫🇷 番号付き手順検出', { 
+                            count: stepMatches ? stepMatches.length : 0,
+                            steps: stepMatches ? stepMatches.slice(0, 3) : []
+                        });
+                    }
+                }
+                
+                // フェリスィムサイト専用の確認
+                if (url.includes('felicimme.net')) {
+                    debugLog('html', '🍽️ フェリスィムサイト専用デバッグ');
+                    
+                    const hasRecipeContent = html.includes('レシピ') || html.includes('recipe');
+                    debugLog('html', '🍽️ レシピコンテンツ確認', { hasRecipeContent });
+                    
+                    const hasIngredients = html.includes('鹿肉') || html.includes('ベーコン') || html.includes('赤ワイン');
+                    debugLog('html', '🍽️ 具体的材料確認', { hasIngredients });
+                    
+                    // 鹿肉の詳細検索
+                    const deerIndex = html.indexOf('鹿肉');
+                    if (deerIndex !== -1) {
+                        debugLog('html', '🍽️ 鹿肉周辺', { 
+                            index: deerIndex,
+                            preview: html.substring(deerIndex - 100, deerIndex + 200)
+                        });
+                    }
+                    
+                    // 材料セクションの確認
+                    const hasMaterials = html.includes('【材料】');
+                    debugLog('html', '🍽️ 材料セクション確認', { hasMaterials });
+                    
+                    if (hasMaterials) {
+                        const materialIndex = html.indexOf('【材料】');
+                        debugLog('html', '🍽️ 材料セクション位置', { 
+                            index: materialIndex,
+                            preview: html.substring(materialIndex, materialIndex + 500)
+                        });
+                    }
+                    
+                    // 分量と単位の確認
+                    const hasQuantities = html.includes('500〜700g') || html.includes('10枚') || html.includes('150cc');
+                    debugLog('html', '🍽️ 分量・単位確認', { hasQuantities });
+                    
+                    if (hasQuantities) {
+                        const quantityMatches = html.match(/\d+[〜〜]?\d*[g枚ccml個本]/g);
+                        debugLog('html', '🍽️ 分量・単位検出', { 
+                            count: quantityMatches ? quantityMatches.length : 0,
+                            quantities: quantityMatches ? quantityMatches.slice(0, 5) : []
+                        });
+                    }
+                    
+                    // 番号付き手順の確認
+                    const hasNumberedSteps = /\d+\.\s+[^0-9]/.test(html);
+                    debugLog('html', '🍽️ 番号付き手順確認', { hasNumberedSteps });
+                    
+                    if (hasNumberedSteps) {
+                        const stepMatches = html.match(/\d+\.\s+[^0-9][^0-9]*?(?=\d+\.|$)/g);
+                        debugLog('html', '🍽️ 番号付き手順検出', { 
+                            count: stepMatches ? stepMatches.length : 0,
+                            steps: stepMatches ? stepMatches.slice(0, 3) : []
+                        });
+                    }
+                }
+            }
+        }
+
+        // メインのテスト関数
+        async function testUrlImport() {
+            const url = document.getElementById('testUrl').value;
+            if (!url) {
+                alert('URLを入力してください');
+                return;
+            }
+            
+            // デバッグ出力をクリア
+            document.querySelectorAll('.debug-output').forEach(el => el.textContent = '');
+            
+            debugLog('html', '=== URL取り込みデバッグ開始 ===');
+            debugLog('html', 'テストURL: ' + url);
+            
+            try {
+                // HTML取得
+                const html = await fetchHTMLViaProxy(url);
+                
+                // サイト言語判定
+                const isJapaneseSite = detectSiteLanguage(url, html);
+                
+                // 日本語サイト専用デバッグ
+                debugJapaneseSite(url, html);
+                
+                debugLog('html', 'HTML取得完了', { 
+                    length: html.length,
+                    isJapaneseSite: isJapaneseSite
+                });
+                
+                // AI解析のシミュレーション（実際のAPI呼び出しは行わない）
+                debugLog('ai', 'AI解析シミュレーション開始');
+                debugLog('ai', '使用プロンプト: ' + (isJapaneseSite ? '日本語サイト用' : '海外サイト用'));
+                
+                // 手順抽出のシミュレーション
+                const stepPatterns = [
+                    /\d+\.\s+[^0-9]/g,
+                    /手順\d+:\s*[^0-9]/g,
+                    /作り方\d+:\s*[^0-9]/g,
+                    /[①②③④⑤⑥⑦⑧⑨⑩][^①②③④⑤⑥⑦⑧⑨⑩]*?(?=[①②③④⑤⑥⑦⑧⑨⑩]|$)/g
+                ];
+                
+                let foundSteps = [];
+                stepPatterns.forEach((pattern, index) => {
+                    const matches = html.match(pattern);
+                    if (matches && matches.length > 0) {
+                        foundSteps = foundSteps.concat(matches);
+                        debugLog('steps', `パターン${index + 1}で手順を発見`, { 
+                            pattern: pattern.toString(),
+                            count: matches.length,
+                            steps: matches.slice(0, 3)
+                        });
+                    }
+                });
+                
+                debugLog('steps', '手順抽出結果', { 
+                    totalFound: foundSteps.length,
+                    uniqueSteps: [...new Set(foundSteps)].length
+                });
+                
+                // 材料抽出のシミュレーション
+                const ingredientPatterns = [
+                    /材料[\s\S]*?(?=\n\n|\n[A-Z]|$)/i,
+                    /【材料】[\s\S]*?(?=\n\n|\n[A-Z]|$)/i,
+                    /使用する食材[\s\S]*?(?=\n\n|\n[A-Z]|$)/i,
+                    /鹿バラ肉[\s\S]*?(?=\n\n|\n[A-Z]|$)/i,
+                    /鹿肉[\s\S]*?(?=\n\n|\n[A-Z]|$)/i
+                ];
+                
+                let foundIngredients = [];
+                ingredientPatterns.forEach((pattern, index) => {
+                    const matches = html.match(pattern);
+                    if (matches && matches.length > 0) {
+                        foundIngredients = foundIngredients.concat(matches);
+                        debugLog('ingredients', `パターン${index + 1}で材料を発見`, { 
+                            pattern: pattern.toString(),
+                            count: matches.length,
+                            preview: matches[0].substring(0, 200)
+                        });
+                    }
+                });
+                
+                debugLog('ingredients', '材料抽出結果', { 
+                    totalFound: foundIngredients.length,
+                    uniqueIngredients: [...new Set(foundIngredients)].length
+                });
+                
+                debugLog('ai', '=== デバッグ完了 ===');
+                
+            } catch (error) {
+                debugLog('html', 'エラー発生: ' + error.message, { error: error.toString() });
+            }
+        }
+    </script>
+</body>
+</html>

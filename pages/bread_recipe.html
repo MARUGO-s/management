@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>新規パンレシピ編集ページ — Recipe Box</title>
+  <link rel="icon" type="image/x-icon" href="../favicon.ico">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <style>
+    :root{
+      /* 明度を全体的に上げたスレート系ダーク */
+      --bg:#1b2230;             /* 以前より+10%明るめ */
+      --surface:#222b3d;        /* カード */
+      --surface-2:#26334a;      /* 入力 */
+      --border:#33445f;         /* 枠線 */
+      --muted:#9aa6ba;          /* 補助テキスト */
+      --text:#f3f6fb;           /* 本文 */
+      --accent:#7aa2ff;
+      --shadow:0 10px 36px rgba(0,0,0,.28);
+    }
+    body{ background:
+            radial-gradient(1400px 640px at -10% -10%, rgba(255,255,255,.06) 0%, transparent 60%),
+            radial-gradient(1400px 640px at 110% -10%, rgba(255,255,255,.05) 0%, transparent 60%),
+            linear-gradient(180deg, #1e2634 0%, #182030 100%), var(--bg);
+          color: var(--text); }
+    .container { max-width: 980px; margin: 32px auto; padding: 0 20px; }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+            border: 1px solid var(--border); border-radius: 14px; padding: 18px 18px 14px; box-shadow: var(--shadow);
+            backdrop-filter: blur(6px); }
+    h1,h2{ letter-spacing:.3px; }
+    h1{ font-size:1.5rem; font-weight:700; }
+    h2{ font-size:1.05rem; color: var(--muted); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+    h2::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 16px var(--accent); }
+
+    .grid-ingredients { 
+      display: grid; 
+      grid-template-columns: 2fr 1fr 80px 60px; 
+      gap: 4px; 
+      align-items: center; 
+      min-width: 600px;
+      min-height: 50px;
+    }
+    .grid-ingredients .th { 
+      font-weight: 600; 
+      color: var(--muted); 
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    .grid-ingredients .th.center {
+      text-align: center;
+    }
+    .grid-ingredients > div, .grid-ingredients > input, .grid-ingredients > button{ 
+      min-height: 42px; 
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+    .grid-ingredients input[type="text"] {
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      min-height: 42px;
+      height: auto;
+      resize: vertical;
+    }
+    
+    /* パーセント表示を枠なしに */
+    .grid-ingredients input[type="text"][readonly] {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-weight: 600;
+      text-align: center;
+      padding: 0;
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    /* 削除ボタンのスタイル */
+    .grid-ingredients .btn.small {
+      background: #e74c3c !important;
+      color: white !important;
+      border: none !important;
+      padding: 4px 8px !important;
+      border-radius: 4px !important;
+      cursor: pointer !important;
+      font-size: 12px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+      transition: background-color 0.2s ease !important;
+    }
+    
+    .grid-ingredients .btn.small:hover {
+      background: #c0392b !important;
+    }
+    
+    .grid-ingredients .btn.small:active {
+      background: #a93226 !important;
+    }
+    
+    /* 数値入力のスピンボタンを非表示 */
+    .grid-ingredients input[type="number"]::-webkit-outer-spin-button,
+    .grid-ingredients input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    
+    .grid-ingredients input[type="number"] {
+      -moz-appearance: textfield;
+      -webkit-appearance: none;
+    }
+    .grid-ingredients + #bpFlourRows .grid-ingredients, .grid-ingredients + #bpIngRows .grid-ingredients{ 
+      border-top: 1px solid var(--border); 
+    }
+    .muted { color: var(--muted); }
+    .totals { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+    .kpi{ background: var(--surface); border:1px solid var(--border); padding:10px 12px; border-radius:10px; }
+    .kpi strong{ color:#fff; font-weight:700; }
+
+    .btn{ cursor:pointer; background: linear-gradient(180deg, #253149, #212a3e); color:#e5edff; border:1px solid #344563; padding:8px 12px; border-radius:10px; transition:.15s ease; }
+    .btn:hover{ border-color:#3f5373; transform: translateY(-1px); box-shadow:0 8px 18px rgba(0,0,0,.18); }
+    .btn.small{ font-size:.9rem; padding:7px 10px; }
+    .btn.primary{ background: linear-gradient(180deg, #2541ff, #2037dc); border-color:#2742ff; color:white; }
+
+    .right { text-align: right; }
+    input[type="number"], input[type="text"], textarea{
+      width:100%; background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)), var(--surface-2);
+      border:1px solid var(--border); color: var(--text);
+      border-radius:10px; padding:10px 12px; outline:none; transition:.15s ease; 
+    }
+    input[type="number"]:focus, input[type="text"]:focus, textarea:focus{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(122,162,255,.15); }
+    input::placeholder{ color: #cbd5e6; opacity:.85; }
+    #bpFlourRows, #bpIngRows{ 
+      overflow-x:auto; 
+      min-height: 0;
+      padding: 0;
+      margin: 0;
+    }
+    
+    /* 空白の枠を非表示 */
+    #bpFlourRows:empty, #bpIngRows:empty {
+      display: none;
+    }
+
+    /* タブレット対応 */
+    @media (max-width: 1024px) and (min-width: 769px){
+      .container{ max-width: 900px; }
+      .grid-ingredients{ 
+        grid-template-columns: 1fr 120px 120px 70px; 
+        gap: 8px; 
+        min-width: 600px;
+      }
+    }
+
+    /* スマートフォン完全対応 */
+    @media (max-width: 768px){
+      .container{ padding: 0 8px; margin: 16px auto; }
+      .card{ padding: 12px; margin-bottom: 12px; }
+      h1{ font-size: 1.3rem; }
+      h2{ font-size: 1rem; }
+      
+      /* グリッドを縦積みに変更 */
+      .grid-ingredients{ 
+        display: grid !important; 
+        grid-template-columns: 2fr 1fr 80px 60px !important;
+        gap: 4px !important;
+        min-width: auto !important; 
+        border: 1px solid var(--border); 
+        border-radius: 8px; 
+        margin-bottom: 8px; 
+        padding: 8px;
+      }
+      .grid-ingredients > div, .grid-ingredients > input, .grid-ingredients > button{ 
+        min-height: 36px; 
+      }
+      .grid-ingredients .th{ display: none !important; } /* ヘッダー非表示 */
+      
+      /* 各項目を縦に配置 */
+      .grid-ingredients > div:first-child{ 
+        display: none !important; /* 番号非表示 */
+      }
+      .grid-ingredients input[type="text"]{ 
+        grid-column: 1 !important;
+        width: 100% !important; 
+      }
+      .grid-ingredients input[type="number"]{ 
+        grid-column: 2 !important;
+        width: 100% !important; 
+        text-align: left !important;
+      }
+      .grid-ingredients input[type="text"][readonly]{ 
+        grid-column: 3 !important;
+        width: 100% !important; 
+      }
+      .grid-ingredients button{ 
+        grid-column: 4 !important;
+        width: 100% !important; 
+        min-width: 60px !important;
+        font-size: 12px !important;
+        padding: 4px 6px !important;
+      }
+      
+      /* 集計を2列に */
+      .totals{ grid-template-columns: repeat(2,1fr); gap: 8px; }
+      .kpi{ padding: 8px; font-size: 0.9rem; }
+      
+      /* ボタンサイズ調整 */
+      .btn{ padding: 6px 10px; font-size: 0.85rem; }
+      .row{ flex-direction: column; align-items: stretch; gap: 6px; }
+    }
+
+    @media (max-width: 480px){
+      .container{ padding: 0 4px; }
+      .card{ padding: 8px; }
+      h1{ font-size: 1.2rem; }
+      
+      .grid-ingredients{ 
+        grid-template-columns: 2fr 1fr 80px 60px !important;
+        gap: 4px !important;
+      }
+      
+      /* 材料、g、%、削除ボタンを横並びにする */
+      .grid-ingredients input[type="text"]{ 
+        grid-column: 1 !important;
+        width: 100% !important; 
+      }
+      
+      .grid-ingredients input[type="number"]{ 
+        grid-column: 2 !important;
+        width: 100% !important; 
+        text-align: left !important;
+      }
+      
+      .grid-ingredients input[type="text"][readonly]{ 
+        grid-column: 3 !important;
+        width: 100% !important; 
+      }
+      
+      .grid-ingredients button{ 
+        grid-column: 4 !important;
+        width: 100% !important; 
+        min-width: 60px !important;
+        font-size: 12px !important;
+        padding: 4px 6px !important;
+      }
+      
+      .totals{ 
+        grid-template-columns: 1fr !important; 
+      }
+    }
+
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .note { font-size:.9rem; color:var(--muted) }
+    
+    /* 基本情報グリッド */
+    .basic-info-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .info-item label {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.9rem;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+    .info-item input {
+      width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+    
+    /* 基本情報の数値入力のスピンボタンを非表示 */
+    .info-item input[type="number"]::-webkit-outer-spin-button,
+    .info-item input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    
+    .info-item input[type="number"] {
+      -moz-appearance: textfield;
+      -webkit-appearance: none;
+    }
+    
+    /* スマートフォン表示でも基本情報を一行に */
+    @media (max-width: 768px) {
+      .basic-info-grid {
+        grid-template-columns: 2fr 1fr !important;
+        gap: 8px !important;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .basic-info-grid {
+        grid-template-columns: 2fr 1fr !important;
+        gap: 6px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header style="margin-bottom:18px; display:flex; justify-content:space-between; align-items:center;">
+      <h1 style="margin:0;">新規パンレシピ編集ページ</h1>
+      <div class="row">
+        <a class="btn" href="../index.html">
+          <i class="fas fa-home"></i> レシピ一覧
+        </a>
+        <a class="btn" href="bread_recipe_list.html">
+          <i class="fas fa-bread-slice"></i> パンレシピ一覧
+        </a>
+        <a class="btn" href="recipe_edit.html">通常レシピ編集</a>
+      </div>
+    </header>
+
+    <section class="card" style="margin-bottom:16px;">
+      <h2 style="margin:0 0 12px 0;">基本情報</h2>
+      <div class="basic-info-grid">
+        <div class="info-item">
+          <label for="breadTitle">レシピ名</label>
+          <input id="breadTitle" type="text" placeholder="例: 角食パン">
+        </div>
+        <div class="info-item">
+          <label for="flourTotal">総重量(g)</label>
+          <input id="flourTotal" type="number" min="1" step="1" value="500">
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-bottom:16px;">
+      <h2 style="margin:0 0 8px 0;">粉グループ</h2>
+      <div class="grid-ingredients muted" style="margin-bottom:6px;">
+        <div class="th">粉 名</div>
+        <div class="th right">g</div>
+        <div class="th center">%</div>
+        <div class="th"></div>
+      </div>
+      <div id="bpFlourRows"></div>
+      <div class="row" style="margin-top:8px;">
+        <button class="btn small" id="addFlourRowBtn">粉の行を追加</button>
+      </div>
+    </section>
+
+    <section class="card" style="margin-bottom:16px;">
+      <h2 style="margin:0 0 8px 0;">材料（粉以外）</h2>
+      <div class="grid-ingredients muted" style="margin-bottom:6px;">
+        <div class="th">材料</div>
+        <div class="th right">g</div>
+        <div class="th center">%</div>
+        <div class="th"></div>
+      </div>
+      <div id="bpIngRows"></div>
+      <div class="row" style="margin-top:8px;">
+        <button class="btn small" id="addIngRowBtn">材料の行を追加</button>
+        <button class="btn small" id="resetBtn">リセット</button>
+      </div>
+    </section>
+
+
+    <section class="card">
+      <h2 style="margin:0 0 8px 0;">メモ</h2>
+      <textarea id="notes" rows="5" style="width:100%;"></textarea>
+    </section>
+
+    <section class="card" style="margin-top: 20px;">
+      <div class="row" style="justify-content: center; gap: 16px;">
+        <button class="btn primary" id="saveBreadRecipeBtn">
+          <i class="fas fa-save"></i> パン用レシピを保存
+        </button>
+        <button class="btn" id="loadBreadRecipeBtn">
+          <i class="fas fa-folder-open"></i> レシピを読み込み
+        </button>
+        <button class="btn" id="clearBreadRecipeBtn">
+          <i class="fas fa-trash"></i> クリア
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="../config.js"></script>
+  <script src="../assets/js/bakers-percentage.js"></script>
+</body>
+</html>
+
+
