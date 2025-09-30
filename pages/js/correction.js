@@ -14,6 +14,7 @@ let originalData = null;
 // デバッグログを保存する配列
 let debugLogs = [];
 let cachedNames = null;
+let manualInputFields = [];
 
 // デバッグログ追加関数
 function addDebugLog(message, data = null) {
@@ -125,6 +126,174 @@ function renderNameList(names) {
     return res !== 0 ? res : collator.compare(a, b);
   });
   list.innerHTML = sorted.map(n => `<option value="${n}"></option>`).join('');
+}
+
+function addManualInputField(config) {
+  if (!config || !config.id) return;
+  const exists = manualInputFields.some(field => field.id === config.id);
+  if (!exists) {
+    manualInputFields.push(config);
+  }
+}
+
+function enableManualField(element) {
+  if (!element) return;
+  element.disabled = false;
+  element.classList.add('requires-input');
+  const group = element.closest('.form-group');
+  if (group) {
+    group.classList.add('force-visible');
+  }
+
+  if (!element.dataset.manualListenerAdded) {
+    const handler = () => updateManualInputNotice();
+    element.addEventListener('input', handler);
+    element.addEventListener('change', handler);
+    element.dataset.manualListenerAdded = 'true';
+  }
+}
+
+function enableManualCategory() {
+  const categoryInput = document.getElementById('category');
+  if (!categoryInput) return;
+  const group = categoryInput.closest('.form-group');
+  if (group) {
+    group.classList.add('force-visible');
+  }
+  const options = document.querySelectorAll('.category-option');
+  options.forEach(option => {
+    option.classList.remove('disabled');
+    option.classList.add('manual-enabled');
+    option.classList.add('manual-needs-input');
+  });
+}
+
+function prepareManualInputSupport() {
+  manualInputFields = [];
+
+  const lenderEl = document.getElementById('lender');
+  if (lenderEl && !lenderEl.value) {
+    addManualInputField({ id: 'lender', label: '貸主', type: 'select' });
+    enableManualField(lenderEl);
+  }
+
+  const nameEl = document.getElementById('name');
+  if (nameEl && !nameEl.value) {
+    addManualInputField({ id: 'name', label: '名前', type: 'input' });
+    enableManualField(nameEl);
+  }
+
+  const borrowerEl = document.getElementById('borrower');
+  if (borrowerEl && !borrowerEl.value) {
+    addManualInputField({ id: 'borrower', label: '借主', type: 'select' });
+    enableManualField(borrowerEl);
+  }
+
+  const itemEl = document.getElementById('item');
+  if (itemEl && !itemEl.value) {
+    addManualInputField({ id: 'item', label: '品目', type: 'input' });
+    enableManualField(itemEl);
+  }
+
+  const amountEl = document.getElementById('amount');
+  if (amountEl && !convertToHalfWidthNumber(amountEl.value)) {
+    addManualInputField({ id: 'amount', label: '金額', type: 'input' });
+    enableManualField(amountEl);
+  }
+
+  const categoryInput = document.getElementById('category');
+  if (categoryInput && !categoryInput.value) {
+    addManualInputField({ id: 'category', label: 'カテゴリー', type: 'category' });
+    enableManualCategory();
+  }
+
+  updateManualInputNotice();
+
+  if (manualInputFields.length > 0) {
+    addDebugLog('手動入力が必要な項目', {
+      fields: manualInputFields.map(field => field.label)
+    });
+  }
+}
+
+function updateManualInputNotice() {
+  const notice = document.getElementById('manual-input-notice');
+  const textEl = document.getElementById('manual-input-text');
+  if (!notice || !textEl) return;
+
+  if (manualInputFields.length === 0) {
+    notice.style.display = 'none';
+    notice.classList.remove('complete');
+    textEl.textContent = '';
+    return;
+  }
+
+  const pendingIds = [];
+  manualInputFields.forEach(field => {
+    if (field.id === 'category') {
+      const categoryValue = document.getElementById('category')?.value;
+      if (!categoryValue) {
+        pendingIds.push(field.id);
+      }
+    } else {
+      const element = document.getElementById(field.id);
+      if (!element) return;
+      let value = element.value;
+      if (field.id === 'amount') {
+        value = convertToHalfWidthNumber(value);
+      }
+      if (!value) {
+        pendingIds.push(field.id);
+      }
+    }
+  });
+
+  const pendingSet = new Set(pendingIds);
+
+  if (pendingSet.size > 0) {
+    const labels = manualInputFields
+      .filter(field => pendingSet.has(field.id))
+      .map(field => field.label);
+    notice.style.display = 'block';
+    notice.classList.remove('complete');
+    if (pendingSet.has('name') || labels.includes('名前')) {
+      textEl.textContent = '修正者の名前を入力してください。';
+    } else {
+      textEl.textContent = `元データに値が無かったため、${labels.join('・')}を入力してください。`;
+    }
+  } else {
+    notice.style.display = 'block';
+    notice.classList.add('complete');
+    textEl.textContent = '不足していた項目の入力が完了しました。内容を確認して送信してください。';
+  }
+
+  manualInputFields.forEach(field => {
+    if (field.id === 'category') {
+      const categoryGroup = document.getElementById('category')?.closest('.form-group');
+      if (categoryGroup) {
+        if (pendingSet.has(field.id)) {
+          categoryGroup.classList.add('requires-input-group');
+        } else {
+          categoryGroup.classList.remove('requires-input-group');
+        }
+      }
+      document.querySelectorAll('.category-option').forEach(option => {
+        if (pendingSet.has(field.id)) {
+          option.classList.add('manual-needs-input');
+        } else {
+          option.classList.remove('manual-needs-input');
+        }
+      });
+    } else {
+      const element = document.getElementById(field.id);
+      if (!element) return;
+      if (pendingSet.has(field.id)) {
+        element.classList.add('requires-input');
+      } else {
+        element.classList.remove('requires-input');
+      }
+    }
+  });
 }
 
 // ヘルパー関数
@@ -343,6 +512,8 @@ function autoFillReverseData() {
     unitPrice: document.getElementById('unitPrice').value,
     amount: document.getElementById('amount').value
   });
+
+  prepareManualInputSupport();
 }
 
 // プログレス表示機能
@@ -503,6 +674,34 @@ async function submitCorrectionData() {
     showProgressStep('step-validation');
     startProgress(15000);
     await delay(500);
+
+    // 送信直前の安全補完: 無効化やUI状態に関わらず値を確実にセット
+    const lenderEl = document.getElementById('lender');
+    const borrowerEl = document.getElementById('borrower');
+    const ensureOption = (selectEl, value) => {
+      if (!selectEl || !value) return;
+      const exists = Array.from(selectEl.options).some(o => o.value === value);
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = value;
+        selectEl.appendChild(opt);
+      }
+      selectEl.value = value;
+    };
+    // originalData からのフォールバック
+    if (originalData) {
+      if (lenderEl && !lenderEl.value && originalData.borrower) {
+        addDebugLog('lender が空のため originalData から補完', { from: originalData.borrower });
+        ensureOption(lenderEl, originalData.borrower);
+      }
+      if (borrowerEl && !borrowerEl.value && originalData.lender) {
+        addDebugLog('borrower が空のため originalData から補完', { from: originalData.lender });
+        ensureOption(borrowerEl, originalData.lender);
+      }
+    }
+
+    updateManualInputNotice();
 
     const data = {
       date: document.getElementById("date").value,
@@ -769,11 +968,16 @@ function initializeElements() {
         return;
       }
       
-      categoryOptions.forEach(opt => opt.classList.remove('selected'));
+      categoryOptions.forEach(opt => {
+        opt.classList.remove('selected');
+        opt.classList.remove('manual-needs-input');
+      });
       option.classList.add('selected');
       categoryInput.value = option.dataset.value;
       
       addDebugLog('カテゴリー選択', { category: option.dataset.value });
+
+      updateManualInputNotice();
     });
   });
 
@@ -788,6 +992,7 @@ function initializeElements() {
     // 数字以外除去
     value = value.replace(/[^0-9]/g, '');
     e.target.value = value;
+    updateManualInputNotice();
   });
   amountInput.addEventListener('compositionstart', (e) => {
     e.target.dataset.composing = 'true';
@@ -799,12 +1004,14 @@ function initializeElements() {
     value = value.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
     value = value.replace(/[^0-9]/g, '');
     e.target.value = value;
+    updateManualInputNotice();
   });
   amountInput.addEventListener('blur', (e) => {
     let value = (e.target.value || '').replace(/,/g, '');
     if (value) {
       e.target.value = parseInt(value, 10).toLocaleString('ja-JP');
     }
+    updateManualInputNotice();
   });
   amountInput.addEventListener('focus', (e) => {
     e.target.value = (e.target.value || '').replace(/,/g, '');

@@ -852,6 +852,53 @@
 
     /* Hide all fields below name */
     #correctionForm .form-group:not(#name-form-group) { display: none !important; }
+    .form-group.force-visible { display: block !important; }
+
+    .manual-input-notice {
+      display: none;
+      margin: 12px 0 20px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid #fbbf24;
+      background: #fef3c7;
+      color: #92400e;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .manual-input-notice.complete {
+      border-color: #10b981;
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    .manual-input-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    select.requires-input,
+    input.requires-input {
+      border-color: #f97316 !important;
+      box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15) !important;
+    }
+
+    .form-group.requires-input-group {
+      border: 1px dashed #f97316;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .category-option.manual-enabled {
+      cursor: pointer !important;
+      opacity: 1 !important;
+    }
+
+    .category-option.manual-needs-input {
+      border-color: #f97316 !important;
+      background: rgba(249, 115, 22, 0.12) !important;
+      color: #b45309 !important;
+    }
 
     /* Modal popup for status */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 3000; }
@@ -993,11 +1040,16 @@
       <ul class="confirm-list" id="confirm-list"></ul>
     </div>
 
+    <div class="manual-input-notice" id="manual-input-notice">
+      <div class="manual-input-title">⚠️ 追加入力が必要です</div>
+      <div id="manual-input-text"></div>
+    </div>
+
     <form id="correctionForm">
       <div class="form-group name-highlight" id="name-form-group">
         <label for="name">📋 名前</label>
         <div class="input-with-button">
-          <input type="text" id="name" required placeholder="入力者名を入力" autocomplete="off">
+          <input type="text" id="name" placeholder="入力者名を入力" autocomplete="off">
           <button type="button" id="name-select-btn" class="select-btn">選択</button>
         </div>
         <datalist id="nameList"></datalist>
@@ -1005,19 +1057,19 @@
 
       <div class="form-group">
         <label for="date">📅 日付</label>
-        <input type="date" id="date" required disabled>
+        <input type="date" id="date" disabled>
       </div>
 
       <div class="form-group">
         <label for="lender">📤 貸主</label>
-        <select id="lender" required disabled>
+        <select id="lender" disabled>
           <option value="">選択してください</option>
         </select>
       </div>
 
       <div class="form-group">
         <label for="borrower">📥 借主</label>
-        <select id="borrower" required disabled>
+        <select id="borrower" disabled>
           <option value="">選択してください</option>
         </select>
       </div>
@@ -1029,12 +1081,12 @@
           <div class="category-option disabled" data-value="飲料">🥤 飲料</div>
           <div class="category-option disabled" data-value="その他">📦 その他</div>
         </div>
-        <input type="hidden" id="category" required>
+        <input type="hidden" id="category">
       </div>
 
       <div class="form-group">
         <label for="item">📝 品目</label>
-        <input type="text" id="item" required placeholder="品目を入力" disabled>
+        <input type="text" id="item" placeholder="品目を入力" disabled>
       </div>
 
       <div class="form-group">
@@ -1052,32 +1104,11 @@
       <div class="form-group">
         <label for="amount">💵 金額</label>
         <div class="amount-input">
-          <input type="text" id="amount" required pattern="[0-9０-９,]+" inputmode="numeric" placeholder="金額を入力" disabled>
+          <input type="text" id="amount" inputmode="numeric" placeholder="金額を入力" disabled>
         </div>
       </div>
 
-      <div class="status-display" id="status-display">
-        <div class="status-step" id="step-validation">
-          <span class="status-icon">📋</span>
-          <span>修正データを検証中...</span>
-        </div>
-        <div class="status-step" id="step-sending">
-          <span class="status-icon">📤</span>
-          <span>修正データをスプレッドシートに送信中...</span>
-        </div>
-        <div class="status-step" id="step-inserting">
-          <span class="status-icon">💾</span>
-          <span>修正データを挿入中...</span>
-        </div>
-        <div class="status-step" id="step-backup">
-          <span class="status-icon">🔄</span>
-          <span>バックアップを作成中...</span>
-        </div>
-        <div class="status-step" id="step-complete">
-          <span class="status-icon">✅</span>
-          <span>送信完了！</span>
-        </div>
-      </div>
+      
 
       <div class="button-group">
         <button type="submit" class="submit-btn">
