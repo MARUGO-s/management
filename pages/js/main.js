@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbw9rr3ooPCxcFE35Y_HCKLarVG9Jo765cR49qDyxLxPsBcFqmm481-17J7Vsw1ZKMxW/exec"; // Google Apps ScriptのURL
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx2PqGo4P4AkZ5T9lczu4rtMnrrjVdbKirZPO52vvTTXnIT2BUJq-S5wGLyFV1CZS3o/exec"; // Google Apps ScriptのURL (日付修正版)
 const shops = [ // 店舗名のリスト
   "本部", "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -480,6 +480,25 @@ function refreshRemoveButtonsVisibility() {
 }
 
 function setupEntryRow(rowEl) {
+  // 既にセットアップ済みかチェック（ただし、削除ボタンのイベントリスナーは常に再設定）
+  const isAlreadySetup = rowEl.dataset.setupComplete === 'true';
+  
+  if (isAlreadySetup) {
+    console.log('⚠️ setupEntryRow: 既にセットアップ済み、削除ボタンのみ再設定');
+    // 削除ボタンのイベントリスナーのみ再設定
+    const removeBtn = rowEl.querySelector('.remove-row-btn');
+    if (removeBtn) {
+      // 既存のリスナーを削除してから追加
+      removeBtn.removeEventListener('click', removeBtn._removeHandler);
+      removeBtn._removeHandler = () => {
+        rowEl.remove();
+        refreshRemoveButtonsVisibility();
+      };
+      removeBtn.addEventListener('click', removeBtn._removeHandler);
+    }
+    return;
+  }
+
   const catHidden = rowEl.querySelector('.category');
   const categoryOptions = rowEl.querySelectorAll('.category-option');
   categoryOptions.forEach(option => {
@@ -529,7 +548,9 @@ function setupEntryRow(rowEl) {
       let value = e.target.value.replace(/,/g, '');
       if (value) {
         if (e.target.classList.contains('quantity')) {
-          e.target.value = parseFloat(value).toFixed(1);
+          const num = parseFloat(value);
+          // 整数の場合は小数点を表示しない、小数の場合は1桁まで表示
+          e.target.value = num % 1 === 0 ? num.toString() : num.toFixed(1);
         } else {
           e.target.value = parseInt(value).toLocaleString('ja-JP');
         }
@@ -613,11 +634,17 @@ function setupEntryRow(rowEl) {
 
   const removeBtn = rowEl.querySelector('.remove-row-btn');
   if (removeBtn) {
-    removeBtn.addEventListener('click', () => {
+    // 既存のリスナーを削除してから追加（重複防止）
+    removeBtn.removeEventListener('click', removeBtn._removeHandler);
+    removeBtn._removeHandler = () => {
       rowEl.remove();
       refreshRemoveButtonsVisibility();
-    });
+    };
+    removeBtn.addEventListener('click', removeBtn._removeHandler);
   }
+
+  // セットアップ完了フラグを設定
+  rowEl.dataset.setupComplete = 'true';
 }
 
 function addNewRow() {
@@ -629,6 +656,10 @@ function addNewRow() {
   const catHidden = clone.querySelector('.category');
   if (catHidden) catHidden.value = '';
   clone.querySelectorAll('input').forEach(inp => { if (!inp.classList.contains('amount')) inp.value = ''; else inp.value = ''; });
+  
+  // セットアップ済みフラグをリセット（新しく追加された行として扱う）
+  clone.dataset.setupComplete = 'false';
+  
   container.appendChild(clone);
   setupEntryRow(clone);
   refreshRemoveButtonsVisibility();
@@ -723,6 +754,16 @@ function addFullRow() {
   }
   if (borrowerSelect && srcBorrower) borrowerSelect.innerHTML = srcBorrower.innerHTML;
 
+  // 日付を今日に設定（タイムゾーン対応）
+  const dateInput = group.querySelector('.full-date');
+  if (dateInput) {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    dateInput.value = `${year}-${month}-${day}`;
+  }
+
   // 最初の行をセットアップ
   const firstRow = group.querySelector('.entry-row');
   if (firstRow) setupEntryRow(firstRow);
@@ -731,7 +772,7 @@ function addFullRow() {
 
   // 外部ツールバー（テーブル外）を生成
   const toolbar = document.createElement('div');
-  toolbar.className = 'full-toolbar';
+  toolbar.className = 'full-toolbar group-toolbar';
   toolbar.style.display = 'flex';
   toolbar.style.justifyContent = 'flex-end';
   toolbar.style.gap = '8px';
@@ -754,7 +795,9 @@ function addFullRow() {
   // グループ削除
   group.addEventListener('click', (e) => {
     if (e.target.classList.contains('remove-full-row')) {
+      // グループとツールバーの両方を削除
       group.remove();
+      toolbar.remove();
     }
   });
 
@@ -763,6 +806,14 @@ function addFullRow() {
   extra.appendChild(toolbar);
   toolbar.appendChild(btnAddFull);
   toolbar.appendChild(btnAddItem);
+
+  // 重複防止: 既存のツールバーを削除
+  const existingToolbars = extra.querySelectorAll('.group-toolbar');
+  existingToolbars.forEach((existingToolbar, index) => {
+    if (index < existingToolbars.length - 1) { // 最新以外を削除
+      existingToolbar.remove();
+    }
+  });
   btnAddItem.addEventListener('click', () => {
     const list = group.querySelector('.full-entries');
     const base = list.querySelector('.entry-row');
@@ -771,6 +822,10 @@ function addFullRow() {
     const catHidden = c.querySelector('.category');
     if (catHidden) catHidden.value = '';
     c.querySelectorAll('input').forEach(inp => inp.value = '');
+    
+    // セットアップ済みフラグをリセット（新しく追加された行として扱う）
+    c.dataset.setupComplete = 'false';
+    
     list.appendChild(c);
     setupEntryRow(c);
   });
@@ -1102,7 +1157,7 @@ async function handleCorrectionFromSearch(type = 'found') {
 }
 
 async function submitData(options = {}) {
-  // 🔒 重複実行防止
+  // 🔒 重複実行防止（より厳格なチェック）
   if (submitData._isRunning) {
     console.warn('⚠️ submitData already running, skipping duplicate call');
     return;
@@ -1119,6 +1174,9 @@ async function submitData(options = {}) {
   const originalText = submitBtn.dataset.originalText || btnText.textContent;
   submitBtn.dataset.originalText = originalText;
   const form = document.getElementById('loanForm');
+
+  // 送信ボタンを即座に無効化（重複クリック防止）
+  submitBtn.disabled = true;
 
   hideMessages();
   resetSteps();
@@ -1229,7 +1287,7 @@ async function submitData(options = {}) {
         const amtEl = row.querySelector('.amount');
         if (!en.amount) { markError(amtEl); pendingErrorQueue.push(amtEl); }
         else { clearError(amtEl); }
-        const amt = parseInt(en.amount);
+        const amt = parseFloat(en.amount);
         if (en.amount && (isNaN(amt) || amt <= 0)) { markError(amtEl); pendingErrorQueue.push(amtEl); }
         const payload = {
           date, name, lender, borrower,
@@ -1270,12 +1328,15 @@ async function submitData(options = {}) {
           if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus?.({ preventScroll: true }); first.classList.add('error-pulse-strong'); setTimeout(() => first.classList.remove('error-pulse-strong'), 1500); }
         }, 50);
         if (errorModalCloseBtn && !errorListenersAttached) {
-          errorModalCloseBtn.addEventListener('click', () => {
+          // 既存のリスナーを削除してから追加
+          errorModalCloseBtn.removeEventListener('click', errorModalCloseBtn._closeHandler);
+          errorModalCloseBtn._closeHandler = () => {
             errorModal.classList.remove('show');
             // 最初の未修正に誘導
             const next = pendingErrorQueue.find(el => el?.classList?.contains('input-error')) || pendingErrorQueue[0];
             if (next) { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); next.focus?.({ preventScroll: true }); next.classList.add('error-pulse-strong'); setTimeout(() => next.classList.remove('error-pulse-strong'), 1500); }
-          });
+          };
+          errorModalCloseBtn.addEventListener('click', errorModalCloseBtn._closeHandler);
           errorListenersAttached = true;
         }
         // 入力で修正されたら次のエラーに進む
@@ -1462,7 +1523,17 @@ async function submitData(options = {}) {
 }
 
 function initializeElements() {
-  document.getElementById('date').valueAsDate = new Date();
+  // 日付を今日に設定（タイムゾーン対応）
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  document.getElementById('date').value = `${year}-${month}-${day}`;
+
+  // 🔓 submitDataフラグをリセット（ページ読み込み時）
+  if (typeof submitData === 'function') {
+    submitData._isRunning = false;
+  }
 
   // 既存行のセットアップ
   document.querySelectorAll('#entriesContainer .entry-row').forEach(row => setupEntryRow(row));
@@ -1501,11 +1572,14 @@ function initializeElements() {
   checkLenderBorrowerMatch();
 
   const form = document.getElementById('loanForm');
-  form.addEventListener('submit', async (e) => {
+  // 既存のイベントリスナーを削除してから追加（重複防止）
+  form.removeEventListener('submit', form._submitHandler);
+  form._submitHandler = async (e) => {
     e.preventDefault();
     if (!checkLenderBorrowerMatch()) return;
     await submitData({ isCorrection: false, correctionOnly: false });
-  });
+  };
+  form.addEventListener('submit', form._submitHandler);
 
   const searchBtn = document.getElementById('search-btn');
   if (searchBtn) {

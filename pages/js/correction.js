@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbw9rr3ooPCxcFE35Y_HCKLarVG9Jo765cR49qDyxLxPsBcFqmm481-17J7Vsw1ZKMxW/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx2PqGo4P4AkZ5T9lczu4rtMnrrjVdbKirZPO52vvTTXnIT2BUJq-S5wGLyFV1CZS3o/exec"; // 日付修正版
 const shops = [
   "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -660,7 +660,7 @@ async function submitCorrectionData() {
   const categoryInput = document.getElementById('category');
   if (!categoryInput.value) {
     addDebugLog('バリデーションエラー: カテゴリーが未選択');
-    alert('カテゴリーを選択してください');
+    showCustomAlertDialog('カテゴリーを選択してください');
     return;
   }
 
@@ -704,13 +704,13 @@ async function submitCorrectionData() {
     updateManualInputNotice();
 
     const data = {
-      date: document.getElementById("date").value,
-      name: document.getElementById("name").value,
-      lender: document.getElementById("lender").value,
-      borrower: document.getElementById("borrower").value,
-      category: document.getElementById("category").value,
-      item: document.getElementById("item").value,
-      quantity: document.getElementById("quantity").value,
+      date: document.getElementById("date").value?.trim(),
+      name: document.getElementById("name").value?.trim(),
+      lender: document.getElementById("lender").value?.trim(),
+      borrower: document.getElementById("borrower").value?.trim(),
+      category: document.getElementById("category").value?.trim(),
+      item: document.getElementById("item").value?.trim(),
+      quantity: document.getElementById("quantity").value?.trim(),
       unitPrice: convertToHalfWidthNumber(document.getElementById("unitPrice").value),
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: true,
@@ -734,16 +734,19 @@ async function submitCorrectionData() {
     if (!data.originalRowIndex) validationErrors.push('元の行番号'); // 🔥 追加: 行番号のバリデーション
 
     if (validationErrors.length > 0) {
-      throw new Error(`以下の項目が入力されていません: ${validationErrors.join(', ')}`);
+      showCustomAlertDialog(`以下の項目が入力されていません: ${validationErrors.join(', ')}`);
+      return;
     }
 
     if (data.lender === data.borrower) {
-      throw new Error('貸主と借主は異なる店舗を選択してください。');
+      showCustomAlertDialog('貸主と借主は異なる店舗を選択してください。');
+      return;
     }
 
-    const amountNumber = parseInt(data.amount);
+    const amountNumber = parseFloat(data.amount);
     if (isNaN(amountNumber) || amountNumber <= 0) {
-      throw new Error('正しい金額を入力してください。');
+      showCustomAlertDialog('正しい金額を入力してください。');
+      return;
     }
 
     addDebugLog('バリデーション完了', { valid: true });

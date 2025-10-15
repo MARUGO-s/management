@@ -818,8 +818,12 @@
     document.addEventListener('DOMContentLoaded', function() {
       console.log('📋 index.html 初期化開始');
       
-      // 日付を今日に設定
-      document.getElementById('date').valueAsDate = new Date();
+      // 日付を今日に設定（タイムゾーン対応）
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      document.getElementById('date').value = `${year}-${month}-${day}`;
       
       // フォーム要素を初期化
       if (typeof initializeElements === 'function') {

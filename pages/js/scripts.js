@@ -1,5 +1,5 @@
 // カスタム確認ダイアログの表示（改良版UI）
-showCustomConfirmDialog(message, onConfirm, onCancel) {
+function showCustomConfirmDialog(message, onConfirm, onCancel) {
     const dialogId = 'custom-confirm-dialog';
     let dialog = document.getElementById(dialogId);
 
@@ -110,7 +110,7 @@ showCustomConfirmDialog(message, onConfirm, onCancel) {
 }
 
 // 削除確認ダイアログを表示（修正版 - 新UI対応）
-showDeleteConfirmDialog(selectedData) {
+function showDeleteConfirmDialog(selectedData) {
     console.log('確認ダイアログ表示:', selectedData);
 
     if (!selectedData) {

@@ -2099,6 +2099,11 @@ ${error.message || ''}`);
                 // データ取得
                 const chartData = await getMonthlyChartData(selectedMonth);
                 
+                // デバッグ情報をコンソールに出力
+                console.log('📊 月次チャートデータ:', chartData);
+                console.log('📈 アクティブ日数:', chartData.summary.activeDays);
+                console.log('📅 月間合計:', chartData.summary.monthlyTotal);
+                
                 // グラフ描画
                 drawMonthlyChart(chartData);
                 displayChartSummary(chartData);
@@ -2715,15 +2720,39 @@ ${error.message || ''}`);
         }
 
         // 使用量統計のリセット
-        function resetUsageStats() {
+        async function resetUsageStats() {
             if (confirm('使用量統計をすべてリセットしますか？\n（アラート履歴も含めてすべて削除されます）')) {
-                localStorage.removeItem('dailyAPIStats');
-                localStorage.removeItem('monthlyAPIStats');
-                localStorage.removeItem('alertHistory');
-                localStorage.removeItem('simpleOptimizationStats');
-                
-                alert('🗑️ 使用量統計をリセットしました');
-                refreshUsageData();
+                try {
+                    // Supabaseの統計データをリセット
+                    const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                        },
+                        body: JSON.stringify({
+                            action: 'reset',
+                            resetType: 'all'
+                        })
+                    });
+
+                    if (response.ok) {
+                        // ローカルストレージもリセット
+                        localStorage.removeItem('dailyAPIStats');
+                        localStorage.removeItem('monthlyAPIStats');
+                        localStorage.removeItem('alertHistory');
+                        localStorage.removeItem('simpleOptimizationStats');
+                        
+                        alert('🗑️ 使用量統計をリセットしました（データベース + ローカル）');
+                        refreshUsageData();
+                        loadMonthlyChart(); // 月次グラフも更新
+                    } else {
+                        throw new Error('データベースリセットに失敗しました');
+                    }
+                } catch (error) {
+                    console.error('統計リセットエラー:', error);
+                    alert('❌ 統計リセットに失敗しました: ' + error.message);
+                }
             }
         }
 
