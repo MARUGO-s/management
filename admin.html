@@ -768,6 +768,7 @@
                 <a class="nav-link" href="#card-alerts">🚨 アラート設定</a>
                 <a class="nav-link" href="#card-password">🔐 パスワード管理</a>
                 <a class="nav-link" href="#card-chart">📈 月次グラフ</a>
+                <a class="nav-link" href="#card-mismatch">❌ データ不一致レポート</a>
                 <a class="nav-link" href="#card-system">🧭 システム状態</a>
             </nav>
             <div class="nav-section">
@@ -1068,6 +1069,24 @@
                     border-radius: 14px;
                 ">
                     <!-- 動的に生成 -->
+                </div>
+            </div>
+
+            <!-- データ不一致レポート -->
+            <div class="dashboard-card" id="card-mismatch">
+                <h3 class="card-title">❌ データ不一致レポート</h3>
+                
+                <div id="mismatch-reports-display">
+                    <div style="color: rgba(31, 42, 61, 0.55);">読み込み中...</div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn secondary" onclick="loadMismatchReports()">
+                        🔄 更新
+                    </button>
+                    <button class="btn danger" onclick="clearMismatchReports()">
+                        🗑️ 全削除
+                    </button>
                 </div>
             </div>
 
@@ -2180,6 +2199,7 @@ ${error.message || ''}`);
                 }); // インジケーター設定読み込み
                 loadAPILimitSettings(); // API上限値設定読み込み
                 loadAccessLogs(); // アクセス履歴の初期読み込み
+                loadMismatchReports(); // データ不一致レポートの初期読み込み
                 
                 // リアルタイム更新（30秒ごと）
                 setInterval(() => {
@@ -2795,6 +2815,211 @@ ${error.message || ''}`);
                 document.getElementById('alert-history-display').innerHTML = 
                     '<div style="color: rgba(31, 42, 61, 0.55); text-align: center;">📭 アラート履歴はありません</div>';
                 alert('🗑️ アラート履歴をクリアしました');
+            }
+        }
+
+        // データ不一致レポートの読み込み
+        function loadMismatchReports() {
+            try {
+                let reports = JSON.parse(localStorage.getItem('dataMismatchReports') || '[]');
+                
+                // ダミーデータが存在しない場合は追加
+                if (reports.length === 0) {
+                    reports = createDummyMismatchReports();
+                    localStorage.setItem('dataMismatchReports', JSON.stringify(reports));
+                }
+                
+                const display = document.getElementById('mismatch-reports-display');
+                
+                if (reports.length === 0) {
+                    display.innerHTML = '<div style="color: rgba(31, 42, 61, 0.55);">❌ データ不一致レポートはありません</div>';
+                    return;
+                }
+                
+                let html = `<div style="display: grid; gap: 16px;">`;
+                
+                reports.reverse().forEach((report, index) => {
+                    const timestamp = new Date(report.timestamp).toLocaleString('ja-JP');
+                    const mismatchCount = report.comparison.mismatches.length;
+                    
+                    html += `
+                        <div style="border: 1px solid #fee2e2; border-radius: 12px; padding: 16px; background: #fef2f2;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <h4 style="color: #b91c1c; margin: 0;">❌ データ不一致 #${reports.length - index}</h4>
+                                <span style="font-size: 0.85rem; color: rgba(31, 42, 61, 0.6);">${timestamp}</span>
+                            </div>
+                            
+                            <div style="margin-bottom: 12px;">
+                                <strong>不一致項目数:</strong> ${mismatchCount}件<br>
+                                <strong>送信データ数:</strong> ${report.comparison.totalSent}件<br>
+                                <strong>登録データ数:</strong> ${report.comparison.totalRegistered}件
+                            </div>
+                            
+                            <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: white;">
+                                ${report.comparison.mismatches.map(mismatch => `
+                                    <div style="margin-bottom: 12px; padding: 8px; border-left: 3px solid #f59e0b;">
+                                        <strong>データ #${mismatch.index + 1}:</strong><br>
+                                        ${mismatch.differences.map(diff => `
+                                            <div style="margin: 4px 0; font-size: 0.9rem;">
+                                                <span style="color: #dc2626;">❌ ${diff.field}:</span><br>
+                                                <span style="color: #059669;">送信: "${diff.sent}"</span><br>
+                                                <span style="color: #dc2626;">登録: "${diff.registered}"</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                display.innerHTML = html;
+                
+            } catch (e) {
+                console.error('データ不一致レポートの読み込みに失敗:', e);
+                document.getElementById('mismatch-reports-display').innerHTML = 
+                    '<div style="color: #dc2626;">❌ レポートの読み込みに失敗しました</div>';
+            }
+        }
+        
+        // ダミーデータ不一致レポートの作成
+        function createDummyMismatchReports() {
+            const now = new Date();
+            const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+            
+            return [
+                {
+                    timestamp: yesterday.toISOString(),
+                    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                    url: 'http://localhost:3000/index.html',
+                    reportType: 'data_mismatch',
+                    comparison: {
+                        hasMismatch: true,
+                        mismatches: [
+                            {
+                                index: 0,
+                                sent: {
+                                    date: '2025-01-14',
+                                    name: '田中太郎',
+                                    lender: '本部',
+                                    borrower: 'MARUGO-D',
+                                    category: '食材',
+                                    item: 'トマト',
+                                    quantity: '5',
+                                    unitPrice: '150',
+                                    amount: '750'
+                                },
+                                registered: {
+                                    date: '2025-01-13',
+                                    name: '田中太郎',
+                                    lender: '本部',
+                                    borrower: 'MARUGO-D',
+                                    category: '食材',
+                                    item: 'トマト',
+                                    quantity: '5',
+                                    unitPrice: '150',
+                                    amount: '750'
+                                },
+                                differences: [
+                                    {
+                                        field: 'date',
+                                        sent: '2025-01-14',
+                                        registered: '2025-01-13'
+                                    }
+                                ]
+                            }
+                        ],
+                        totalSent: 1,
+                        totalRegistered: 1
+                    },
+                    originalPayloads: [
+                        {
+                            date: '2025-01-14',
+                            name: '田中太郎',
+                            lender: '本部',
+                            borrower: 'MARUGO-D',
+                            category: '食材',
+                            item: 'トマト',
+                            quantity: '5',
+                            unitPrice: '150',
+                            amount: '750'
+                        }
+                    ]
+                },
+                {
+                    timestamp: twoDaysAgo.toISOString(),
+                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    url: 'http://localhost:3000/index.html',
+                    reportType: 'data_mismatch',
+                    comparison: {
+                        hasMismatch: true,
+                        mismatches: [
+                            {
+                                index: 0,
+                                sent: {
+                                    date: '2025-01-12',
+                                    name: '佐藤花子',
+                                    lender: 'MARUGO',
+                                    borrower: 'BISTRO CAVACAVA',
+                                    category: '飲料',
+                                    item: 'ワイン',
+                                    quantity: '2',
+                                    unitPrice: '3000',
+                                    amount: '6000'
+                                },
+                                registered: {
+                                    date: '2025-01-12',
+                                    name: '佐藤花子',
+                                    lender: 'MARUGO',
+                                    borrower: 'BISTRO CAVACAVA',
+                                    category: '飲料',
+                                    item: 'ワイン',
+                                    quantity: '1',
+                                    unitPrice: '3000',
+                                    amount: '3000'
+                                },
+                                differences: [
+                                    {
+                                        field: 'quantity',
+                                        sent: '2',
+                                        registered: '1'
+                                    },
+                                    {
+                                        field: 'amount',
+                                        sent: '6000',
+                                        registered: '3000'
+                                    }
+                                ]
+                            }
+                        ],
+                        totalSent: 1,
+                        totalRegistered: 1
+                    },
+                    originalPayloads: [
+                        {
+                            date: '2025-01-12',
+                            name: '佐藤花子',
+                            lender: 'MARUGO',
+                            borrower: 'BISTRO CAVACAVA',
+                            category: '飲料',
+                            item: 'ワイン',
+                            quantity: '2',
+                            unitPrice: '3000',
+                            amount: '6000'
+                        }
+                    ]
+                }
+            ];
+        }
+
+        // データ不一致レポートの全削除
+        function clearMismatchReports() {
+            if (confirm('すべてのデータ不一致レポートを削除しますか？\nこの操作は元に戻せません。')) {
+                localStorage.removeItem('dataMismatchReports');
+                loadMismatchReports();
+                alert('🗑️ データ不一致レポートを全削除しました');
             }
         }
 

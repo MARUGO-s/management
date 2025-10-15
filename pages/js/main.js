@@ -680,16 +680,16 @@ function addFullRow() {
   group.style.background = '#fff';
 
   group.innerHTML = `
-    <div class="form-row" style="margin-bottom:12px;">
-      <div class="form-group">
-        <label>📅 日付</label>
-        <input type="date" class="full-date" required>
-      </div>
-      <div class="form-group">
+    <div class="form-group" style="margin-bottom:25px;">
+      <label>📅 日付</label>
+      <input type="date" class="full-date" required>
+    </div>
+    <div class="form-row" style="display:flex; gap:15px; margin-bottom:25px;">
+      <div class="form-group" style="flex:1; margin-bottom:0;">
         <label>📤 貸主</label>
         <select class="full-lender" required></select>
       </div>
-      <div class="form-group">
+      <div class="form-group" style="flex:1; margin-bottom:0;">
         <label>📥 借主</label>
         <select class="full-borrower" required></select>
       </div>
@@ -1119,6 +1119,310 @@ async function searchReverseTransaction() {
   }
 }
 
+// 送信完了後: 実際にスプレッドシートに登録された最新データを取得して確認表示
+async function showRegisteredDataConfirmation(allPayloads) {
+  try {
+    // 直近で登録されたデータを取得する。シートは常に2行目に新規挿入されるため、上位行を広めに読む
+    const readRange = '貸借表!A2:K';
+    const result = await callSheetsAPI(readRange, 'GET');
+    const rows = (result.values || []);
+
+    // 送信直後3分以内に挿入された行を対象に絞り込み
+    const nowMs = Date.now();
+    const timeWindowMs = 3 * 60 * 1000; // 3分
+    const refName = (allPayloads[0]?.name || '').toString().trim();
+    const refDate = (allPayloads[0]?.date || '').toString().trim();
+
+    const parsed = rows.map(r => ({
+      date: r[0] || '',
+      name: r[1] || '',
+      lender: r[2] || '',
+      borrower: r[3] || '',
+      category: r[4] || '',
+      item: r[5] || '',
+      quantity: r[6] || '',
+      unitPrice: r[7] || '',
+      amount: r[8] || '',
+      inputDate: r[9] || '',
+      correction: r[10] || ''
+    }));
+
+    const recent = parsed.filter(r => {
+      // 入力日時(J列)は GAS 側で日本時間の文字列。Dateに変換して3分以内かつ氏名/日付が一致するものを優先
+      let t = NaN;
+      try { t = new Date(r.inputDate).getTime(); } catch (_) { t = NaN; }
+      const withinWindow = !isNaN(t) && (nowMs - t) <= timeWindowMs && (nowMs - t) >= 0;
+      const sameName = refName ? (r.name === refName) : true;
+      const sameDate = refDate ? (r.date?.toString().slice(0, 10) === refDate) : true;
+      return withinWindow && sameName && sameDate;
+    });
+
+    // もし絞り込みが0件なら、先頭から送信件数分だけ拾う（保険）
+    const pick = recent.length > 0 ? recent.slice(0, allPayloads.length) : parsed.slice(0, allPayloads.length);
+    
+    // 送信データと登録データの比較
+    const dataComparison = compareSentAndRegisteredData(allPayloads, pick);
+
+    // 確認モーダルを生成
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:5000;';
+    const card = document.createElement('div');
+    card.style.cssText = 'width:92%;max-width:560px;background:#fff;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,0.25);padding:16px;';
+    const title = document.createElement('h3');
+    title.textContent = '📄 登録結果（スプレッドシート反映済み）';
+    title.style.cssText = 'margin:0 0 10px 0;color:#111827;font-size:18px;font-weight:700;';
+    const body = document.createElement('div');
+    body.style.cssText = 'max-height:60vh;overflow:auto;border:1px solid #e5e7eb;border-radius:10px;';
+
+    // 縦の行表示形式（カード型）
+    const cardsContainer = document.createElement('div');
+    cardsContainer.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+    
+    pick.forEach((r, index) => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;';
+      
+      const rows = [
+        { label: '📅 日付', value: r.date },
+        { label: '👤 名前', value: r.name },
+        { label: '🔄 貸主→借主', value: `${r.lender} → ${r.borrower}` },
+        { label: '📝 カテゴリー/品目', value: `${r.category} / ${r.item}` },
+        { label: '🔢 数量', value: r.quantity },
+        { label: '💰 単価', value: r.unitPrice },
+        { label: '💵 金額', value: r.amount }
+      ];
+      
+      rows.forEach(row => {
+        const rowDiv = document.createElement('div');
+        rowDiv.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #e2e8f0;';
+        
+        const label = document.createElement('span');
+        label.textContent = row.label;
+        label.style.cssText = 'font-weight:600;color:#374151;min-width:120px;';
+        
+        const value = document.createElement('span');
+        value.textContent = row.value;
+        value.style.cssText = 'color:#1f2937;text-align:right;flex:1;';
+        
+        rowDiv.appendChild(label);
+        rowDiv.appendChild(value);
+        card.appendChild(rowDiv);
+      });
+      
+      cardsContainer.appendChild(card);
+    });
+
+    body.appendChild(cardsContainer);
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;justify-content:space-between;gap:8px;margin-top:10px;';
+    
+    // NGボタン（常に表示）
+    const ngBtn = document.createElement('button');
+    ngBtn.className = 'list-btn';
+    ngBtn.id = 'ng-button';
+    
+    if (dataComparison.hasMismatch) {
+      // 不一致がある場合：赤色でアニメーション
+      ngBtn.style.cssText = 'background:#fee2e2;border-color:#fecaca;color:#b91c1c;animation:pulse-red 2s infinite;';
+      ngBtn.textContent = '❌ NG（データ不一致検出！）';
+      ngBtn.title = 'データ不一致が検出されました。クリックして詳細を報告してください。';
+    } else {
+      // 不一致がない場合：通常の色
+      ngBtn.style.cssText = 'background:#f3f4f6;border-color:#d1d5db;color:#6b7280;';
+      ngBtn.textContent = '❌ NG（問題報告）';
+      ngBtn.title = '何か問題があった場合はこちらをクリックしてください。';
+    }
+    
+    ngBtn.onclick = () => {
+      reportDataMismatch(dataComparison, allPayloads);
+      document.body.removeChild(overlay);
+      location.reload();
+    };
+    actions.appendChild(ngBtn);
+    
+    const ok = document.createElement('button');
+    ok.className = 'list-btn';
+    ok.textContent = '✅ OK（正常）';
+    ok.onclick = () => { document.body.removeChild(overlay); location.reload(); };
+    actions.appendChild(ok);
+
+    card.appendChild(title);
+    card.appendChild(body);
+    card.appendChild(actions);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    
+    // アニメーション用のCSSを動的に追加
+    if (dataComparison.hasMismatch) {
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes pulse-red {
+          0% { 
+            background: #fee2e2; 
+            border-color: #fecaca; 
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+          }
+          50% { 
+            background: #fecaca; 
+            border-color: #f87171; 
+            transform: scale(1.05);
+            box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+          }
+          100% { 
+            background: #fee2e2; 
+            border-color: #fecaca; 
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+          }
+        }
+        
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+          20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+        
+        .data-mismatch-warning {
+          animation: shake 0.5s ease-in-out 3;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // タイトルにも警告アニメーションを追加
+      title.classList.add('data-mismatch-warning');
+      title.style.color = '#dc2626';
+      title.innerHTML = '⚠️ 登録結果（データ不一致検出！）';
+    }
+  } catch (e) {
+    console.warn('登録結果の取得に失敗しました', e);
+    // 失敗時は従来どおりのリロード
+    location.reload();
+  }
+}
+
+// 送信データと登録データの比較関数
+function compareSentAndRegisteredData(sentData, registeredData) {
+  const mismatches = [];
+  let hasMismatch = false;
+  
+  console.log('🔍 データ比較開始:', { sentData, registeredData });
+  
+  for (let i = 0; i < sentData.length; i++) {
+    const sent = sentData[i];
+    const registered = registeredData[i] || {};
+    
+    const comparison = {
+      index: i,
+      sent: sent,
+      registered: registered,
+      differences: []
+    };
+    
+    // 各フィールドを比較（正規化処理を追加）
+    const fields = ['date', 'name', 'lender', 'borrower', 'category', 'item', 'quantity', 'unitPrice', 'amount'];
+    
+    fields.forEach(field => {
+      const sentValue = normalizeValue(sent[field]);
+      const registeredValue = normalizeValue(registered[field]);
+      
+      console.log(`🔍 ${field}比較:`, { sent: sentValue, registered: registeredValue });
+      
+      if (sentValue !== registeredValue) {
+        comparison.differences.push({
+          field: field,
+          sent: sentValue,
+          registered: registeredValue
+        });
+        hasMismatch = true;
+        console.log(`❌ ${field}不一致:`, { sent: sentValue, registered: registeredValue });
+      }
+    });
+    
+    if (comparison.differences.length > 0) {
+      mismatches.push(comparison);
+    }
+  }
+  
+  console.log('🔍 比較結果:', { hasMismatch, mismatches });
+  
+  return {
+    hasMismatch: hasMismatch,
+    mismatches: mismatches,
+    totalSent: sentData.length,
+    totalRegistered: registeredData.length
+  };
+}
+
+// 値を正規化する関数
+function normalizeValue(value) {
+  if (value === null || value === undefined) return '';
+  
+  let normalized = value.toString().trim();
+  
+  // 日付の正規化
+  if (normalized.includes('-') && normalized.length >= 10) {
+    // YYYY-MM-DD 形式を YYYY/MM/DD 形式に統一
+    normalized = normalized.replace(/-/g, '/');
+  }
+  
+  // 数値の正規化（カンマや空白を除去）
+  if (/^\d+([.,]\d+)?$/.test(normalized.replace(/[,.\s]/g, ''))) {
+    normalized = normalized.replace(/[,.\s]/g, '');
+  }
+  
+  // 金額の正規化（¥記号やカンマを除去）
+  if (normalized.includes('¥') || normalized.includes(',')) {
+    normalized = normalized.replace(/[¥,\s]/g, '');
+  }
+  
+  return normalized;
+}
+
+// データ不一致を管理画面に報告する関数
+async function reportDataMismatch(comparison, originalPayloads) {
+  try {
+    const reportData = {
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      comparison: comparison,
+      originalPayloads: originalPayloads,
+      reportType: 'data_mismatch'
+    };
+    
+    // ローカルストレージに保存（管理画面で確認可能）
+    const existingReports = JSON.parse(localStorage.getItem('dataMismatchReports') || '[]');
+    existingReports.push(reportData);
+    localStorage.setItem('dataMismatchReports', JSON.stringify(existingReports));
+    
+    // Supabaseに報告（オプション）
+    if (window.SUPABASE_CONFIG) {
+      try {
+        await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+          },
+          body: JSON.stringify({
+            action: 'report_mismatch',
+            data: reportData
+          })
+        });
+      } catch (e) {
+        console.warn('Supabaseへの報告に失敗しました:', e);
+      }
+    }
+    
+    alert('❌ データ不一致が検出されました。\n管理画面で詳細を確認できます。');
+    
+  } catch (e) {
+    console.error('データ不一致の報告に失敗しました:', e);
+    alert('❌ データ不一致の報告に失敗しました。');
+  }
+}
+
 async function handleSearchResultButtonClick(event) {
     if (event.target.id === 'correction-from-search') {
         await handleCorrectionFromSearch('found');
@@ -1443,7 +1747,7 @@ async function submitData(options = {}) {
     finalStep.classList.add('final-completed');
     popupTitle.textContent = '🎉 完了！';
     
-    setTimeout(() => {
+    setTimeout(async () => {
       popupOverlay.style.display = 'none';
       submitBtn.classList.remove('loading');
       btnText.textContent = originalText;
@@ -1456,10 +1760,14 @@ async function submitData(options = {}) {
       const message = document.getElementById('successMessage');
       message.textContent = correctionOnly ? '✅ 修正データの送信が完了しました！' : '✅ 送信完了しました！';
       message.classList.add('show');
-      setTimeout(() => {
-        message.classList.remove('show');
+      setTimeout(() => { message.classList.remove('show'); }, 800);
+      
+      // ✅ スプレッドシートに実際に登録された内容を確認表示
+      try {
+        await showRegisteredDataConfirmation(allPayloads);
+      } catch (_) {
         location.reload();
-      }, 1200);
+      }
     }, 2000);
   } catch (error) {
     console.error('送信エラー:', error);
