@@ -1,18 +1,25 @@
 #!/bin/bash
 
-# 🚀 ローカル開発サーバー起動スクリプト
+# 🚀 本番用ローカルサーバー起動スクリプト
 # CORSエラーを回避するためのHTTPサーバーを起動します
 
-echo "🚀 ローカル開発サーバーを起動中..."
+echo "🚀 本番用ローカルサーバーを起動中..."
 echo "📂 ディレクトリ: $(pwd)"
 echo "🌐 URL: http://localhost:8000"
 echo ""
 echo "📋 利用可能なページ:"
 echo "  - http://localhost:8000/index.html (トップページ)"
+echo "  - http://localhost:8000/admin.html (管理画面)"
 echo "  - http://localhost:8000/pages/marugo.html (メインシステム)"
 echo "  - http://localhost:8000/pages/correction.html (データ修正)"
 echo "  - http://localhost:8000/pages/cost.html (コスト分析)"
 echo "  - http://localhost:8000/pages/ingredients.html (材料管理)"
+echo ""
+echo "🔧 本番環境設定:"
+echo "  - Supabase: 設定済み"
+echo "  - Google Sheets API: 設定済み"
+echo "  - 問題報告システム: 有効"
+echo "  - 使用量監視: 有効"
 echo ""
 echo "🛑 サーバーを停止するには Ctrl+C を押してください"
 echo ""

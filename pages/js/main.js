@@ -1269,11 +1269,31 @@ async function showRegisteredDataConfirmation(allPayloads) {
       ngBtn.title = '何か問題があった場合はこちらをクリックしてください。';
     }
     
-    ngBtn.onclick = () => {
-      reportDataMismatch(dataComparison, allPayloads);
-      document.body.removeChild(overlay);
-      location.reload();
+    const handleProblemReport = (event) => {
+      // ログを永続化（localStorageに保存）
+      const logData = {
+        timestamp: new Date().toISOString(),
+        action: '問題報告ボタンクリック',
+        dataComparison: dataComparison,
+        allPayloads: allPayloads
+      };
+      localStorage.setItem('lastProblemReport', JSON.stringify(logData));
+      
+      // 問題報告処理
+      setTimeout(async () => {
+        await reportDataMismatch(dataComparison, allPayloads);
+        
+        // ページをリロード
+        setTimeout(() => {
+          document.body.removeChild(overlay);
+          location.reload();
+        }, 1000);
+      }, 100);
     };
+    
+    // イベントリスナーの設定
+    ngBtn.addEventListener('click', handleProblemReport, { once: false });
+    
     actions.appendChild(ngBtn);
     
     const ok = document.createElement('button');
@@ -1542,6 +1562,7 @@ function getBrowserVersion() {
 
 // データ不一致を管理画面に報告する関数
 async function reportDataMismatch(comparison, originalPayloads) {
+  
   try {
     // 詳細な環境情報を取得
     const environmentInfo = {
@@ -1627,28 +1648,28 @@ async function reportDataMismatch(comparison, originalPayloads) {
     localStorage.setItem('dataMismatchReports', JSON.stringify(existingReports));
     
     // Supabaseにデータ不一致レポートを保存
-    try {
-      const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
-        },
-        body: JSON.stringify({
-          action: 'create',
-          reportData: reportData
-        })
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ データ不一致レポートをSupabaseに保存しました:', result.reportId);
-      } else {
-        console.warn('⚠️ Supabaseへの保存に失敗しました:', response.status);
+      try {
+        const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+          },
+          body: JSON.stringify({
+            action: 'create',
+            reportData: reportData
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+        } else {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+      } catch (e) {
+        console.error('❌ Supabaseへの報告に失敗しました:', e);
       }
-    } catch (e) {
-      console.warn('⚠️ Supabaseへの報告に失敗しました:', e);
-    }
     
     // データが一致している場合と不一致の場合でメッセージを分ける
     if (comparison.mismatchCount > 0) {
@@ -2212,8 +2233,24 @@ function initializeElements() {
     }
   }
 
-  if (lenderSelect) lenderSelect.addEventListener('change', checkLenderBorrowerMatch);
-  if (borrowerSelect) borrowerSelect.addEventListener('change', checkLenderBorrowerMatch);
+  if (lenderSelect) {
+    lenderSelect.addEventListener('change', checkLenderBorrowerMatch);
+    lenderSelect.addEventListener('focus', (e) => {
+      e.target.style.transform = 'none';
+    });
+    lenderSelect.addEventListener('blur', (e) => {
+      e.target.style.transform = '';
+    });
+  }
+  if (borrowerSelect) {
+    borrowerSelect.addEventListener('change', checkLenderBorrowerMatch);
+    borrowerSelect.addEventListener('focus', (e) => {
+      e.target.style.transform = 'none';
+    });
+    borrowerSelect.addEventListener('blur', (e) => {
+      e.target.style.transform = '';
+    });
+  }
   checkLenderBorrowerMatch();
 
   const form = document.getElementById('loanForm');

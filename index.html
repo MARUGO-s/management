@@ -21,6 +21,10 @@
       padding: 20px;
       position: relative;
       overflow-x: hidden;
+      /* iPhone対応 */
+      -webkit-overflow-scrolling: touch;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
     }
 
     body::before {
@@ -150,6 +154,44 @@
       background: rgba(255, 255, 255, 0.8);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
+    }
+    
+    /* iPhone用の日付入力フィールドの修正 */
+    input[type="date"] {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      position: relative;
+      z-index: 1;
+    }
+    
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+    }
+    
+    /* iPhone用のドロップダウンの修正 */
+    select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 12px;
+      padding-right: 40px;
+    }
+    
+    /* iPhone用のドロップダウンのフォーカス修正 */
+    select:focus {
+      outline: none;
+      border-color: #4a5568;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.1);
+      transform: translateY(-2px);
     }
     
     input[readonly] {
@@ -500,6 +542,34 @@
       .full-two-line .full-date-wrap { flex: 1 1 100%; order: 1; }
       .full-two-line .full-lender-wrap { flex: 1 1 calc(50% - 5px); order: 2; }
       .full-two-line .full-borrower-wrap { flex: 1 1 calc(50% - 5px); order: 3; }
+      
+      /* iPhone用の追加修正 */
+      body {
+        padding: 10px;
+        min-height: 100vh;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      .container {
+        max-width: 100%;
+        margin: 0 auto;
+      }
+      
+      /* 日付入力フィールドのモバイル対応 */
+      input[type="date"] {
+        font-size: 16px; /* iOS Safariのズーム防止 */
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+      }
+      
+      /* ドロップダウンのモバイル対応 */
+      select {
+        font-size: 16px; /* iOS Safariのズーム防止 */
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+      }
     }
 
     .loading {
@@ -817,7 +887,7 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="pages/js/main.js?v=2025011605"></script>
+    <script src="pages/js/main.js?v=2025011618"></script>
   <script src="js/simple-auth.js"></script>
   <script src="js/quota-alert-system.js"></script>
   <script src="js/usage-indicator.js"></script>
