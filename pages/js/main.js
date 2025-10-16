@@ -1607,7 +1607,7 @@ async function reportDataMismatch(comparison, originalPayloads) {
       // データ内容
       comparison: comparison,
       originalPayloads: originalPayloads,
-      reportType: 'data_mismatch'
+      reportType: comparison.mismatchCount > 0 ? 'data_mismatch' : 'problem_report'
     };
     
     // データ不一致レポート用のデータを準備
@@ -1650,7 +1650,12 @@ async function reportDataMismatch(comparison, originalPayloads) {
       console.warn('⚠️ Supabaseへの報告に失敗しました:', e);
     }
     
-    alert('❌ データ不一致が検出されました。\n管理画面で詳細を確認できます。');
+    // データが一致している場合と不一致の場合でメッセージを分ける
+    if (comparison.mismatchCount > 0) {
+      alert('❌ データ不一致が検出されました。\n管理画面で詳細を確認できます。');
+    } else {
+      alert('📝 問題報告を送信しました。\n管理画面で詳細を確認できます。');
+    }
     
   } catch (e) {
     console.error('データ不一致の報告に失敗しました:', e);

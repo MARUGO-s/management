@@ -3586,7 +3586,21 @@ ${error.message || ''}`);
                 }
             } catch (error) {
                 console.error('データ不一致レポートの取得に失敗:', error);
-                container.innerHTML = `<div class="data-mismatch-placeholder">❌ レポートの取得に失敗しました: ${error.message}</div>`;
+                
+                // CORSエラーまたはネットワークエラーの場合
+                if (error.message.includes('CORS') || error.message.includes('Failed to fetch') || error.message.includes('origin')) {
+                    container.innerHTML = `
+                        <div class="data-mismatch-placeholder" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1); padding: 20px; border-radius: 8px;">
+                            ⚠️ ローカルサーバーが必要です<br>
+                            <small style="font-size: 12px; color: rgba(31, 42, 61, 0.6);">
+                                ファイルを直接開いているため、CORSエラーが発生しています。<br>
+                                <strong>http://localhost:3000</strong> でアクセスしてください。
+                            </small>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `<div class="data-mismatch-placeholder">❌ レポートの取得に失敗しました: ${error.message}</div>`;
+                }
             }
         }
 
@@ -3608,11 +3622,14 @@ ${error.message || ''}`);
                 return `
                     <div class="data-mismatch-item" data-report-id="${report.id}">
                         <div class="data-mismatch-meta">
-                            <span class="data-mismatch-id">データ不一致 #${index + 1}</span>
+                            <span class="data-mismatch-id">${report.environment_info?.reportType === 'problem_report' ? '問題報告' : 'データ不一致'} #${index + 1}</span>
                             <span class="data-mismatch-time">${createdDate}</span>
                         </div>
                         <div class="data-mismatch-stats">
-                            <span>不一致項目数: ${report.mismatch_count}件</span>
+                            ${report.environment_info?.reportType === 'problem_report' ? 
+                                `<span>報告タイプ: 問題報告</span>` : 
+                                `<span>不一致項目数: ${report.mismatch_count}件</span>`
+                            }
                             <span>送信データ数: ${report.sent_data_count}件</span>
                             <span>登録データ数: ${report.registered_data_count}件</span>
                         </div>
@@ -3908,7 +3925,7 @@ ${error.message || ''}`);
         }
 
         // データ保持ポリシー管理機能
-        async function loadDataRetentionStatus() {
+        async function loadDataRetentionStatus(retryCount = 0) {
             const statusDiv = document.getElementById('data-retention-status');
             if (!statusDiv) return;
             
@@ -3930,14 +3947,43 @@ ${error.message || ''}`);
                 if (response.ok) {
                     const result = await response.json();
                     displayDataRetentionStatus(result);
+                } else if (response.status === 500 && retryCount < 2) {
+                    // サーバーエラーの場合はリトライ
+                    console.log(`サーバーエラー、${retryCount + 1}回目のリトライ...`);
+                    setTimeout(() => {
+                        loadDataRetentionStatus(retryCount + 1);
+                    }, 2000 * (retryCount + 1)); // 2秒、4秒、6秒後にリトライ
+                    return;
+                } else if (response.status === 404 || response.status === 500) {
+                    // データが存在しない場合または最終的なサーバーエラー
+                    statusDiv.innerHTML = `
+                        <div style="color: rgba(31, 42, 61, 0.6); text-align: center; padding: 20px;">
+                            📭 データがありません<br>
+                            <small style="font-size: 12px; color: rgba(31, 42, 61, 0.5);">
+                                まだデータが蓄積されていません<br>
+                                <em>（サーバーエラーの場合は、しばらく待ってから再試行してください）</em>
+                            </small>
+                        </div>
+                    `;
+                    return;
                 } else {
                     throw new Error(`HTTP ${response.status}`);
                 }
             } catch (error) {
                 console.error('データ保持状況の取得に失敗:', error);
                 
-                // データが存在しない場合とエラーの場合を区別
-                if (error.message.includes('404') || error.message.includes('not found')) {
+                // CORSエラーまたはネットワークエラーの場合
+                if (error.message.includes('CORS') || error.message.includes('Failed to fetch') || error.message.includes('origin')) {
+                    statusDiv.innerHTML = `
+                        <div style="color: #f59e0b; text-align: center; padding: 20px; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
+                            ⚠️ ローカルサーバーが必要です<br>
+                            <small style="font-size: 12px; color: rgba(31, 42, 61, 0.6);">
+                                ファイルを直接開いているため、CORSエラーが発生しています。<br>
+                                <strong>http://localhost:3000</strong> でアクセスしてください。
+                            </small>
+                        </div>
+                    `;
+                } else if (error.message.includes('404') || error.message.includes('not found')) {
                     statusDiv.innerHTML = `
                         <div style="color: rgba(31, 42, 61, 0.6); text-align: center; padding: 20px;">
                             📭 データがありません<br>
@@ -4065,6 +4111,7 @@ ${error.message || ''}`);
                 button.textContent = originalText;
             }
         }
+
 
         // 初期化
         window.addEventListener('load', () => {
