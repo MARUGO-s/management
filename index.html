@@ -176,6 +176,10 @@
         box-shadow: none;
     }
 
+    /* フォーカス関連のスタイルを削除（シンプルな状態に戻す） */
+    
+    /* フォーカス関連のCSSを完全に削除（シンプルな状態に戻す） */
+
     .button-group {
       display: flex;
       flex-direction: column;
@@ -713,7 +717,7 @@
             <div class="form-group">
               <label>💵 金額(税込)</label>
               <div class="amount-input">
-                <input type="text" class="amount" required inputmode="numeric" placeholder="自動計算" readonly>
+                <input type="text" class="amount" required inputmode="numeric" placeholder="自動計算">
               </div>
             </div>
 
@@ -773,6 +777,10 @@
         <span class="status-icon">📧</span>
         <span>借主へメール通知中...</span>
       </div>
+      <div class="status-step" id="step-checking">
+        <span class="status-icon">🔍</span>
+        <span>送信内容をチェック中...</span>
+      </div>
       <div class="status-step" id="step-complete">
         <span class="status-icon">✅</span>
         <span>送信完了！</span>
@@ -809,7 +817,7 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="pages/js/main.js"></script>
+  <script src="pages/js/main.js?v=2025011605"></script>
   <script src="js/simple-auth.js"></script>
   <script src="js/quota-alert-system.js"></script>
   <script src="js/usage-indicator.js"></script>
@@ -831,6 +839,10 @@
       }
       
       console.log('✅ index.html 初期化完了');
+      
+      // フォーカス関連の機能を削除（シンプルな状態に戻す）
+      
+      // フォーカス関連のコードを完全に削除（シンプルな状態に戻す）
     });
   </script>
 </body>

@@ -1248,10 +1248,7 @@
         }
       });
       
-      // フォーカス時の特別処理
-      nameInput.addEventListener('focus', () => {
-        nameFormGroup.classList.add('name-highlight');
-      });
+      // フォーカスイベントを削除（シンプルな状態に戻す）
       
       // ブラー時の処理
       nameInput.addEventListener('blur', () => {

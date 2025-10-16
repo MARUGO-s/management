@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGアニメーションテストページ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .test-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+
+        .test-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .test-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .test-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .test-btn.normal {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .test-btn.ng-normal {
+            background: #f3f4f6;
+            border: 2px solid #d1d5db;
+            color: #6b7280;
+        }
+
+        .test-btn.ng-mismatch {
+            background: #fee2e2;
+            border: 2px solid #fecaca;
+            color: #b91c1c;
+            animation: pulse-red 2s infinite;
+        }
+
+        /* アニメーション定義 */
+        @keyframes pulse-red {
+            0% { 
+                background: #fee2e2; 
+                border-color: #fecaca; 
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+            }
+            50% { 
+                background: #fecaca; 
+                border-color: #f87171; 
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+            }
+            100% { 
+                background: #fee2e2; 
+                border-color: #fecaca; 
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+            }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+
+        .data-mismatch-warning {
+            animation: shake 0.5s ease-in-out 3;
+        }
+
+        .demo-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .demo-modal.show {
+            display: flex;
+        }
+
+        .demo-card {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+        }
+
+        .demo-title {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .demo-title.warning {
+            color: #dc2626;
+            animation: shake 0.5s ease-in-out 3;
+        }
+
+        .demo-content {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .demo-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .demo-row:last-child {
+            border-bottom: none;
+        }
+
+        .demo-label {
+            font-weight: 600;
+            color: #374151;
+            min-width: 120px;
+        }
+
+        .demo-value {
+            color: #1f2937;
+            text-align: right;
+            flex: 1;
+        }
+
+        .demo-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .demo-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .demo-btn.ng-normal {
+            background: #f3f4f6;
+            border: 2px solid #d1d5db;
+            color: #6b7280;
+        }
+
+        .demo-btn.ng-mismatch {
+            background: #fee2e2;
+            border: 2px solid #fecaca;
+            color: #b91c1c;
+            animation: pulse-red 2s infinite;
+        }
+
+        .demo-btn.ok {
+            background: #dcfce7;
+            border: 2px solid #bbf7d0;
+            color: #166534;
+        }
+
+        .demo-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .info-text {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            color: #0369a1;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎭 NGアニメーションテスト</h1>
+        
+        <div class="test-buttons">
+            <button class="test-btn normal" onclick="showNormalModal()">
+                📋 通常モーダル表示
+            </button>
+            <button class="test-btn ng-normal" onclick="showNGNormalModal()">
+                ❌ NG（通常状態）
+            </button>
+            <button class="test-btn ng-mismatch" onclick="showNGMismatchModal()">
+                ❌ NG（不一致検出）
+            </button>
+        </div>
+
+        <div class="info-text">
+            <strong>テスト説明:</strong><br>
+            • 「通常モーダル表示」: 送信後確認画面の通常表示<br>
+            • 「NG（通常状態）」: データ一致時のNGボタン<br>
+            • 「NG（不一致検出）」: データ不一致時のNGボタン（アニメーション付き）
+        </div>
+    </div>
+
+    <!-- デモモーダル -->
+    <div class="demo-modal" id="demoModal">
+        <div class="demo-card">
+            <h3 class="demo-title" id="demoTitle">📄 登録結果（スプレッドシート反映済み）</h3>
+            
+            <div class="demo-content">
+                <div class="demo-row">
+                    <span class="demo-label">📅 日付</span>
+                    <span class="demo-value">2025/01/15</span>
+                </div>
+                <div class="demo-row">
+                    <span class="demo-label">👤 名前</span>
+                    <span class="demo-value">テストユーザー</span>
+                </div>
+                <div class="demo-row">
+                    <span class="demo-label">🔄 貸主→借主</span>
+                    <span class="demo-value">本部 → MARUGO-D</span>
+                </div>
+                <div class="demo-row">
+                    <span class="demo-label">📝 カテゴリー/品目</span>
+                    <span class="demo-value">食材 / テスト商品</span>
+                </div>
+                <div class="demo-row">
+                    <span class="demo-label">🔢 数量</span>
+                    <span class="demo-value">5</span>
+                </div>
+                <div class="demo-row">
+                    <span class="demo-label">💰 単価</span>
+                    <span class="demo-value">1,000</span>
+                </div>
+                <div class="demo-row">
+                    <span class="demo-label">💵 金額</span>
+                    <span class="demo-value">5,000</span>
+                </div>
+            </div>
+
+            <div class="demo-actions">
+                <button class="demo-btn" id="ngBtn" onclick="closeModal()">
+                    ❌ NG（問題報告）
+                </button>
+                <button class="demo-btn ok" onclick="closeModal()">
+                    ✅ OK（正常）
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showNormalModal() {
+            const modal = document.getElementById('demoModal');
+            const title = document.getElementById('demoTitle');
+            const ngBtn = document.getElementById('ngBtn');
+            
+            title.textContent = '📄 登録結果（スプレッドシート反映済み）';
+            title.className = 'demo-title';
+            ngBtn.textContent = '❌ NG（問題報告）';
+            ngBtn.className = 'demo-btn ng-normal';
+            
+            modal.classList.add('show');
+        }
+
+        function showNGNormalModal() {
+            const modal = document.getElementById('demoModal');
+            const title = document.getElementById('demoTitle');
+            const ngBtn = document.getElementById('ngBtn');
+            
+            title.textContent = '📄 登録結果（スプレッドシート反映済み）';
+            title.className = 'demo-title';
+            ngBtn.textContent = '❌ NG（問題報告）';
+            ngBtn.className = 'demo-btn ng-normal';
+            
+            modal.classList.add('show');
+        }
+
+        function showNGMismatchModal() {
+            const modal = document.getElementById('demoModal');
+            const title = document.getElementById('demoTitle');
+            const ngBtn = document.getElementById('ngBtn');
+            
+            // 不一致検出状態
+            title.textContent = '⚠️ 登録結果（データ不一致検出！）';
+            title.className = 'demo-title warning';
+            ngBtn.textContent = '❌ NG（データ不一致検出！）';
+            ngBtn.className = 'demo-btn ng-mismatch';
+            ngBtn.title = 'データ不一致が検出されました。クリックして詳細を報告してください。';
+            
+            modal.classList.add('show');
+            
+            // 5秒後に自動的に閉じる（デモ用）
+            setTimeout(() => {
+                closeModal();
+            }, 5000);
+        }
+
+        function closeModal() {
+            document.getElementById('demoModal').classList.remove('show');
+        }
+
+        // ESCキーでモーダルを閉じる
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // モーダル外をクリックで閉じる
+        document.getElementById('demoModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

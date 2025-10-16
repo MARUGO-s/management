@@ -23,7 +23,11 @@ function generateDemoData() {
   ninetyDaysAgo.setDate(today.getDate() - 90);
 
   for (let d = new Date(ninetyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
-    const dateKey = d.toISOString().split('T')[0];
+    // タイムゾーン問題を回避：ローカル日付として処理
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
     const monthKey = dateKey.substring(0, 7);
 
     // 週末は使用量を減らす

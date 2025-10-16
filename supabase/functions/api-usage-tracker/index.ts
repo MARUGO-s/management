@@ -103,7 +103,12 @@ serve(async (req) => {
     const requestBody = await req.json()
     const { action, deviceId, deviceInfo, usageType = 'api_call', targetMonth, resetType } = requestBody
 
-    const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+    // タイムゾーン問題を回避：ローカル日付として処理
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`; // YYYY-MM-DD
     const currentMonth = today.substring(0, 7) // YYYY-MM
 
     if (action === 'record') {

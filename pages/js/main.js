@@ -8,6 +8,8 @@ const shops = [ // 店舗名のリスト
   "X&C", "トラットリア ブリッコラ"
 ];
 
+console.log('pages/js/main.js version 2025011604 loaded');
+
 // Populate Shopsを修正
 function populateShops() {
   const lenderSelect = document.getElementById("lender");
@@ -43,7 +45,7 @@ const SELECT_MODAL_LIMIT = 100; // モーダル表示の最大件数
 let latestItemMetaMap = new Map(); // key(normalized) -> { value, ms, qty, unitPrice, amount }
 // エラー誘導用のキュー
 let pendingErrorQueue = [];
-let lastFocusedErrorEl = null;
+// フォーカス関連の変数を削除
 let errorListenersAttached = false;
 
 function normalizeKeyForDedupe(s) {
@@ -479,6 +481,8 @@ function refreshRemoveButtonsVisibility() {
   });
 }
 
+// フォーカス設定関数を削除（シンプルな状態に戻す）
+
 function setupEntryRow(rowEl) {
   // 既にセットアップ済みかチェック（ただし、削除ボタンのイベントリスナーは常に再設定）
   const isAlreadySetup = rowEl.dataset.setupComplete === 'true';
@@ -508,11 +512,40 @@ function setupEntryRow(rowEl) {
       const selectedCategory = option.dataset.value;
       catHidden.value = selectedCategory;
       updateButtonsByCategory(selectedCategory, rowEl);
+      
+      // カテゴリー選択時にエラー表示を解消
+      const categoryGrid = rowEl.querySelector('.category-grid');
+      if (categoryGrid) {
+        // エラー表示クラスを削除
+        categoryGrid.classList.remove('input-error', 'error-pulse', 'error-outline');
+        const formGroup = categoryGrid.closest('.form-group');
+        if (formGroup) {
+          formGroup.classList.remove('error-outline');
+        }
+        
+        // エラーキューからも削除
+        const idx = pendingErrorQueue.indexOf(categoryGrid);
+        if (idx > -1) {
+          pendingErrorQueue.splice(idx, 1);
+        }
+        
+        // カテゴリーのhiddenフィールドもクリア
+        const catHidden = rowEl.querySelector('.category');
+        if (catHidden) {
+          const hiddenIdx = pendingErrorQueue.indexOf(catHidden);
+          if (hiddenIdx > -1) {
+            pendingErrorQueue.splice(hiddenIdx, 1);
+          }
+        }
+      }
     });
   });
 
   const quantityInput = rowEl.querySelector('.quantity');
   const unitPriceInput = rowEl.querySelector('.unit-price');
+  const amountInput = rowEl.querySelector('.amount');
+  
+  // 単価フィールドのみフォーカス可能にする
   [quantityInput, unitPriceInput].forEach(input => {
     input.addEventListener('input', (e) => {
       if (e.isComposing || e.target.dataset.composing === 'true') return;
@@ -557,8 +590,9 @@ function setupEntryRow(rowEl) {
       }
       calculateAmountForRow(rowEl);
     });
-    input.addEventListener('focus', (e) => { e.target.value = e.target.value.replace(/,/g, ''); });
   });
+  
+  // フォーカスイベントを削除（シンプルな状態に戻す）
 
   const itemBtn = rowEl.querySelector('.item-list-btn');
   if (itemBtn) {
@@ -660,6 +694,8 @@ function addNewRow() {
   // セットアップ済みフラグをリセット（新しく追加された行として扱う）
   clone.dataset.setupComplete = 'false';
   
+  // 新しく追加される行の設定（フォーカス制御なし）
+  
   container.appendChild(clone);
   setupEntryRow(clone);
   refreshRemoveButtonsVisibility();
@@ -731,7 +767,7 @@ function addFullRow() {
           <div class="form-group">
             <label>💵 金額(税込)</label>
             <div class="amount-input">
-              <input type="text" class="amount" required inputmode="numeric" placeholder="自動計算" readonly>
+              <input type="text" class="amount" required inputmode="numeric" placeholder="自動計算">
             </div>
           </div>
         </div>
@@ -1122,14 +1158,14 @@ async function searchReverseTransaction() {
 // 送信完了後: 実際にスプレッドシートに登録された最新データを取得して確認表示
 async function showRegisteredDataConfirmation(allPayloads) {
   try {
-    // 直近で登録されたデータを取得する。シートは常に2行目に新規挿入されるため、上位行を広めに読む
-    const readRange = '貸借表!A2:K';
+    // より狭い範囲を読み取って高速化（送信直後のデータのみ）
+    const readRange = '貸借表!A2:K10'; // 上位10行のみに制限
     const result = await callSheetsAPI(readRange, 'GET');
     const rows = (result.values || []);
 
-    // 送信直後3分以内に挿入された行を対象に絞り込み
+    // 送信直後1分以内に挿入された行を対象に絞り込み（時間窓を短縮）
     const nowMs = Date.now();
-    const timeWindowMs = 3 * 60 * 1000; // 3分
+    const timeWindowMs = 1 * 60 * 1000; // 1分に短縮
     const refName = (allPayloads[0]?.name || '').toString().trim();
     const refDate = (allPayloads[0]?.date || '').toString().trim();
 
@@ -1160,14 +1196,14 @@ async function showRegisteredDataConfirmation(allPayloads) {
     // もし絞り込みが0件なら、先頭から送信件数分だけ拾う（保険）
     const pick = recent.length > 0 ? recent.slice(0, allPayloads.length) : parsed.slice(0, allPayloads.length);
     
-    // 送信データと登録データの比較
+    // 送信データと登録データの比較（高速化）
     const dataComparison = compareSentAndRegisteredData(allPayloads, pick);
 
-    // 確認モーダルを生成
+    // 確認モーダルを生成（高速化）
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:5000;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:5000;opacity:0;transition:opacity 0.2s ease-in;';
     const card = document.createElement('div');
-    card.style.cssText = 'width:92%;max-width:560px;background:#fff;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,0.25);padding:16px;';
+    card.style.cssText = 'width:92%;max-width:560px;background:#fff;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,0.25);padding:16px;transform:scale(0.95);transition:transform 0.2s ease-in;';
     const title = document.createElement('h3');
     title.textContent = '📄 登録結果（スプレッドシート反映済み）';
     title.style.cssText = 'margin:0 0 10px 0;color:#111827;font-size:18px;font-weight:700;';
@@ -1252,6 +1288,12 @@ async function showRegisteredDataConfirmation(allPayloads) {
     overlay.appendChild(card);
     document.body.appendChild(overlay);
     
+    // アニメーション効果で表示
+    requestAnimationFrame(() => {
+      overlay.style.opacity = '1';
+      card.style.transform = 'scale(1)';
+    });
+    
     // アニメーション用のCSSを動的に追加
     if (dataComparison.hasMismatch) {
       const style = document.createElement('style');
@@ -1308,39 +1350,79 @@ function compareSentAndRegisteredData(sentData, registeredData) {
   
   console.log('🔍 データ比較開始:', { sentData, registeredData });
   
-  for (let i = 0; i < sentData.length; i++) {
-    const sent = sentData[i];
-    const registered = registeredData[i] || {};
+  // 複数データの場合、順序が一致しない可能性があるため、より柔軟な照合を行う
+  if (sentData.length > 1) {
+    console.log('🔍 複数データ送信検出、柔軟な照合を実行');
     
-    const comparison = {
-      index: i,
-      sent: sent,
-      registered: registered,
-      differences: []
-    };
+    // 各送信データに対して、最も類似度の高い登録データを探す
+    const usedRegisteredIndices = new Set();
     
-    // 各フィールドを比較（正規化処理を追加）
-    const fields = ['date', 'name', 'lender', 'borrower', 'category', 'item', 'quantity', 'unitPrice', 'amount'];
-    
-    fields.forEach(field => {
-      const sentValue = normalizeValue(sent[field]);
-      const registeredValue = normalizeValue(registered[field]);
+    for (let i = 0; i < sentData.length; i++) {
+      const sent = sentData[i];
+      let bestMatch = null;
+      let bestMatchIndex = -1;
+      let bestScore = 0;
       
-      console.log(`🔍 ${field}比較:`, { sent: sentValue, registered: registeredValue });
+      // 未使用の登録データの中で最も類似度の高いものを探す
+      for (let j = 0; j < registeredData.length; j++) {
+        if (usedRegisteredIndices.has(j)) continue;
+        
+        const registered = registeredData[j];
+        const score = calculateSimilarityScore(sent, registered);
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = registered;
+          bestMatchIndex = j;
+        }
+      }
       
-      if (sentValue !== registeredValue) {
-        comparison.differences.push({
-          field: field,
-          sent: sentValue,
-          registered: registeredValue
+      // 類似度が80%以上の場合は一致とみなす
+      if (bestScore >= 0.8 && bestMatch) {
+        usedRegisteredIndices.add(bestMatchIndex);
+        console.log(`✅ 送信データ${i + 1}と登録データ${bestMatchIndex + 1}が一致 (類似度: ${(bestScore * 100).toFixed(1)}%)`);
+        
+        // 細かい差異をチェック
+        const differences = compareFields(sent, bestMatch);
+        if (differences.length > 0) {
+          mismatches.push({
+            index: i,
+            sent: sent,
+            registered: bestMatch,
+            differences: differences
+          });
+          hasMismatch = true;
+        }
+      } else {
+        console.log(`❌ 送信データ${i + 1}に対応する登録データが見つかりません (最高類似度: ${(bestScore * 100).toFixed(1)}%)`);
+        mismatches.push({
+          index: i,
+          sent: sent,
+          registered: null,
+          differences: [{ field: 'ALL', sent: '送信データ', registered: '対応する登録データが見つかりません' }]
         });
         hasMismatch = true;
-        console.log(`❌ ${field}不一致:`, { sent: sentValue, registered: registeredValue });
       }
-    });
+    }
+  } else {
+    // 単一データの場合は従来通りの順序比較
+    console.log('🔍 単一データ送信、順序比較を実行');
     
-    if (comparison.differences.length > 0) {
-      mismatches.push(comparison);
+    for (let i = 0; i < sentData.length; i++) {
+      const sent = sentData[i];
+      const registered = registeredData[i] || {};
+      
+      const differences = compareFields(sent, registered);
+      
+      if (differences.length > 0) {
+        mismatches.push({
+          index: i,
+          sent: sent,
+          registered: registered,
+          differences: differences
+        });
+        hasMismatch = true;
+      }
     }
   }
   
@@ -1354,20 +1436,73 @@ function compareSentAndRegisteredData(sentData, registeredData) {
   };
 }
 
-// 値を正規化する関数
+// データの類似度を計算する関数
+function calculateSimilarityScore(sent, registered) {
+  const fields = ['date', 'name', 'lender', 'borrower', 'category', 'item', 'quantity', 'unitPrice', 'amount'];
+  let matchCount = 0;
+  let totalFields = fields.length;
+  
+  fields.forEach(field => {
+    const sentValue = normalizeValue(sent[field]);
+    const registeredValue = normalizeValue(registered[field]);
+    
+    if (sentValue === registeredValue) {
+      matchCount++;
+    }
+  });
+  
+  return matchCount / totalFields;
+}
+
+// フィールドを比較する関数
+function compareFields(sent, registered) {
+  const differences = [];
+  const fields = ['date', 'name', 'lender', 'borrower', 'category', 'item', 'quantity', 'unitPrice', 'amount'];
+  
+  fields.forEach(field => {
+    const sentValue = normalizeValue(sent[field]);
+    const registeredValue = normalizeValue(registered[field]);
+    
+    console.log(`🔍 ${field}比較:`, { sent: sentValue, registered: registeredValue });
+    
+    if (sentValue !== registeredValue) {
+      differences.push({
+        field: field,
+        sent: sentValue,
+        registered: registeredValue
+      });
+      console.log(`❌ ${field}不一致:`, { sent: sentValue, registered: registeredValue });
+    }
+  });
+  
+  return differences;
+}
+
+// 値を正規化する関数（改善版）
 function normalizeValue(value) {
   if (value === null || value === undefined) return '';
   
   let normalized = value.toString().trim();
   
-  // 日付の正規化
-  if (normalized.includes('-') && normalized.length >= 10) {
-    // YYYY-MM-DD 形式を YYYY/MM/DD 形式に統一
-    normalized = normalized.replace(/-/g, '/');
+  // 日付の正規化（より柔軟な処理）
+  if (normalized.includes('-') || normalized.includes('/')) {
+    // 日付形式を統一（YYYY/MM/DD形式に）
+    try {
+      const date = new Date(normalized);
+      if (!isNaN(date.getTime())) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        normalized = `${year}/${month}/${day}`;
+      }
+    } catch (e) {
+      // 日付パースに失敗した場合は元の値を保持
+    }
   }
   
-  // 数値の正規化（カンマや空白を除去）
-  if (/^\d+([.,]\d+)?$/.test(normalized.replace(/[,.\s]/g, ''))) {
+  // 数値の正規化（より柔軟な処理）
+  if (/^[\d,.\s]+$/.test(normalized)) {
+    // カンマ、ピリオド、空白を除去
     normalized = normalized.replace(/[,.\s]/g, '');
   }
   
@@ -1376,20 +1511,106 @@ function normalizeValue(value) {
     normalized = normalized.replace(/[¥,\s]/g, '');
   }
   
+  // 店舗名の正規化（大文字小文字を統一）
+  if (normalized.includes('MARUGO') || normalized.includes('CAVA') || normalized.includes('CLAUDIA')) {
+    normalized = normalized.toUpperCase();
+  }
+  
+  // 空白を統一
+  normalized = normalized.replace(/\s+/g, ' ').trim();
+  
   return normalized;
+}
+
+// ブラウザ名を取得する関数
+function getBrowserName() {
+  const userAgent = navigator.userAgent;
+  if (userAgent.includes('Chrome')) return 'Chrome';
+  if (userAgent.includes('Firefox')) return 'Firefox';
+  if (userAgent.includes('Safari')) return 'Safari';
+  if (userAgent.includes('Edge')) return 'Edge';
+  if (userAgent.includes('Opera')) return 'Opera';
+  return 'Unknown';
+}
+
+// ブラウザバージョンを取得する関数
+function getBrowserVersion() {
+  const userAgent = navigator.userAgent;
+  const match = userAgent.match(/(Chrome|Firefox|Safari|Edge|Opera)\/(\d+\.\d+)/);
+  return match ? match[2] : 'Unknown';
 }
 
 // データ不一致を管理画面に報告する関数
 async function reportDataMismatch(comparison, originalPayloads) {
   try {
-    const reportData = {
+    // 詳細な環境情報を取得
+    const environmentInfo = {
+      // 基本情報
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
       url: window.location.href,
+      referrer: document.referrer,
+      
+      // ブラウザ情報
+      browser: {
+        name: getBrowserName(),
+        version: getBrowserVersion(),
+        language: navigator.language,
+        languages: navigator.languages,
+        cookieEnabled: navigator.cookieEnabled,
+        onLine: navigator.onLine
+      },
+      
+      // 画面情報
+      screen: {
+        width: screen.width,
+        height: screen.height,
+        availWidth: screen.availWidth,
+        availHeight: screen.availHeight,
+        colorDepth: screen.colorDepth,
+        pixelDepth: screen.pixelDepth
+      },
+      
+      // ウィンドウ情報
+      window: {
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        outerWidth: window.outerWidth,
+        outerHeight: window.outerHeight,
+        devicePixelRatio: window.devicePixelRatio
+      },
+      
+      // タイムゾーン情報
+      timezone: {
+        offset: new Date().getTimezoneOffset(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      },
+      
+      // プラットフォーム情報
+      platform: {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        vendor: navigator.vendor,
+        vendorSub: navigator.vendorSub,
+        product: navigator.product,
+        productSub: navigator.productSub
+      },
+      
+      // ネットワーク情報（利用可能な場合）
+      connection: navigator.connection ? {
+        effectiveType: navigator.connection.effectiveType,
+        downlink: navigator.connection.downlink,
+        rtt: navigator.connection.rtt,
+        saveData: navigator.connection.saveData
+      } : null,
+      
+      // データ内容
       comparison: comparison,
       originalPayloads: originalPayloads,
       reportType: 'data_mismatch'
     };
+    
+    const reportData = environmentInfo;
     
     // ローカルストレージに保存（管理画面で確認可能）
     const existingReports = JSON.parse(localStorage.getItem('dataMismatchReports') || '[]');
@@ -1479,6 +1700,8 @@ async function submitData(options = {}) {
   submitBtn.dataset.originalText = originalText;
   const form = document.getElementById('loanForm');
 
+  // フォーカス関連の関数を削除（シンプルな状態に戻す）
+
   // 送信ボタンを即座に無効化（重複クリック防止）
   submitBtn.disabled = true;
 
@@ -1489,20 +1712,34 @@ async function submitData(options = {}) {
     // まずプレ検証（フォーカス＆ハイライト）
     const clearError = (el) => {
       if (!el) return;
+      
+      // 金額と個/本/gフィールドのみエラー表示を無効化
+      if (el.classList.contains('amount') || el.classList.contains('quantity')) {
+        return;
+      }
+      
+      // その他のフィールドは通常のエラー表示クリア
       el.classList.remove('input-error');
       el.classList.remove('error-outline');
       el.classList.remove('error-pulse');
       const wrap = el.closest?.('.form-group');
       if (wrap) wrap.classList.remove('error-outline');
     };
-    const markError = (el) => {
-      if (!el) return;
-      el.classList.add('input-error');
-      el.classList.add('error-pulse');
-      const wrap = el.closest?.('.form-group') || el;
-      wrap.classList.add('error-outline');
-      if (typeof el.focus === 'function') el.focus({ preventScroll: false });
-    };
+     const markError = (el) => {
+       if (!el) return;
+       
+       // 金額と個/本/gフィールドはエラーキューに追加しない
+       if (el.classList.contains('amount') || el.classList.contains('quantity')) {
+         return;
+       }
+       
+       // その他のフィールドは通常のエラー表示
+       el.classList.add('input-error');
+       el.classList.add('error-pulse');
+       const wrap = el.closest?.('.form-group') || el;
+       wrap.classList.add('error-outline');
+       pendingErrorQueue.push(el);
+     };
 
     // 上部グループ + 追加フルグループをまとめて送信
     const groupDefs = [];
@@ -1550,15 +1787,15 @@ async function submitData(options = {}) {
       if (rows.length === 0) { groupIndex++; continue; }
       // 入力チェック（見つけ次第フォーカス＆ハイライト）
       // 必須チェック（まとめて収集）
-      if (!date) { markError(gd.dateEl); pendingErrorQueue.push(gd.dateEl); }
-      else { clearError(gd.dateEl); }
-      if (!name) { markError(gd.nameEl); pendingErrorQueue.push(gd.nameEl); }
-      else { clearError(gd.nameEl); }
-      if (!lender) { markError(gd.lenderEl); pendingErrorQueue.push(gd.lenderEl); }
-      else { clearError(gd.lenderEl); }
-      if (!borrower) { markError(gd.borrowerEl); pendingErrorQueue.push(gd.borrowerEl); }
-      else { clearError(gd.borrowerEl); }
-      if (lender && borrower && lender === borrower) { markError(gd.borrowerEl); pendingErrorQueue.push(gd.borrowerEl); }
+       if (!date) { markError(gd.dateEl); }
+       else { clearError(gd.dateEl); }
+       if (!name) { markError(gd.nameEl); }
+       else { clearError(gd.nameEl); }
+       if (!lender) { markError(gd.lenderEl); }
+       else { clearError(gd.lenderEl); }
+       if (!borrower) { markError(gd.borrowerEl); }
+       else { clearError(gd.borrowerEl); }
+       if (lender && borrower && lender === borrower) { markError(gd.borrowerEl); }
 
       console.log('🔍 rows.forEach開始:', { groupIndex, rowsLength: rows.length });
       
@@ -1580,19 +1817,25 @@ async function submitData(options = {}) {
         console.log(`🔍 データ抽出 ${i + 1}:`, en);
         
         const catEl = row.querySelector('.category-grid') || row.querySelector('.category');
-        if (!en.category) { markError(catEl); pendingErrorQueue.push(catEl); }
-        else { clearError(catEl); }
-        const itemEl = row.querySelector('.item');
-        if (!en.item) { markError(itemEl); pendingErrorQueue.push(itemEl); }
-        else { clearError(itemEl); }
-        const qtyEl = row.querySelector('.quantity');
-        if (!en.quantity) { markError(qtyEl); pendingErrorQueue.push(qtyEl); }
-        else { clearError(qtyEl); }
-        const amtEl = row.querySelector('.amount');
-        if (!en.amount) { markError(amtEl); pendingErrorQueue.push(amtEl); }
-        else { clearError(amtEl); }
-        const amt = parseFloat(en.amount);
-        if (en.amount && (isNaN(amt) || amt <= 0)) { markError(amtEl); pendingErrorQueue.push(amtEl); }
+         if (!en.category) { markError(catEl); }
+         else { clearError(catEl); }
+         const itemEl = row.querySelector('.item');
+         if (!en.item) { markError(itemEl); }
+         else { clearError(itemEl); }
+
+         const unitPriceEl = row.querySelector('.unit-price');
+         if (!en.unitPrice) { markError(unitPriceEl); }
+         else { clearError(unitPriceEl); }
+         
+         // 数量と金額のチェック
+         const qtyEl = row.querySelector('.quantity');
+         if (!en.quantity) { markError(qtyEl); }
+         else { clearError(qtyEl); }
+         const amtEl = row.querySelector('.amount');
+         if (!en.amount) { markError(amtEl); }
+         else { clearError(amtEl); }
+         const amt = parseFloat(en.amount);
+         if (en.amount && (isNaN(amt) || amt <= 0)) { markError(amtEl); }
         const payload = {
           date, name, lender, borrower,
           category: en.category,
@@ -1612,14 +1855,29 @@ async function submitData(options = {}) {
         
         allPayloads.push(payload);
       });
+       // エラー要素のフィルタリング（フォーカス制御なし）
       groupIndex++;
     }
 
     if (pendingErrorQueue.length > 0) {
+      // 金額と個/本/gフィールドをエラーキューから除外
+      pendingErrorQueue = pendingErrorQueue.filter(el => {
+        if (!el) return false;
+        // 金額と個/本/gフィールドは除外
+        if (el.classList.contains('amount') || el.classList.contains('quantity')) {
+          return false;
+        }
+        return true;
+      });
+      
       // 重複を除去
       const seen = new Set();
       pendingErrorQueue = pendingErrorQueue.filter(el => {
-        if (!el) return false; const key = el; if (seen.has(key)) return false; seen.add(key); return true;
+        if (!el) return false;
+        const key = el;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
       const errorModal = document.getElementById('errorModal');
       const errorModalBody = document.getElementById('errorModalBody');
@@ -1627,18 +1885,37 @@ async function submitData(options = {}) {
       if (errorModal && errorModalBody) {
         errorModalBody.textContent = `入力ミスがあります（${pendingErrorQueue.length}件）。内容をご確認ください。`;
         errorModal.classList.add('show');
-        setTimeout(() => {
-          const first = pendingErrorQueue[0];
-          if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus?.({ preventScroll: true }); first.classList.add('error-pulse-strong'); setTimeout(() => first.classList.remove('error-pulse-strong'), 1500); }
-        }, 50);
+        
+        // エラーモーダル表示時に送信ボタンを有効化
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        btnText.textContent = originalText;
+        
+        // 重複実行防止フラグをリセット
+        submitData._isRunning = false;
+        
+        // フォーカス制御を削除（シンプルな状態に戻す）
         if (errorModalCloseBtn && !errorListenersAttached) {
           // 既存のリスナーを削除してから追加
           errorModalCloseBtn.removeEventListener('click', errorModalCloseBtn._closeHandler);
           errorModalCloseBtn._closeHandler = () => {
             errorModal.classList.remove('show');
-            // 最初の未修正に誘導
-            const next = pendingErrorQueue.find(el => el?.classList?.contains('input-error')) || pendingErrorQueue[0];
-            if (next) { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); next.focus?.({ preventScroll: true }); next.classList.add('error-pulse-strong'); setTimeout(() => next.classList.remove('error-pulse-strong'), 1500); }
+            
+            // エラーモーダル閉じる時に送信ボタンを有効化
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('loading');
+            btnText.textContent = originalText;
+            
+            // エラー表示を再表示
+            pendingErrorQueue.forEach(el => {
+              if (el && !el.classList.contains('amount') && !el.classList.contains('quantity')) {
+                el.classList.add('input-error', 'error-pulse');
+                const wrap = el.closest?.('.form-group') || el;
+                wrap.classList.add('error-outline');
+              }
+            });
+            
+            // フォーカス制御を削除（シンプルな状態に戻す）
           };
           errorModalCloseBtn.addEventListener('click', errorModalCloseBtn._closeHandler);
           errorListenersAttached = true;
@@ -1647,12 +1924,15 @@ async function submitData(options = {}) {
         const attachProgression = (el) => {
           if (!el) return;
           const handler = () => {
-            el.classList.remove('input-error','error-pulse','error-outline');
-            const wrap = el.closest?.('.form-group'); wrap?.classList?.remove('error-outline');
+            // 金額と個/本/gフィールド以外は通常のエラー表示クリア
+            if (!el.classList.contains('amount') && !el.classList.contains('quantity')) {
+              el.classList.remove('input-error','error-pulse','error-outline');
+              const wrap = el.closest?.('.form-group'); 
+              if (wrap) wrap.classList.remove('error-outline');
+            }
             const idx = pendingErrorQueue.indexOf(el);
             if (idx > -1) pendingErrorQueue.splice(idx, 1);
-            const next = pendingErrorQueue[0];
-            if (next) { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); next.focus?.({ preventScroll: true }); next.classList.add('error-pulse-strong'); setTimeout(() => next.classList.remove('error-pulse-strong'), 1500); }
+            // フォーカス制御を削除（シンプルな状態に戻す）
           };
           // 何か入力/変更があれば修正扱い
           el.addEventListener('input', handler, { once: true });
@@ -1736,39 +2016,65 @@ async function submitData(options = {}) {
     await delay(800);
     completeStep('step-inserting', `✅ ${correctionOnly ? '修正データ' : ''}挿入完了`);
     await showStep('step-backup', '🔄 バックアップを作成中...');
-    await delay(1000);
+    await delay(600); // 待機時間を短縮
     completeStep('step-backup', '✅ バックアップ作成完了');
     await showStep('step-email', '📧 借主へメール通知中...');
-    await delay(1200);
+    await delay(800); // 待機時間を短縮
     completeStep('step-email', '✅ 借主へのメール送信完了');
+    
+    // 送信内容をチェック中ステップを追加
+    await showStep('step-checking', '🔍 送信内容をチェック中...');
+    await delay(500); // 待機時間を短縮
+    completeStep('step-checking', '✅ チェック完了');
+    
     await showStep('step-complete', `🎉 ${correctionOnly ? '修正送信' : 'すべての処理'}が完了しました！`);
     const finalStep = document.getElementById('step-complete');
     finalStep.classList.remove('completed');
     finalStep.classList.add('final-completed');
     popupTitle.textContent = '🎉 完了！';
     
+    // スプレッドシート確認画面の準備が整うまで送信ポップアップを表示し続ける
     setTimeout(async () => {
-      popupOverlay.style.display = 'none';
-      submitBtn.classList.remove('loading');
-      btnText.textContent = originalText;
-      submitBtn.disabled = false;
-      
-      // 🔓 重複実行防止フラグをリセット
-      submitData._isRunning = false;
-      console.log('🎉 submitData完了');
-      
-      const message = document.getElementById('successMessage');
-      message.textContent = correctionOnly ? '✅ 修正データの送信が完了しました！' : '✅ 送信完了しました！';
-      message.classList.add('show');
-      setTimeout(() => { message.classList.remove('show'); }, 800);
-      
-      // ✅ スプレッドシートに実際に登録された内容を確認表示
+      // 送信ポップアップの表示を維持しながら、バックグラウンドでスプレッドシート確認画面を準備
       try {
+        // 準備中ステップを表示
+        await showStep('step-checking', '🔍 送信内容をチェック中...');
+        await delay(300);
+        completeStep('step-checking', '✅ チェック完了');
+        
+        // スプレッドシート確認画面の準備
         await showRegisteredDataConfirmation(allPayloads);
+        
+        // 準備が整ったら送信ポップアップをフェードアウト
+        popupOverlay.style.transition = 'opacity 0.3s ease-out';
+        popupOverlay.style.opacity = '0';
+        
+        setTimeout(() => {
+          popupOverlay.style.display = 'none';
+          submitBtn.classList.remove('loading');
+          btnText.textContent = originalText;
+          submitBtn.disabled = false;
+          
+          // 🔓 重複実行防止フラグをリセット
+          submitData._isRunning = false;
+          console.log('🎉 submitData完了');
+          
+          const message = document.getElementById('successMessage');
+          message.textContent = correctionOnly ? '✅ 修正データの送信が完了しました！' : '✅ 送信完了しました！';
+          message.classList.add('show');
+          setTimeout(() => { message.classList.remove('show'); }, 800);
+        }, 300); // フェードアウト完了後に処理
+        
       } catch (_) {
+        // エラーが発生した場合は送信ポップアップを閉じてリロード
+        popupOverlay.style.display = 'none';
+        submitBtn.classList.remove('loading');
+        btnText.textContent = originalText;
+        submitBtn.disabled = false;
+        submitData._isRunning = false;
         location.reload();
       }
-    }, 2000);
+    }, 500); // 短い待機時間
   } catch (error) {
     console.error('送信エラー:', error);
     
@@ -1788,25 +2094,28 @@ async function submitData(options = {}) {
     if (errorModal && errorModalBody) {
       errorModalBody.textContent = `入力ミスがあります。内容をご確認ください。`;
       errorModal.classList.add('show');
-      // モーダルが表示された後に、直前にエラー付与した要素へ再フォーカス
-      setTimeout(() => {
-        const lastError = document.querySelector('.input-error, .category-grid.input-error');
-        if (lastError && typeof lastError.focus === 'function') {
-          lastError.focus({ preventScroll: false });
-        }
-      }, 50);
+      // フォーカス制御を削除（シンプルな状態に戻す）
       if (errorModalCloseBtn) {
         const closeHandler = () => {
           errorModal.classList.remove('show');
           errorModalCloseBtn.removeEventListener('click', closeHandler);
-          setTimeout(() => {
-            const lastError = document.querySelector('.input-error, .category-grid.input-error');
-            if (lastError) {
-              lastError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              lastError.focus({ preventScroll: true });
-              lastError.classList.add('error-pulse-strong');
-              setTimeout(() => lastError.classList.remove('error-pulse-strong'), 1800);
+          
+          // エラーモーダル閉じる時に送信ボタンを有効化
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('loading');
+          btnText.textContent = originalText;
+          
+          // エラー表示を再表示
+          pendingErrorQueue.forEach(el => {
+            if (el && !el.classList.contains('amount') && !el.classList.contains('quantity')) {
+              el.classList.add('input-error', 'error-pulse');
+              const wrap = el.closest?.('.form-group') || el;
+              wrap.classList.add('error-outline');
             }
+          });
+          
+          setTimeout(() => {
+            // フォーカス制御を削除（シンプルな状態に戻す）
           }, 10);
         };
         errorModalCloseBtn.addEventListener('click', closeHandler);
@@ -1815,14 +2124,23 @@ async function submitData(options = {}) {
       errorModal.addEventListener('click', (e) => {
         if (e.target === errorModal) {
           errorModal.classList.remove('show');
-          setTimeout(() => {
-            const lastError = document.querySelector('.input-error, .category-grid.input-error');
-            if (lastError) {
-              lastError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              lastError.focus({ preventScroll: true });
-              lastError.classList.add('error-pulse-strong');
-              setTimeout(() => lastError.classList.remove('error-pulse-strong'), 1800);
+          
+          // エラーモーダル閉じる時に送信ボタンを有効化
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('loading');
+          btnText.textContent = originalText;
+          
+          // エラー表示を再表示
+          pendingErrorQueue.forEach(el => {
+            if (el && !el.classList.contains('amount') && !el.classList.contains('quantity')) {
+              el.classList.add('input-error', 'error-pulse');
+              const wrap = el.closest?.('.form-group') || el;
+              wrap.classList.add('error-outline');
             }
+          });
+          
+          setTimeout(() => {
+            // フォーカス制御を削除（シンプルな状態に戻す）
           }, 10);
         }
       }, { once: true });

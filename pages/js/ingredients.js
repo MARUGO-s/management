@@ -202,7 +202,14 @@ function exportToCSV() {
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.setAttribute('href', url);
-  link.setAttribute('download', `食材リスト_${new Date().toISOString().split('T')[0]}.csv`);
+  // タイムゾーン問題を回避：ローカル日付として処理
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+  
+  link.setAttribute('download', `食材リスト_${dateStr}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();

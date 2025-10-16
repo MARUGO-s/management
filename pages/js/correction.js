@@ -1016,9 +1016,7 @@ function initializeElements() {
     }
     updateManualInputNotice();
   });
-  amountInput.addEventListener('focus', (e) => {
-    e.target.value = (e.target.value || '').replace(/,/g, '');
-  });
+  // フォーカスイベントを削除（シンプルな状態に戻す）
 
   // フォーム送信処理
   const form = document.getElementById('correctionForm');
