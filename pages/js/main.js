@@ -1610,30 +1610,44 @@ async function reportDataMismatch(comparison, originalPayloads) {
       reportType: 'data_mismatch'
     };
     
-    const reportData = environmentInfo;
+    // データ不一致レポート用のデータを準備
+    const reportData = {
+      mismatchCount: comparison.mismatchCount || 0,
+      sentDataCount: originalPayloads ? originalPayloads.length : 0,
+      registeredDataCount: comparison.registeredData ? comparison.registeredData.length : 0,
+      sentData: originalPayloads,
+      registeredData: comparison.registeredData,
+      mismatchDetails: comparison.mismatchDetails,
+      environmentInfo: environmentInfo
+    };
     
     // ローカルストレージに保存（管理画面で確認可能）
     const existingReports = JSON.parse(localStorage.getItem('dataMismatchReports') || '[]');
     existingReports.push(reportData);
     localStorage.setItem('dataMismatchReports', JSON.stringify(existingReports));
     
-    // Supabaseに報告（オプション）
-    if (window.SUPABASE_CONFIG) {
-      try {
-        await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
-          },
-          body: JSON.stringify({
-            action: 'report_mismatch',
-            data: reportData
-          })
-        });
-      } catch (e) {
-        console.warn('Supabaseへの報告に失敗しました:', e);
+    // Supabaseにデータ不一致レポートを保存
+    try {
+      const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+        },
+        body: JSON.stringify({
+          action: 'create',
+          reportData: reportData
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ データ不一致レポートをSupabaseに保存しました:', result.reportId);
+      } else {
+        console.warn('⚠️ Supabaseへの保存に失敗しました:', response.status);
       }
+    } catch (e) {
+      console.warn('⚠️ Supabaseへの報告に失敗しました:', e);
     }
     
     alert('❌ データ不一致が検出されました。\n管理画面で詳細を確認できます。');

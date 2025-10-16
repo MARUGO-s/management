@@ -444,6 +444,266 @@
             transform: none;
         }
 
+        /* データ不一致レポート用スタイル */
+        .data-mismatch-warning {
+            background: rgba(214, 69, 65, 0.15);
+            border: 1px solid rgba(214, 69, 65, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            color: #721c24;
+            font-weight: 500;
+        }
+
+        .data-mismatch-list {
+            display: grid;
+            gap: 12px;
+            padding-right: 6px;
+        }
+
+        .data-mismatch-item {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            border: 1px solid rgba(28, 36, 52, 0.08);
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .data-mismatch-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: rgba(31, 42, 61, 0.7);
+            gap: 12px;
+        }
+
+        .data-mismatch-id {
+            font-weight: 600;
+            color: #d64541;
+        }
+
+        .data-mismatch-time {
+            color: rgba(31, 42, 61, 0.6);
+        }
+
+        .data-mismatch-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: rgba(31, 42, 61, 0.7);
+            flex-wrap: wrap;
+        }
+
+        .data-mismatch-stats span {
+            background: rgba(60, 110, 232, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .data-mismatch-environment {
+            background: rgba(244, 247, 254, 0.8);
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid rgba(28, 36, 52, 0.05);
+        }
+
+        .data-mismatch-environment h4 {
+            margin: 0 0 8px 0;
+            font-size: 0.9rem;
+            color: #3c6ee8;
+        }
+
+        .environment-details {
+            display: grid;
+            gap: 4px;
+            font-size: 0.8rem;
+            color: rgba(31, 42, 61, 0.7);
+        }
+
+        .environment-details p {
+            margin: 0;
+            display: flex;
+            gap: 8px;
+        }
+
+        .environment-details strong {
+            color: rgba(31, 42, 61, 0.8);
+            min-width: 80px;
+        }
+
+        .data-mismatch-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .data-mismatch-placeholder {
+            text-align: center;
+            color: rgba(31, 42, 61, 0.5);
+            padding: 24px;
+            font-style: italic;
+        }
+
+        /* 詳細表示モーダル */
+        .detail-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .detail-modal-overlay.show {
+            opacity: 1;
+        }
+
+        .detail-modal {
+            background: white;
+            border-radius: 12px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .detail-modal-overlay.show .detail-modal {
+            transform: scale(1);
+        }
+
+        .detail-modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .detail-modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2a3d;
+            margin: 0;
+        }
+
+        .detail-modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .detail-modal-close:hover {
+            background-color: #f3f4f6;
+        }
+
+        .detail-modal-content {
+            padding: 20px;
+        }
+
+        .detail-section {
+            margin-bottom: 25px;
+        }
+
+        .detail-section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #374151;
+            margin: 0 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .detail-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #3c6ee8;
+        }
+
+        .detail-item-label {
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .detail-item-value {
+            color: #6b7280;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+
+        .detail-json {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .detail-mismatch-item {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .detail-mismatch-field {
+            font-weight: 600;
+            color: #dc2626;
+            margin-bottom: 5px;
+        }
+
+        .detail-mismatch-values {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .detail-mismatch-sent,
+        .detail-mismatch-registered {
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .detail-mismatch-sent {
+            background: #fef3c7;
+            border-left: 3px solid #f59e0b;
+        }
+
+        .detail-mismatch-registered {
+            background: #dbeafe;
+            border-left: 3px solid #3b82f6;
+        }
+
         .system-alert-overlay {
             position: fixed;
             inset: 0;
@@ -853,6 +1113,56 @@
                 </div>
             </div>
 
+            <!-- データ不一致レポート -->
+            <div class="dashboard-card" id="card-data-mismatch">
+                <h3 class="card-title">📊 データ不一致レポート</h3>
+                <p class="card-subtitle">送信データと登録データの不一致を詳細に記録・分析します。</p>
+                <div class="data-mismatch-warning" id="data-mismatch-warning" style="display: none;">
+                    ⚠️ データ不一致が検出されました。詳細を確認してください。
+                </div>
+                <div class="data-mismatch-list" id="data-mismatch-list">
+                    <div class="data-mismatch-placeholder">読み込み中...</div>
+                </div>
+                <div class="data-mismatch-footer">
+                    <button class="btn secondary" type="button" onclick="loadDataMismatchReports(true)">🔄 レポートを更新</button>
+                    <button class="btn danger" type="button" onclick="deleteAllDataMismatchReports()">🗑️ 全削除</button>
+                </div>
+            </div>
+
+            <!-- データ保持ポリシー管理 -->
+            <div class="dashboard-card" id="card-data-retention">
+                <h3 class="card-title">🗂️ データ保持ポリシー</h3>
+                <p class="card-subtitle">データの保持期間を管理し、古いデータを自動削除します。</p>
+                
+                <div style="background: rgba(43, 182, 122, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #2bb67a;">📊 現在のデータ保持状況</h4>
+                    <div id="data-retention-status">
+                        <div style="color: rgba(31, 42, 61, 0.55);">読み込み中...</div>
+                    </div>
+                </div>
+                
+                <div style="background: rgba(214, 69, 65, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #d64541;">⚠️ データ保持ポリシー</h4>
+                    <ul style="margin: 0; font-size: 14px; color: rgba(31, 42, 61, 0.7);">
+                        <li><strong>保持期間:</strong> 6ヶ月（180日）</li>
+                        <li><strong>自動削除:</strong> 6ヶ月前のデータは自動的に削除されます</li>
+                        <li><strong>対象データ:</strong> 日次統計、月次統計、デバイス統計</li>
+                        <li><strong>総計統計:</strong> 削除されません（累積データ）</li>
+                    </ul>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn" type="button" onclick="loadDataRetentionStatus()">🔄 状況を更新</button>
+                    <button class="btn secondary" type="button" onclick="manualCleanupOldData()">🗑️ 手動クリーンアップ</button>
+                    <button class="btn danger" type="button" onclick="clearAllUsageData()">⚠️ 全データクリア</button>
+                </div>
+                
+                <div id="cleanup-status" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none;">
+                    <!-- クリーンアップ結果表示 -->
+                </div>
+            </div>
+
+
             </div>
         </section>
 
@@ -1072,23 +1382,6 @@
                 </div>
             </div>
 
-            <!-- データ不一致レポート -->
-            <div class="dashboard-card" id="card-mismatch">
-                <h3 class="card-title">❌ データ不一致レポート</h3>
-                
-                <div id="mismatch-reports-display">
-                    <div style="color: rgba(31, 42, 61, 0.55);">読み込み中...</div>
-                </div>
-
-                <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button class="btn secondary" onclick="loadMismatchReports()">
-                        🔄 更新
-                    </button>
-                    <button class="btn danger" onclick="clearMismatchReports()">
-                        🗑️ 全削除
-                    </button>
-                </div>
-            </div>
 
             <!-- システム状態 -->
             <div class="dashboard-card" id="card-system">
@@ -1127,9 +1420,9 @@
     </div>
 </div>
 
-    <script src="config.js"></script>
-    <script src="js/quota-alert-system.js"></script>
-    <script src="js/simple-optimization.js"></script>
+    <script src="config.js?v=2025011606"></script>
+    <script src="js/quota-alert-system.js?v=2025011606"></script>
+    <script src="js/simple-optimization.js?v=2025011606"></script>
     
     <script>
         // 管理者認証システム
@@ -2199,7 +2492,7 @@ ${error.message || ''}`);
                 }); // インジケーター設定読み込み
                 loadAPILimitSettings(); // API上限値設定読み込み
                 loadAccessLogs(); // アクセス履歴の初期読み込み
-                loadMismatchReports(); // データ不一致レポートの初期読み込み
+                // データ不一致レポートは新しい実装を使用
                 
                 // リアルタイム更新（30秒ごと）
                 setInterval(() => {
@@ -2818,210 +3111,8 @@ ${error.message || ''}`);
             }
         }
 
-        // データ不一致レポートの読み込み
-        function loadMismatchReports() {
-            try {
-                let reports = JSON.parse(localStorage.getItem('dataMismatchReports') || '[]');
-                
-                // ダミーデータが存在しない場合は追加
-                if (reports.length === 0) {
-                    reports = createDummyMismatchReports();
-                    localStorage.setItem('dataMismatchReports', JSON.stringify(reports));
-                }
-                
-                const display = document.getElementById('mismatch-reports-display');
-                
-                if (reports.length === 0) {
-                    display.innerHTML = '<div style="color: rgba(31, 42, 61, 0.55);">❌ データ不一致レポートはありません</div>';
-                    return;
-                }
-                
-                let html = `<div style="display: grid; gap: 16px;">`;
-                
-                reports.reverse().forEach((report, index) => {
-                    const timestamp = new Date(report.timestamp).toLocaleString('ja-JP');
-                    const mismatchCount = report.comparison.mismatches.length;
-                    
-                    html += `
-                        <div style="border: 1px solid #fee2e2; border-radius: 12px; padding: 16px; background: #fef2f2;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                <h4 style="color: #b91c1c; margin: 0;">❌ データ不一致 #${reports.length - index}</h4>
-                                <span style="font-size: 0.85rem; color: rgba(31, 42, 61, 0.6);">${timestamp}</span>
-                            </div>
-                            
-                            <div style="margin-bottom: 12px;">
-                                <strong>不一致項目数:</strong> ${mismatchCount}件<br>
-                                <strong>送信データ数:</strong> ${report.comparison.totalSent}件<br>
-                                <strong>登録データ数:</strong> ${report.comparison.totalRegistered}件
-                            </div>
-                            
-                            <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: white;">
-                                ${report.comparison.mismatches.map(mismatch => `
-                                    <div style="margin-bottom: 12px; padding: 8px; border-left: 3px solid #f59e0b;">
-                                        <strong>データ #${mismatch.index + 1}:</strong><br>
-                                        ${mismatch.differences.map(diff => `
-                                            <div style="margin: 4px 0; font-size: 0.9rem;">
-                                                <span style="color: #dc2626;">❌ ${diff.field}:</span><br>
-                                                <span style="color: #059669;">送信: "${diff.sent}"</span><br>
-                                                <span style="color: #dc2626;">登録: "${diff.registered}"</span>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += '</div>';
-                display.innerHTML = html;
-                
-            } catch (e) {
-                console.error('データ不一致レポートの読み込みに失敗:', e);
-                document.getElementById('mismatch-reports-display').innerHTML = 
-                    '<div style="color: #dc2626;">❌ レポートの読み込みに失敗しました</div>';
-            }
-        }
         
-        // ダミーデータ不一致レポートの作成
-        function createDummyMismatchReports() {
-            const now = new Date();
-            const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
-            
-            return [
-                {
-                    timestamp: yesterday.toISOString(),
-                    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                    url: 'http://localhost:3000/index.html',
-                    reportType: 'data_mismatch',
-                    comparison: {
-                        hasMismatch: true,
-                        mismatches: [
-                            {
-                                index: 0,
-                                sent: {
-                                    date: '2025-01-14',
-                                    name: '田中太郎',
-                                    lender: '本部',
-                                    borrower: 'MARUGO-D',
-                                    category: '食材',
-                                    item: 'トマト',
-                                    quantity: '5',
-                                    unitPrice: '150',
-                                    amount: '750'
-                                },
-                                registered: {
-                                    date: '2025-01-13',
-                                    name: '田中太郎',
-                                    lender: '本部',
-                                    borrower: 'MARUGO-D',
-                                    category: '食材',
-                                    item: 'トマト',
-                                    quantity: '5',
-                                    unitPrice: '150',
-                                    amount: '750'
-                                },
-                                differences: [
-                                    {
-                                        field: 'date',
-                                        sent: '2025-01-14',
-                                        registered: '2025-01-13'
-                                    }
-                                ]
-                            }
-                        ],
-                        totalSent: 1,
-                        totalRegistered: 1
-                    },
-                    originalPayloads: [
-                        {
-                            date: '2025-01-14',
-                            name: '田中太郎',
-                            lender: '本部',
-                            borrower: 'MARUGO-D',
-                            category: '食材',
-                            item: 'トマト',
-                            quantity: '5',
-                            unitPrice: '150',
-                            amount: '750'
-                        }
-                    ]
-                },
-                {
-                    timestamp: twoDaysAgo.toISOString(),
-                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    url: 'http://localhost:3000/index.html',
-                    reportType: 'data_mismatch',
-                    comparison: {
-                        hasMismatch: true,
-                        mismatches: [
-                            {
-                                index: 0,
-                                sent: {
-                                    date: '2025-01-12',
-                                    name: '佐藤花子',
-                                    lender: 'MARUGO',
-                                    borrower: 'BISTRO CAVACAVA',
-                                    category: '飲料',
-                                    item: 'ワイン',
-                                    quantity: '2',
-                                    unitPrice: '3000',
-                                    amount: '6000'
-                                },
-                                registered: {
-                                    date: '2025-01-12',
-                                    name: '佐藤花子',
-                                    lender: 'MARUGO',
-                                    borrower: 'BISTRO CAVACAVA',
-                                    category: '飲料',
-                                    item: 'ワイン',
-                                    quantity: '1',
-                                    unitPrice: '3000',
-                                    amount: '3000'
-                                },
-                                differences: [
-                                    {
-                                        field: 'quantity',
-                                        sent: '2',
-                                        registered: '1'
-                                    },
-                                    {
-                                        field: 'amount',
-                                        sent: '6000',
-                                        registered: '3000'
-                                    }
-                                ]
-                            }
-                        ],
-                        totalSent: 1,
-                        totalRegistered: 1
-                    },
-                    originalPayloads: [
-                        {
-                            date: '2025-01-12',
-                            name: '佐藤花子',
-                            lender: 'MARUGO',
-                            borrower: 'BISTRO CAVACAVA',
-                            category: '飲料',
-                            item: 'ワイン',
-                            quantity: '2',
-                            unitPrice: '3000',
-                            amount: '6000'
-                        }
-                    ]
-                }
-            ];
-        }
 
-        // データ不一致レポートの全削除
-        function clearMismatchReports() {
-            if (confirm('すべてのデータ不一致レポートを削除しますか？\nこの操作は元に戻せません。')) {
-                localStorage.removeItem('dataMismatchReports');
-                loadMismatchReports();
-                alert('🗑️ データ不一致レポートを全削除しました');
-            }
-        }
 
         // 管理者ログアウト
         async function adminLogout() {
@@ -3458,9 +3549,530 @@ ${error.message || ''}`);
             }
         }
 
+        // データ不一致レポート関連の関数
+        async function loadDataMismatchReports(forceRefresh = false) {
+            const container = document.getElementById('data-mismatch-list');
+            const warningBox = document.getElementById('data-mismatch-warning');
+            if (!container) return;
+
+            try {
+                container.innerHTML = '<div class="data-mismatch-placeholder">読み込み中...</div>';
+                
+                // Supabaseからデータ不一致レポートを取得
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get_all'
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const reports = result.reports || [];
+                    renderDataMismatchReports(reports);
+                    
+                    // 警告表示の制御
+                    if (warningBox) {
+                        warningBox.style.display = reports.length > 0 ? 'block' : 'none';
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('レポート取得エラー:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+            } catch (error) {
+                console.error('データ不一致レポートの取得に失敗:', error);
+                container.innerHTML = `<div class="data-mismatch-placeholder">❌ レポートの取得に失敗しました: ${error.message}</div>`;
+            }
+        }
+
+        function renderDataMismatchReports(reports) {
+            const container = document.getElementById('data-mismatch-list');
+            if (!container) return;
+
+            if (reports.length === 0) {
+                container.innerHTML = '<div class="data-mismatch-placeholder">📭 データ不一致レポートはまだありません</div>';
+                return;
+            }
+
+            const reportItems = reports.map((report, index) => {
+                const createdDate = new Date(report.created_at).toLocaleString('ja-JP');
+                const environmentInfo = report.environment_info || {};
+                const browserInfo = environmentInfo.browser || {};
+                const screenInfo = environmentInfo.screen || {};
+                
+                return `
+                    <div class="data-mismatch-item" data-report-id="${report.id}">
+                        <div class="data-mismatch-meta">
+                            <span class="data-mismatch-id">データ不一致 #${index + 1}</span>
+                            <span class="data-mismatch-time">${createdDate}</span>
+                        </div>
+                        <div class="data-mismatch-stats">
+                            <span>不一致項目数: ${report.mismatch_count}件</span>
+                            <span>送信データ数: ${report.sent_data_count}件</span>
+                            <span>登録データ数: ${report.registered_data_count}件</span>
+                        </div>
+                        <div class="data-mismatch-environment">
+                            <h4>🌐 環境情報</h4>
+                            <div class="environment-details">
+                                <p><strong>ブラウザ:</strong> ${browserInfo.name || 'Unknown'} ${browserInfo.version || ''}</p>
+                                <p><strong>画面解像度:</strong> ${screenInfo.width || 'Unknown'}x${screenInfo.height || 'Unknown'}</p>
+                                <p><strong>タイムゾーン:</strong> ${environmentInfo.timezone?.timezone || 'Unknown'}</p>
+                                <p><strong>プラットフォーム:</strong> ${environmentInfo.platform?.platform || 'Unknown'}</p>
+                                <p><strong>言語:</strong> ${browserInfo.language || 'Unknown'}</p>
+                            </div>
+                        </div>
+                        <div class="data-mismatch-actions">
+                            <button class="btn secondary" onclick="viewReportDetails(${report.id})">👁️ 詳細表示</button>
+                            <button class="btn danger" onclick="deleteReport(${report.id})">🗑️ 削除</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = reportItems.join('');
+        }
+
+        async function deleteAllDataMismatchReports() {
+            if (!confirm('⚠️ 全てのデータ不一致レポートを削除しますか？この操作は取り消せません。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'delete_all'
+                    })
+                });
+
+                if (response.ok) {
+                    alert('✅ 全てのデータ不一致レポートを削除しました');
+                    // 強制的にリストを更新
+                    setTimeout(() => {
+                        loadDataMismatchReports(true);
+                    }, 500);
+                } else {
+                    const errorText = await response.text();
+                    console.error('削除エラー:', response.status, errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+            } catch (error) {
+                console.error('レポート削除に失敗:', error);
+                alert(`❌ レポートの削除に失敗しました: ${error.message}`);
+            }
+        }
+
+
+        async function viewReportDetails(reportId) {
+            try {
+                // レポートデータを取得
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get_all'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                const reports = result.reports || [];
+                const report = reports.find(r => r.id === reportId);
+                
+                if (!report) {
+                    alert('❌ レポートが見つかりません');
+                    return;
+                }
+
+                showReportDetailModal(report);
+            } catch (error) {
+                console.error('レポート詳細の取得に失敗:', error);
+                alert(`❌ レポート詳細の取得に失敗しました: ${error.message}`);
+            }
+        }
+
+        function showReportDetailModal(report) {
+            // モーダル要素を作成
+            const overlay = document.createElement('div');
+            overlay.className = 'detail-modal-overlay';
+            overlay.id = 'detail-modal-overlay';
+            
+            const environmentInfo = report.environment_info || {};
+            const browserInfo = environmentInfo.browser || {};
+            const screenInfo = environmentInfo.screen || {};
+            const windowInfo = environmentInfo.window || {};
+            const timezoneInfo = environmentInfo.timezone || {};
+            const platformInfo = environmentInfo.platform || {};
+            const connectionInfo = environmentInfo.connection || {};
+
+            overlay.innerHTML = `
+                <div class="detail-modal">
+                    <div class="detail-modal-header">
+                        <h2 class="detail-modal-title">📊 データ不一致レポート詳細</h2>
+                        <button class="detail-modal-close" onclick="closeDetailModal()">&times;</button>
+                    </div>
+                    <div class="detail-modal-content">
+                        <!-- 基本情報 -->
+                        <div class="detail-section">
+                            <h3 class="detail-section-title">📋 基本情報</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <div class="detail-item-label">レポートID</div>
+                                    <div class="detail-item-value">${report.report_id || 'N/A'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">作成日時</div>
+                                    <div class="detail-item-value">${new Date(report.created_at).toLocaleString('ja-JP')}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">不一致項目数</div>
+                                    <div class="detail-item-value">${report.mismatch_count || 0}件</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">送信データ数</div>
+                                    <div class="detail-item-value">${report.sent_data_count || 0}件</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">登録データ数</div>
+                                    <div class="detail-item-value">${report.registered_data_count || 0}件</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 不一致詳細 -->
+                        ${report.mismatch_details && report.mismatch_details.length > 0 ? `
+                        <div class="detail-section">
+                            <h3 class="detail-section-title">❌ 不一致詳細</h3>
+                            ${report.mismatch_details.map((mismatch, index) => `
+                                <div class="detail-mismatch-item">
+                                    <div class="detail-mismatch-field">項目: ${mismatch.field || 'Unknown'}</div>
+                                    <div class="detail-mismatch-values">
+                                        <div class="detail-mismatch-sent">
+                                            <strong>送信値:</strong><br>
+                                            ${JSON.stringify(mismatch.sent, null, 2)}
+                                        </div>
+                                        <div class="detail-mismatch-registered">
+                                            <strong>登録値:</strong><br>
+                                            ${JSON.stringify(mismatch.registered, null, 2)}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+
+                        <!-- 環境情報 -->
+                        <div class="detail-section">
+                            <h3 class="detail-section-title">🌐 環境情報</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <div class="detail-item-label">ブラウザ</div>
+                                    <div class="detail-item-value">${browserInfo.name || 'Unknown'} ${browserInfo.version || ''}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">画面解像度</div>
+                                    <div class="detail-item-value">${screenInfo.width || 'Unknown'}x${screenInfo.height || 'Unknown'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">ウィンドウサイズ</div>
+                                    <div class="detail-item-value">${windowInfo.innerWidth || 'Unknown'}x${windowInfo.innerHeight || 'Unknown'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">タイムゾーン</div>
+                                    <div class="detail-item-value">${timezoneInfo.timezone || 'Unknown'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">プラットフォーム</div>
+                                    <div class="detail-item-value">${platformInfo.platform || 'Unknown'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">言語</div>
+                                    <div class="detail-item-value">${browserInfo.language || 'Unknown'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">接続タイプ</div>
+                                    <div class="detail-item-value">${connectionInfo.effectiveType || 'Unknown'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">デバイスピクセル比</div>
+                                    <div class="detail-item-value">${windowInfo.devicePixelRatio || 'Unknown'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 送信データ -->
+                        ${report.sent_data ? `
+                        <div class="detail-section">
+                            <h3 class="detail-section-title">📤 送信データ</h3>
+                            <div class="detail-json">${JSON.stringify(report.sent_data, null, 2)}</div>
+                        </div>
+                        ` : ''}
+
+                        <!-- 登録データ -->
+                        ${report.registered_data ? `
+                        <div class="detail-section">
+                            <h3 class="detail-section-title">📥 登録データ</h3>
+                            <div class="detail-json">${JSON.stringify(report.registered_data, null, 2)}</div>
+                        </div>
+                        ` : ''}
+
+                        <!-- 完全な環境情報 -->
+                        <div class="detail-section">
+                            <h3 class="detail-section-title">🔍 完全な環境情報</h3>
+                            <div class="detail-json">${JSON.stringify(environmentInfo, null, 2)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // モーダルを表示
+            document.body.appendChild(overlay);
+            
+            // アニメーション
+            requestAnimationFrame(() => {
+                overlay.classList.add('show');
+            });
+
+            // オーバーレイクリックで閉じる
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    closeDetailModal();
+                }
+            });
+        }
+
+        function closeDetailModal() {
+            const overlay = document.getElementById('detail-modal-overlay');
+            if (overlay) {
+                overlay.classList.remove('show');
+                setTimeout(() => {
+                    overlay.remove();
+                }, 300);
+            }
+        }
+
+        async function deleteReport(reportId) {
+            if (!confirm('このレポートを削除しますか？')) {
+                return;
+            }
+            
+            // 個別削除の実装（今後追加予定）
+            alert('個別削除機能は今後実装予定です');
+        }
+
+
+        async function clearAllUsageData() {
+            if (!confirm('⚠️ 全ての使用量データを削除しますか？この操作は取り消せません。')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'reset_all'
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('✅ 全ての使用量データを削除しました');
+                    // グラフを更新
+                    loadMonthlyChart();
+                    refreshUsageData();
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('データクリアエラー:', error);
+                alert('❌ データの削除に失敗しました: ' + error.message);
+            }
+        }
+
+        // データ保持ポリシー管理機能
+        async function loadDataRetentionStatus() {
+            const statusDiv = document.getElementById('data-retention-status');
+            if (!statusDiv) return;
+            
+            try {
+                statusDiv.innerHTML = '<div style="color: rgba(31, 42, 61, 0.55);">読み込み中...</div>';
+                
+                // データ保持状況を取得
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'get_retention_status'
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    displayDataRetentionStatus(result);
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('データ保持状況の取得に失敗:', error);
+                
+                // データが存在しない場合とエラーの場合を区別
+                if (error.message.includes('404') || error.message.includes('not found')) {
+                    statusDiv.innerHTML = `
+                        <div style="color: rgba(31, 42, 61, 0.6); text-align: center; padding: 20px;">
+                            📭 データがありません<br>
+                            <small style="font-size: 12px; color: rgba(31, 42, 61, 0.5);">
+                                まだデータが蓄積されていません
+                            </small>
+                        </div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = '<div style="color: #d64541;">❌ データの取得に失敗しました</div>';
+                }
+            }
+        }
+        
+        function displayDataRetentionStatus(data) {
+            const statusDiv = document.getElementById('data-retention-status');
+            if (!statusDiv) return;
+            
+            // データが存在しない場合の表示
+            const hasDailyData = data.daily?.record_count > 0;
+            const hasMonthlyData = data.monthly?.record_count > 0;
+            
+            if (!hasDailyData && !hasMonthlyData) {
+                statusDiv.innerHTML = `
+                    <div style="color: rgba(31, 42, 61, 0.6); text-align: center; padding: 20px;">
+                        📭 データがありません<br>
+                        <small style="font-size: 12px; color: rgba(31, 42, 61, 0.5);">
+                            まだデータが蓄積されていません
+                        </small>
+                    </div>
+                `;
+                return;
+            }
+            
+            const cutoffDate = new Date();
+            cutoffDate.setMonth(cutoffDate.getMonth() - 6);
+            
+            let html = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <h5 style="margin: 0 0 8px 0; color: #3c6ee8;">📊 日次データ</h5>
+                        <p style="margin: 0; font-size: 14px;">
+                            <strong>件数:</strong> ${data.daily?.record_count || 0}件<br>
+                            <strong>最古:</strong> ${data.daily?.oldest_date || 'N/A'}<br>
+                            <strong>最新:</strong> ${data.daily?.newest_date || 'N/A'}
+                        </p>
+                    </div>
+                    <div>
+                        <h5 style="margin: 0 0 8px 0; color: #2bb67a;">📈 月次データ</h5>
+                        <p style="margin: 0; font-size: 14px;">
+                            <strong>件数:</strong> ${data.monthly?.record_count || 0}件<br>
+                            <strong>最古:</strong> ${data.monthly?.oldest_date || 'N/A'}<br>
+                            <strong>最新:</strong> ${data.monthly?.newest_date || 'N/A'}
+                        </p>
+                    </div>
+                </div>
+                <div style="background: rgba(60, 110, 232, 0.1); padding: 10px; border-radius: 6px;">
+                    <h5 style="margin: 0 0 8px 0; color: #3c6ee8;">🗂️ データ保持ポリシー</h5>
+                    <p style="margin: 0; font-size: 14px;">
+                        <strong>保持期間:</strong> 6ヶ月（180日）<br>
+                        <strong>削除対象:</strong> ${cutoffDate.toISOString().split('T')[0]} より古いデータ<br>
+                        <strong>総計統計:</strong> 削除されません（累積データ）
+                    </p>
+                </div>
+            `;
+            
+            statusDiv.innerHTML = html;
+        }
+        
+        async function manualCleanupOldData() {
+            if (!confirm('⚠️ 6ヶ月前の古いデータを削除しますか？この操作は取り消せません。')) {
+                return;
+            }
+            
+            const statusDiv = document.getElementById('cleanup-status');
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            try {
+                button.disabled = true;
+                button.textContent = '🔄 クリーンアップ中...';
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = 'rgba(60, 110, 232, 0.1)';
+                statusDiv.style.color = '#3c6ee8';
+                statusDiv.innerHTML = '🗑️ 古いデータを削除中...';
+                
+                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    },
+                    body: JSON.stringify({
+                        action: 'manual_cleanup'
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    statusDiv.style.background = 'rgba(43, 182, 122, 0.1)';
+                    statusDiv.style.color = '#2bb67a';
+                    statusDiv.innerHTML = `
+                        ✅ クリーンアップが完了しました！<br>
+                        📊 削除されたデータ:<br>
+                        • 日次データ: ${result.deleted_daily_count || 0}件<br>
+                        • 月次データ: ${result.deleted_monthly_count || 0}件<br>
+                        • デバイスデータ: ${result.deleted_device_count || 0}件<br>
+                        • 削除対象日: ${result.cutoff_date || 'N/A'}
+                    `;
+                    
+                    // データ保持状況を更新
+                    setTimeout(() => {
+                        loadDataRetentionStatus();
+                    }, 1000);
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('クリーンアップエラー:', error);
+                statusDiv.style.background = 'rgba(214, 69, 65, 0.1)';
+                statusDiv.style.color = '#d64541';
+                statusDiv.innerHTML = `❌ クリーンアップに失敗しました: ${error.message}`;
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
         // 初期化
         window.addEventListener('load', () => {
             window.adminAuth = new AdminAuth();
+            // データ不一致レポートを読み込み
+            loadDataMismatchReports();
+            // データ保持状況を読み込み
+            loadDataRetentionStatus();
         });
     </script>
     <div class="system-alert-overlay" id="system-alert-overlay">

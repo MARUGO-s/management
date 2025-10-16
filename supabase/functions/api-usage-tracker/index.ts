@@ -195,6 +195,73 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
 
+    } else if (action === 'insert_dummy_data') {
+      // ダミーデータ挿入用のアクション
+      const { dateKey, apiCalls, dataSubmissions, deviceCount } = requestBody
+      
+      if (!dateKey || apiCalls === undefined || dataSubmissions === undefined) {
+        throw new Error('dateKey, apiCalls, dataSubmissions are required')
+      }
+
+      const monthKey = dateKey.substring(0, 7) // YYYY-MM形式
+      
+      // データを挿入/更新
+      const { data: existingData, error: selectError } = await supabaseClient
+        .from('api_usage_stats')
+        .select('*')
+        .eq('date_key', dateKey)
+        .eq('usage_type', usageType)
+        .single()
+
+      if (selectError && selectError.code !== 'PGRST116') {
+        console.error('既存データ取得エラー:', selectError)
+        throw selectError
+      }
+
+      const usageType = requestBody.usageType || 'daily'
+      
+      const upsertData = {
+        date_key: dateKey,
+        month_key: monthKey,
+        usage_type: usageType,
+        api_calls: apiCalls,
+        data_submissions: dataSubmissions,
+        device_count: deviceCount || 0,
+        updated_at: new Date().toISOString()
+      }
+
+      if (existingData) {
+        // 既存データを更新
+        const { error: updateError } = await supabaseClient
+          .from('api_usage_stats')
+          .update(upsertData)
+          .eq('date_key', dateKey)
+          .eq('usage_type', usageType)
+
+        if (updateError) {
+          console.error('データ更新エラー:', updateError)
+          throw updateError
+        }
+      } else {
+        // 新規データを挿入
+        const { error: insertError } = await supabaseClient
+          .from('api_usage_stats')
+          .insert(upsertData)
+
+        if (insertError) {
+          console.error('データ挿入エラー:', insertError)
+          throw insertError
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `ダミーデータを挿入しました: ${dateKey}`,
+        data: upsertData
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+
     } else if (action === 'get_monthly_chart') {
       // 月次チャート用の日別データ取得
       const monthKey = targetMonth || currentMonth // YYYY-MM形式
@@ -253,6 +320,82 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+
+    } else if (action === 'get_retention_status') {
+      // データ保持状況を取得
+      const { data: retentionData, error: retentionError } = await supabaseClient
+        .from('data_retention_status')
+        .select('*')
+
+      if (retentionError) {
+        console.error('データ保持状況取得エラー:', retentionError)
+        throw retentionError
+      }
+
+      const result = {
+        daily: retentionData?.find(row => row.data_type === 'daily') || {},
+        monthly: retentionData?.find(row => row.data_type === 'monthly') || {},
+        devices: retentionData?.find(row => row.data_type === 'devices') || {},
+        cutoff_date: new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      }
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+
+    } else if (action === 'manual_cleanup') {
+      // 手動クリーンアップ（6ヶ月前のデータを削除）
+      const cutoffDate = new Date()
+      cutoffDate.setMonth(cutoffDate.getMonth() - 6)
+      const cutoffDateStr = cutoffDate.toISOString().split('T')[0]
+      const cutoffMonthStr = cutoffDate.toISOString().substring(0, 7) // YYYY-MM
+
+      // 削除前の件数を取得
+      const { count: dailyCount } = await supabaseClient
+        .from('api_usage_stats')
+        .select('*', { count: 'exact', head: true })
+        .eq('usage_type', 'daily')
+        .lt('date_key', cutoffDateStr)
+
+      const { count: monthlyCount } = await supabaseClient
+        .from('api_usage_stats')
+        .select('*', { count: 'exact', head: true })
+        .eq('usage_type', 'monthly')
+        .lt('date_key', cutoffMonthStr)
+
+      const { count: deviceCount } = await supabaseClient
+        .from('device_usage_stats')
+        .select('*', { count: 'exact', head: true })
+        .lt('last_access', cutoffDate.toISOString())
+
+      // データを削除
+      await supabaseClient
+        .from('api_usage_stats')
+        .delete()
+        .eq('usage_type', 'daily')
+        .lt('date_key', cutoffDateStr)
+
+      await supabaseClient
+        .from('api_usage_stats')
+        .delete()
+        .eq('usage_type', 'monthly')
+        .lt('date_key', cutoffMonthStr)
+
+      await supabaseClient
+        .from('device_usage_stats')
+        .delete()
+        .lt('last_access', cutoffDate.toISOString())
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: '古いデータを削除しました',
+        deleted_daily_count: dailyCount || 0,
+        deleted_monthly_count: monthlyCount || 0,
+        deleted_device_count: deviceCount || 0,
+        cutoff_date: cutoffDateStr
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
 
