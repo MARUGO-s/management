@@ -2233,23 +2233,18 @@ function initializeElements() {
     }
   }
 
-  if (lenderSelect) {
+  // イベントリスナーを一度だけ設定
+  if (lenderSelect && !lenderSelect._eventListenerAdded) {
     lenderSelect.addEventListener('change', checkLenderBorrowerMatch);
-    lenderSelect.addEventListener('focus', (e) => {
-      e.target.style.transform = 'none';
-    });
-    lenderSelect.addEventListener('blur', (e) => {
-      e.target.style.transform = '';
-    });
+    lenderSelect.addEventListener('focus', (e) => { e.target.style.transform = 'none'; });
+    lenderSelect.addEventListener('blur', (e) => { e.target.style.transform = ''; });
+    lenderSelect._eventListenerAdded = true;
   }
-  if (borrowerSelect) {
+  if (borrowerSelect && !borrowerSelect._eventListenerAdded) {
     borrowerSelect.addEventListener('change', checkLenderBorrowerMatch);
-    borrowerSelect.addEventListener('focus', (e) => {
-      e.target.style.transform = 'none';
-    });
-    borrowerSelect.addEventListener('blur', (e) => {
-      e.target.style.transform = '';
-    });
+    borrowerSelect.addEventListener('focus', (e) => { e.target.style.transform = 'none'; });
+    borrowerSelect.addEventListener('blur', (e) => { e.target.style.transform = ''; });
+    borrowerSelect._eventListenerAdded = true;
   }
   checkLenderBorrowerMatch();
 
