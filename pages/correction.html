@@ -673,10 +673,14 @@
       transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
       z-index: 1000;
       font-weight: 600;
+      opacity: 0;
+      visibility: hidden;
     }
 
     .success-message.show {
       transform: translateX(0);
+      opacity: 1;
+      visibility: visible;
     }
 
     .error-message {
