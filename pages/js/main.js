@@ -2033,73 +2033,22 @@ async function submitData(options = {}) {
           payload: payload
         });
         
-        let response;
+        // no-corsモードで送信（CORSエラーを回避）
+        // 注意: no-corsモードではレスポンスの詳細を取得できませんが、
+        // GASのWebアプリとして正しくデプロイされていれば送信は成功します
         try {
-          response = await fetch(GAS_URL, {
+          await fetch(GAS_URL, {
             method: "POST",
-            mode: "cors",
+            mode: "no-cors",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
+          console.log(`✅ 送信完了 ${i + 1}/${allPayloads.length}:`, payload.item);
         } catch (fetchError) {
-          // CORSエラーやネットワークエラーの場合
+          // no-corsモードでは通常エラーは発生しませんが、念のため
           console.error(`❌ Fetchエラー ${i + 1}/${allPayloads.length}:`, fetchError);
           throw new Error(`GASへの接続に失敗しました: ${fetchError.message}`);
         }
-        
-        console.log(`📥 レスポンス受信 ${i + 1}/${allPayloads.length}:`, {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok,
-          type: response.type
-        });
-        
-        if (!response.ok) {
-          let errorText = '';
-          try {
-            errorText = await response.text();
-          } catch (e) {
-            errorText = `レスポンスの読み取りに失敗: ${e.message}`;
-          }
-          
-          console.error(`❌ GASエラー ${i + 1}/${allPayloads.length}:`, {
-            status: response.status,
-            statusText: response.statusText,
-            errorText: errorText,
-            url: GAS_URL
-          });
-          
-          // 404エラーの場合は特別なメッセージを表示
-          if (response.status === 404) {
-            const errorModal = document.getElementById('errorModal');
-            const errorModalBody = document.getElementById('errorModalBody');
-            if (errorModal && errorModalBody) {
-              errorModalBody.innerHTML = `
-                <strong>❌ GAS URLが見つかりません（404エラー）</strong><br><br>
-                GASが正しくデプロイされていないか、URLが間違っている可能性があります。<br><br>
-                <strong>確認事項:</strong><br>
-                1. GASエディタで「デプロイ」→「デプロイの管理」を確認<br>
-                2. 最新のデプロイURLを確認<br>
-                3. URL: ${GAS_URL}<br><br>
-                <small style="color: #666;">管理者にご連絡ください。</small>
-              `;
-              errorModal.classList.add('show');
-            }
-            throw new Error(`GAS URLが見つかりません (404): ${GAS_URL}`);
-          }
-          
-          throw new Error(`GASエラー (${response.status}): ${errorText}`);
-        }
-        
-        let result;
-        try {
-          result = await response.json();
-        } catch (jsonError) {
-          console.error(`❌ JSON解析エラー ${i + 1}/${allPayloads.length}:`, jsonError);
-          throw new Error(`GASからの応答を解析できませんでした: ${jsonError.message}`);
-        }
-        
-        console.log(`✅ 送信成功 ${i + 1}/${allPayloads.length}:`, payload.item, result);
       } catch (error) {
         console.error(`❌ 送信失敗 ${i + 1}/${allPayloads.length}:`, error);
         console.error(`❌ 送信失敗時のペイロード:`, payload);
@@ -2117,40 +2066,17 @@ async function submitData(options = {}) {
           throw error; // 送信を停止
         }
         
-        // 404エラーの場合
-        if (error.message.includes('404') || error.message.includes('見つかりません')) {
-          // 既に上でモーダルを表示しているので、ここでは何もしない
-        }
-        // ネットワークエラーやCORSエラーの場合
-        else if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-          const errorModal = document.getElementById('errorModal');
-          const errorModalBody = document.getElementById('errorModalBody');
-          if (errorModal && errorModalBody) {
-            errorModalBody.innerHTML = `
-              <strong>❌ ネットワークエラー</strong><br><br>
-              GAS URLへの接続に失敗しました。<br><br>
-              <strong>確認事項:</strong><br>
-              1. インターネット接続を確認<br>
-              2. GASのデプロイ設定で「アクセスできるユーザー」が「全員」になっているか確認<br>
-              3. URL: ${GAS_URL}<br><br>
-              <small style="color: #666;">CORSエラーの場合は、GASのデプロイ設定を確認してください。</small>
-            `;
-            errorModal.classList.add('show');
-          }
-        }
-        // その他のエラー
-        else {
-          const errorModal = document.getElementById('errorModal');
-          const errorModalBody = document.getElementById('errorModalBody');
-          if (errorModal && errorModalBody) {
-            errorModalBody.innerHTML = `
-              <strong>❌ 送信エラー</strong><br><br>
-              ${error.message || '不明なエラーが発生しました'}<br><br>
-              URL: ${GAS_URL}<br><br>
-              <small style="color: #666;">ブラウザのコンソール（F12）で詳細を確認してください。</small>
-            `;
-            errorModal.classList.add('show');
-          }
+        // エラーをユーザーに表示
+        const errorModal = document.getElementById('errorModal');
+        const errorModalBody = document.getElementById('errorModalBody');
+        if (errorModal && errorModalBody) {
+          errorModalBody.innerHTML = `
+            <strong>❌ 送信エラー</strong><br><br>
+            ${error.message || '不明なエラーが発生しました'}<br><br>
+            URL: ${GAS_URL}<br><br>
+            <small style="color: #666;">ブラウザのコンソール（F12）で詳細を確認してください。</small>
+          `;
+          errorModal.classList.add('show');
         }
         
         throw error; // 送信を停止

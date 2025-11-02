@@ -18,8 +18,16 @@ const BACKUP_RETENTION = {
 
 /**
  * WebアプリのPOSTリクエストを処理するメイン関数
+ * OPTIONSリクエスト（CORSプリフライト）も処理
  */
 function doPost(e) {
+  // CORSプリフライトリクエスト（OPTIONS）の処理
+  if (e && e.parameter && e.parameter.method === 'OPTIONS') {
+    Logger.log('OPTIONS リクエスト受信（CORSプリフライト）');
+    return ContentService.createTextOutput('')
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
   if (!e || !e.postData || !e.postData.contents) {
     const errorMessage = "ERROR: リクエストボディが空、または無効です。";
     Logger.log(errorMessage);
