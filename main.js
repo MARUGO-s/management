@@ -1479,19 +1479,60 @@ function compareFields(sent, registered) {
   const differences = [];
   const fields = ['date', 'name', 'lender', 'borrower', 'category', 'item', 'quantity', 'unitPrice', 'amount'];
   
+  // 数値として比較するフィールド
+  const numericFields = ['quantity', 'unitPrice', 'amount'];
+  
   fields.forEach(field => {
-    const sentValue = normalizeValue(sent[field]);
-    const registeredValue = normalizeValue(registered[field]);
+    let isEqual = false;
+    let sentDisplay = '';
+    let registeredDisplay = '';
     
-    console.log(`🔍 ${field}比較:`, { sent: sentValue, registered: registeredValue });
+    // 数値フィールドの場合は数値として直接比較（normalizeValueを経由しない）
+    if (numericFields.includes(field)) {
+      // 数値フィールドは、カンマや空白を除去してから数値に変換
+      const sentStr = String(sent[field] || '').trim().replace(/[,¥\s]/g, '');
+      const registeredStr = String(registered[field] || '').trim().replace(/[,¥\s]/g, '');
+      
+      sentDisplay = sentStr;
+      registeredDisplay = registeredStr;
+      
+      const sentNum = parseFloat(sentStr);
+      const registeredNum = parseFloat(registeredStr);
+      
+      console.log(`🔍 ${field}比較:`, { sent: sentStr, registered: registeredStr, sentNum: sentNum, registeredNum: registeredNum });
+      
+      // 両方とも有効な数値の場合
+      if (!isNaN(sentNum) && !isNaN(registeredNum)) {
+        // 浮動小数点数の精度誤差を考慮して比較（小数点以下10桁まで）
+        isEqual = Math.abs(sentNum - registeredNum) < 0.0000000001;
+        console.log(`🔢 ${field}数値比較:`, { sent: sentNum, registered: registeredNum, isEqual: isEqual });
+      } else if (sentStr === '' && registeredStr === '') {
+        // 両方とも空の場合は一致とみなす
+        isEqual = true;
+      } else {
+        // 数値として解釈できない場合は文字列として比較
+        isEqual = sentStr === registeredStr;
+      }
+    } else {
+      // 非数値フィールドはnormalizeValueで正規化して文字列として比較
+      const sentValue = normalizeValue(sent[field]);
+      const registeredValue = normalizeValue(registered[field]);
+      
+      sentDisplay = sentValue;
+      registeredDisplay = registeredValue;
+      
+      console.log(`🔍 ${field}比較:`, { sent: sentValue, registered: registeredValue });
+      
+      isEqual = sentValue === registeredValue;
+    }
     
-    if (sentValue !== registeredValue) {
+    if (!isEqual) {
       differences.push({
         field: field,
-        sent: sentValue,
-        registered: registeredValue
+        sent: sentDisplay,
+        registered: registeredDisplay
       });
-      console.log(`❌ ${field}不一致:`, { sent: sentValue, registered: registeredValue });
+      console.log(`❌ ${field}不一致:`, { sent: sentDisplay, registered: registeredDisplay });
     }
   });
   
