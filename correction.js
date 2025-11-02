@@ -710,7 +710,7 @@ async function submitCorrectionData() {
       borrower: document.getElementById("borrower").value?.trim(),
       category: document.getElementById("category").value?.trim(),
       item: document.getElementById("item").value?.trim(),
-      quantity: String(convertToHalfWidthNumber(document.getElementById("quantity").value || '') || ''), // 小数点以下を保持するため明示的に文字列に変換
+      quantity: convertToHalfWidthNumber(document.getElementById("quantity").value || ''), // convertToHalfWidthNumberが文字列を返すのでそのまま使用
       unitPrice: convertToHalfWidthNumber(document.getElementById("unitPrice").value),
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: true,

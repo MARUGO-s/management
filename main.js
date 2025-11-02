@@ -1887,15 +1887,29 @@ async function submitData(options = {}) {
           rowElement: row 
         });
         
+        // 数量の値を各段階で確認（デバッグ用）
+        const quantityInputValue = row.querySelector('.quantity')?.value || '';
+        const quantityConverted = convertToHalfWidthNumber(quantityInputValue);
+        
         const en = {
           category: row.querySelector('.category')?.value?.trim() || '',
           item: row.querySelector('.item')?.value?.trim() || '',
-          quantity: convertToHalfWidthNumber(row.querySelector('.quantity')?.value || ''),
+          quantity: quantityConverted,
           unitPrice: convertToHalfWidthNumber(row.querySelector('.unit-price')?.value || ''),
           amount: convertToHalfWidthNumber(row.querySelector('.amount')?.value || ''),
         };
         
-        console.log(`🔍 データ抽出 ${i + 1}:`, en);
+        // デバッグ: 数量の値と型を確認
+        console.log(`🔍 データ抽出 ${i + 1}:`, {
+          ...en,
+          quantityDebug: {
+            inputValue: quantityInputValue,
+            converted: quantityConverted,
+            convertedType: typeof quantityConverted,
+            convertedLength: quantityConverted.length,
+            isString: typeof quantityConverted === 'string'
+          }
+        });
         
         const catEl = row.querySelector('.category-grid') || row.querySelector('.category');
          if (!en.category) { markError(catEl); }
@@ -1921,16 +1935,22 @@ async function submitData(options = {}) {
           date, name, lender, borrower,
           category: en.category,
           item: en.item,
-          quantity: String(en.quantity || ''), // 小数点以下を保持するため明示的に文字列に変換
+          quantity: en.quantity, // convertToHalfWidthNumberが文字列を返すのでそのまま使用
           unitPrice: en.unitPrice,
           amount: en.amount,
           isCorrection: isCorrection,
         };
         
+        // デバッグ: Payload作成時の数量を確認
         console.log('🔍 Payload作成:', {
           index: allPayloads.length + 1,
           item: en.item,
           amount: en.amount,
+          quantityDebug: {
+            value: payload.quantity,
+            type: typeof payload.quantity,
+            stringified: JSON.stringify(payload.quantity)
+          },
           payload: payload
         });
         
@@ -2067,11 +2087,16 @@ async function submitData(options = {}) {
       }
       
       try {
+        // デバッグ: 送信前のデータ型と値を確認
         console.log(`📤 送信開始 ${i + 1}/${allPayloads.length}:`, {
           url: GAS_URL,
           quantity: payload.quantity,
           quantityType: typeof payload.quantity,
-          payload: payload
+          quantityValue: String(payload.quantity),
+          quantityIsNumber: typeof payload.quantity === 'number',
+          quantityIsString: typeof payload.quantity === 'string',
+          payload: payload,
+          payloadStringified: JSON.stringify(payload)
         });
         
         // no-corsモードで送信（CORSエラーを回避）
