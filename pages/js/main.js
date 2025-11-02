@@ -581,9 +581,9 @@ function setupEntryRow(rowEl) {
       let value = e.target.value.replace(/,/g, '');
       if (value) {
         if (e.target.classList.contains('quantity')) {
-          const num = parseFloat(value);
-          // 整数の場合は小数点を表示しない、小数の場合は1桁まで表示
-          e.target.value = num % 1 === 0 ? num.toString() : num.toFixed(1);
+          // 数量は小数点以下を完全に保持（丸めない）
+          // 入力値をそのまま保持し、不要な末尾の0のみ削除
+          e.target.value = value;
         } else {
           e.target.value = parseInt(value).toLocaleString('ja-JP');
         }
