@@ -152,6 +152,13 @@ function processCorrectionData(data) {
     
     // 新しく挿入された行にデータを書き込み
     sheet.getRange(targetRowIndex, 1, 1, rowData.length).setValues([rowData]);
+    
+    // 数量列（G列=7列目）をプレーンテキストフォーマットに設定して小数点以下を保持
+    const quantityCell = sheet.getRange(targetRowIndex, 7); // G列
+    const quantityValue = String(rowData[6] || ''); // 確実に文字列に変換
+    quantityCell.setNumberFormat('@'); // プレーンテキスト形式で小数点以下を完全に保持
+    quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
+    Logger.log(`🔢 数量セル（行${targetRowIndex}）をテキスト形式に設定: "${quantityValue}"`);
 
     createBackup("correction");
     sendBorrowerEmail_(data, true);
@@ -179,6 +186,13 @@ function processNormalData(data) {
 
     sheet.insertRowBefore(2);
     sheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
+    
+    // 数量列（G列=7列目）をプレーンテキストフォーマットに設定して小数点以下を保持
+    const quantityCell = sheet.getRange(2, 7); // G列
+    const quantityValue = String(rowData[6] || ''); // 確実に文字列に変換
+    quantityCell.setNumberFormat('@'); // プレーンテキスト形式で小数点以下を完全に保持
+    quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
+    Logger.log(`🔢 数量セル（行2）をテキスト形式に設定: "${quantityValue}"`);
 
     createBackup(data.isCorrection ? "correction" : "normal");
     sendBorrowerEmail_(data, data.isCorrection === true);
@@ -209,13 +223,20 @@ function createRowDataArray(data, correctionMark) {
       }
     }
 
-    // 🔢 数量を文字列として明示的に処理（小数点以下を保持）
+    // 🔢 数量を文字列として明示的に処理（小数点以下を完全に保持）
     // 数値として解釈されると丸められる可能性があるため、文字列として扱う
     let quantityValue = '';
     if (data.quantity != null && data.quantity !== '') {
-      // 文字列に変換して小数点以下を保持
-      quantityValue = String(data.quantity).trim();
-      Logger.log(`🔢 数量フィールド: "${data.quantity}" → "${quantityValue}" (文字列として保持)`);
+      // 既に文字列の場合はそのまま、数値の場合は文字列に変換
+      // 小数点以下の末尾ゼロも含めて完全に保持
+      if (typeof data.quantity === 'string') {
+        quantityValue = data.quantity.trim();
+      } else {
+        // 数値の場合は、小数点以下を保持するために特別な処理
+        // toFixedを使用せず、そのまま文字列変換（小数点以下を完全に保持）
+        quantityValue = String(data.quantity).trim();
+      }
+      Logger.log(`🔢 数量フィールド: "${data.quantity}" (型: ${typeof data.quantity}) → "${quantityValue}" (文字列として保持)`);
     }
 
     // この配列の順番を、スプレッドシートのA列, B列, C列...の順番と完全に一致させる
