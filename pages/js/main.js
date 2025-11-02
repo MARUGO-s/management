@@ -1921,7 +1921,7 @@ async function submitData(options = {}) {
           date, name, lender, borrower,
           category: en.category,
           item: en.item,
-          quantity: en.quantity,
+          quantity: String(en.quantity || ''), // 小数点以下を保持するため明示的に文字列に変換
           unitPrice: en.unitPrice,
           amount: en.amount,
           isCorrection: isCorrection,
