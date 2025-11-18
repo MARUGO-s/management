@@ -432,7 +432,8 @@ body {
 
 .search-btn,
 .all-data-btn,
-.correction-search-btn {
+.correction-search-btn,
+.mmart-analysis-btn {
     flex-shrink: 0;
     min-width: 120px;
     padding: 15px 20px;
@@ -471,6 +472,16 @@ body {
 }
 
 .correction-search-btn:hover {
+    transform: translateY(-2px);
+}
+
+.mmart-analysis-btn {
+    background: linear-gradient(135deg, #ff5733 0%, #ff8c42 100%);
+    color: white;
+    border: none;
+}
+
+.mmart-analysis-btn:hover {
     transform: translateY(-2px);
 }
 

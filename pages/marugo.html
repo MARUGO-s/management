@@ -470,6 +470,7 @@
 <button class="search-btn" type="submit">🔍 店舗別検索実行</button>
 <button class="correction-search-btn" id="correction-search-btn" type="button">✏️ 修正データ検索</button>
 <button class="all-data-btn" id="all-data-btn" type="button">📋 全データ表示</button>
+<button class="mmart-analysis-btn" id="mmart-analysis-btn" type="button">🛒 M-mart分析</button>
 </div>
 </div>
 </form>
@@ -1171,6 +1172,7 @@
             const exportBtn = document.getElementById('export-btn');
             const allDataBtn = document.getElementById('all-data-btn');
             const correctionSearchBtn = document.getElementById('correction-search-btn');
+            const mmartAnalysisBtn = document.getElementById('mmart-analysis-btn');
 
             searchForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -1183,6 +1185,10 @@
 
             correctionSearchBtn.addEventListener('click', () => {
                 this.searchCorrections();
+            });
+
+            mmartAnalysisBtn.addEventListener('click', () => {
+                this.analyzeMmart();
             });
 
             exportBtn.addEventListener('click', () => {
@@ -1275,6 +1281,62 @@
             }
         }
 
+        // M-mart分析機能
+        analyzeMmart() {
+            this.log('M-mart分析を実行中...', 'loading');
+
+            try {
+                if (!this.data || this.data.length === 0) {
+                    this.log('データを先に読み込んでください。「📋 全データを表示」をクリックしてください。', 'error');
+                    return;
+                }
+
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+
+                // M-martカテゴリーで、貸主が「本部」のデータのみをフィルタリング
+                let results = this.data.filter(row => {
+                    // カテゴリーがM-martであることを確認
+                    const isMmart = row.category && row.category === 'M-mart';
+                    if (!isMmart) return false;
+
+                    // 貸主が「本部」であることを確認（大文字小文字を区別しない）
+                    const isFromHonbu = row.lender && row.lender.toUpperCase() === '本部';
+                    if (!isFromHonbu) return false;
+
+                    // 日付フィルター
+                    const rowDate = row.date ? new Date(row.date) : null;
+                    if (startDate && (!rowDate || rowDate < new Date(startDate))) {
+                        return false;
+                    }
+                    if (endDate) {
+                        const endOfDay = new Date(endDate);
+                        endOfDay.setHours(23, 59, 59, 999);
+                        if (!rowDate || rowDate > endOfDay) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+
+                this.searchResults = results;
+
+                this.log(`M-mart分析完了: ${this.searchResults.length}件の取引が見つかりました`, 'success');
+
+                // 店舗ごとに集計して表示
+                this.displayMmartAnalysis();
+
+                if (results.length === 0) {
+                    this.log('指定された期間内にM-martの取引（本部→店舗）が見つかりませんでした。', 'info');
+                }
+            }
+            catch (error) {
+                console.error('M-mart分析エラー:', error);
+                this.log('M-mart分析中にエラーが発生しました。', 'error');
+            }
+        }
+
         // 店舗別検索機能
         performSearch() { 
             const startDate = document.getElementById('start-date').value;
@@ -1332,6 +1394,197 @@
             headers.forEach(header => {
                 header.classList.remove('sort-asc', 'sort-desc');
             });
+        }
+
+        displayMmartAnalysis() {
+            const resultsSection = document.getElementById('results-section');
+            resultsSection.style.display = 'block';
+
+            // ヘッダーとサブタイトルを設定
+            document.getElementById('details-title').textContent = 'M-mart分析 - 店舗別借入集計';
+            document.getElementById('details-subtitle').innerHTML = `
+                <small style="color: white; font-size: 12px;">
+                    本部から各店舗への貸出データ（M-martカテゴリー）<br>
+                    ▶ 店舗ごとの合計金額を表示<br>
+                    ▶ 各列をクリックでソート
+                </small>
+            `;
+
+            // 店舗ごとに集計
+            const storeData = {};
+            this.searchResults.forEach(row => {
+                const storeName = row.borrower;
+                if (!storeData[storeName]) {
+                    storeData[storeName] = {
+                        storeName: storeName,
+                        totalAmount: 0,
+                        count: 0,
+                        items: []
+                    };
+                }
+                storeData[storeName].totalAmount += row.amount;
+                storeData[storeName].count++;
+                storeData[storeName].items.push({
+                    date: row.date,
+                    item: row.item,
+                    quantity: row.quantity,
+                    unitPrice: row.unitPrice,
+                    amount: row.amount
+                });
+            });
+
+            // 合計金額でソート（降順）
+            const sortedStores = Object.values(storeData).sort((a, b) => b.totalAmount - a.totalAmount);
+
+            // サマリーカードを表示
+            this.updateMmartSummaryCards(sortedStores);
+            showSummary();
+
+            // 店舗別集計テーブルを表示
+            const detailsTable = document.getElementById('details-table');
+            detailsTable.innerHTML = sortedStores.map((store, index) => {
+                return `
+                    <tr style="cursor: pointer; background: #f8f9fa;" class="store-summary-row" data-store-name="${store.storeName}">
+                        <td colspan="2" style="font-weight: bold;">${index + 1}. ${store.storeName}</td>
+                        <td colspan="2">${store.count}件</td>
+                        <td colspan="4" class="amount" style="font-size: 1.2em; font-weight: bold;">¥${store.totalAmount.toLocaleString()}</td>
+                        <td colspan="2" style="text-align: center;"><span class="toggle-icon">▼</span> クリックで詳細表示</td>
+                    </tr>
+                    <tr class="store-detail-row" data-store-name="${store.storeName}" style="display: none;">
+                        <td colspan="10" style="padding: 0;">
+                            <table style="width: 100%; margin: 0; border: none;">
+                                <thead style="background: #e9ecef;">
+                                    <tr>
+                                        <th style="padding: 8px;">日付</th>
+                                        <th style="padding: 8px;">品目</th>
+                                        <th style="padding: 8px;">数量</th>
+                                        <th style="padding: 8px;">単価</th>
+                                        <th style="padding: 8px;">金額</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${store.items.map(item => `
+                                        <tr style="background: white;">
+                                            <td style="padding: 8px;">${item.date}</td>
+                                            <td style="padding: 8px;">${item.item}</td>
+                                            <td style="padding: 8px;">${item.quantity || ''}</td>
+                                            <td style="padding: 8px;">¥${this.parseAmount(item.unitPrice).toLocaleString()}</td>
+                                            <td style="padding: 8px; font-weight: bold;">¥${item.amount.toLocaleString()}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // 店舗行のクリックイベントを追加
+            document.querySelectorAll('.store-summary-row').forEach(row => {
+                row.addEventListener('click', (e) => {
+                    const storeName = row.dataset.storeName;
+                    const detailRow = document.querySelector(`.store-detail-row[data-store-name="${storeName}"]`);
+                    const toggleIcon = row.querySelector('.toggle-icon');
+
+                    if (detailRow.style.display === 'none') {
+                        detailRow.style.display = 'table-row';
+                        toggleIcon.textContent = '▲';
+                        row.style.background = '#e3f2fd';
+                    } else {
+                        detailRow.style.display = 'none';
+                        toggleIcon.textContent = '▼';
+                        row.style.background = '#f8f9fa';
+                    }
+                });
+
+                // ホバー効果を追加
+                row.addEventListener('mouseenter', () => {
+                    if (row.querySelector('.toggle-icon').textContent === '▼') {
+                        row.style.background = '#e9ecef';
+                    }
+                });
+
+                row.addEventListener('mouseleave', () => {
+                    const toggleIcon = row.querySelector('.toggle-icon');
+                    if (toggleIcon.textContent === '▼') {
+                        row.style.background = '#f8f9fa';
+                    } else {
+                        row.style.background = '#e3f2fd';
+                    }
+                });
+            });
+
+            // ソート状態をリセット
+            sortDirection = {};
+            const headers = document.querySelectorAll("#results-table th");
+            headers.forEach(header => {
+                header.classList.remove('sort-asc', 'sort-desc');
+            });
+        }
+
+        updateMmartSummaryCards(sortedStores) {
+            const summaryCards = document.getElementById('summary-cards');
+
+            // 総金額と総件数を計算
+            let totalAmount = 0;
+            let totalCount = 0;
+            sortedStores.forEach(store => {
+                totalAmount += store.totalAmount;
+                totalCount += store.count;
+            });
+
+            // 平均金額を計算
+            const avgAmount = totalCount > 0 ? Math.round(totalAmount / totalCount) : 0;
+
+            // 店舗を4つずつのグループに分割
+            const storesPerCard = 4;
+            const storeGroups = [];
+            for (let i = 0; i < sortedStores.length; i += storesPerCard) {
+                storeGroups.push(sortedStores.slice(i, i + storesPerCard));
+            }
+
+            summaryCards.innerHTML = `
+                <div class="summary-card neutral">
+                    <h3>総借入金額</h3>
+                    <div class="value">¥${totalAmount.toLocaleString()}</div>
+                    <p>${totalCount}件</p>
+                    <div class="breakdown">
+                        本部→店舗の全取引
+                    </div>
+                </div>
+                <div class="summary-card positive">
+                    <h3>借入店舗数</h3>
+                    <div class="value">${sortedStores.length}</div>
+                    <p>店舗</p>
+                    <div class="breakdown">
+                        M-martカテゴリー
+                    </div>
+                </div>
+                <div class="summary-card neutral">
+                    <h3>平均借入額</h3>
+                    <div class="value">¥${avgAmount.toLocaleString()}</div>
+                    <p>1件あたり</p>
+                    <div class="breakdown">
+                        取引単価
+                    </div>
+                </div>
+                ${storeGroups.map((group, groupIndex) => `
+                    <div class="summary-card negative">
+                        <h3>店舗別借入</h3>
+                        <div class="breakdown" style="font-size: 0.8em; margin-top: 10px; max-height: 250px; overflow-y: auto;">
+                            ${group.map((store, index) => {
+                                const globalIndex = groupIndex * storesPerCard + index;
+                                return `
+                                    <span class="breakdown-item" style="display: block; margin: 3px 0; padding: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 0.95em;">
+                                        ${globalIndex + 1}. ${store.storeName}<br>
+                                        <strong>¥${store.totalAmount.toLocaleString()}</strong> (${store.count}件)
+                                    </span>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            `;
         }
 
         displayAllDataResults(titleText = "全取引詳細") { // タイトルを引数で受け取る
