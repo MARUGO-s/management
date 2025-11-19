@@ -1,4 +1,4 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbx55RvD-Vdwa6bRUoT8irj5RlfWpUrRFOeytvnoTrRIb46SLLIdODSmVrYOtSd4oRE/exec"; // Google Apps ScriptのURL (小数点対応版)
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxxrH8ZtjpadlxvdnbFFOvyc4kCsANrZt-aOu5HZ2RhlbSgDwFsJzq7AfMGW58w3HTW/exec"; // Google Apps ScriptのURL (小数点対応版)
 const shops = [ // 店舗名のリスト
   "本部", "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
@@ -9,6 +9,85 @@ const shops = [ // 店舗名のリスト
 ];
 
 console.log('pages/js/main.js version 2025011604 loaded');
+
+// M-mart支払い方法選択ポップアップを表示
+function showPaymentMethodModal(option, categoryOptions, catHidden, rowEl) {
+  const modal = document.getElementById('paymentMethodModal');
+  if (!modal) return;
+
+  // ポップアップを表示
+  modal.classList.add('show');
+
+  // 支払い方法ボタンのクリックイベント
+  const paymentMethodBtns = modal.querySelectorAll('.payment-method-btn');
+  const handlePaymentMethodClick = (e) => {
+    const method = e.target.dataset.method;
+
+    // カテゴリー値を「M-mart + 支払い方法」に設定
+    const categoryValue = `M-mart ${method}`;
+
+    // 選択状態を更新
+    categoryOptions.forEach(opt => opt.classList.remove('selected'));
+    option.classList.add('selected');
+    catHidden.value = categoryValue;
+
+    // ボタン表示を更新
+    updateButtonsByCategory('M-mart', rowEl);
+
+    // エラー表示を解消
+    const categoryGrid = rowEl.querySelector('.category-grid');
+    if (categoryGrid) {
+      categoryGrid.classList.remove('input-error', 'error-pulse', 'error-outline');
+      const formGroup = categoryGrid.closest('.form-group');
+      if (formGroup) {
+        formGroup.classList.remove('error-outline');
+      }
+      const idx = pendingErrorQueue.indexOf(categoryGrid);
+      if (idx > -1) {
+        pendingErrorQueue.splice(idx, 1);
+      }
+      const hiddenIdx = pendingErrorQueue.indexOf(catHidden);
+      if (hiddenIdx > -1) {
+        pendingErrorQueue.splice(hiddenIdx, 1);
+      }
+    }
+
+    // モーダルを閉じる
+    modal.classList.remove('show');
+    cleanupPaymentMethodModal();
+  };
+
+  // 各ボタンにイベントリスナーを追加
+  paymentMethodBtns.forEach(btn => {
+    btn.addEventListener('click', handlePaymentMethodClick);
+  });
+
+  // キャンセルボタンのクリックイベント
+  const cancelBtn = document.getElementById('paymentMethodCancelBtn');
+  const handleCancel = () => {
+    modal.classList.remove('show');
+    cleanupPaymentMethodModal();
+  };
+  cancelBtn.addEventListener('click', handleCancel);
+
+  // オーバーレイクリックで閉じる
+  const handleOverlayClick = (e) => {
+    if (e.target === modal) {
+      modal.classList.remove('show');
+      cleanupPaymentMethodModal();
+    }
+  };
+  modal.addEventListener('click', handleOverlayClick);
+
+  // クリーンアップ関数
+  function cleanupPaymentMethodModal() {
+    paymentMethodBtns.forEach(btn => {
+      btn.removeEventListener('click', handlePaymentMethodClick);
+    });
+    cancelBtn.removeEventListener('click', handleCancel);
+    modal.removeEventListener('click', handleOverlayClick);
+  }
+}
 
 // Populate Shopsを修正
 function populateShops() {
@@ -507,34 +586,41 @@ function setupEntryRow(rowEl) {
   const categoryOptions = rowEl.querySelectorAll('.category-option');
   categoryOptions.forEach(option => {
     option.addEventListener('click', () => {
-      categoryOptions.forEach(opt => opt.classList.remove('selected'));
-      option.classList.add('selected');
       const selectedCategory = option.dataset.value;
-      catHidden.value = selectedCategory;
-      updateButtonsByCategory(selectedCategory, rowEl);
-      
-      // カテゴリー選択時にエラー表示を解消
-      const categoryGrid = rowEl.querySelector('.category-grid');
-      if (categoryGrid) {
-        // エラー表示クラスを削除
-        categoryGrid.classList.remove('input-error', 'error-pulse', 'error-outline');
-        const formGroup = categoryGrid.closest('.form-group');
-        if (formGroup) {
-          formGroup.classList.remove('error-outline');
-        }
-        
-        // エラーキューからも削除
-        const idx = pendingErrorQueue.indexOf(categoryGrid);
-        if (idx > -1) {
-          pendingErrorQueue.splice(idx, 1);
-        }
-        
-        // カテゴリーのhiddenフィールドもクリア
-        const catHidden = rowEl.querySelector('.category');
-        if (catHidden) {
-          const hiddenIdx = pendingErrorQueue.indexOf(catHidden);
-          if (hiddenIdx > -1) {
-            pendingErrorQueue.splice(hiddenIdx, 1);
+
+      // M-martが選択された場合は支払い方法選択ポップアップを表示
+      if (selectedCategory === 'M-mart') {
+        showPaymentMethodModal(option, categoryOptions, catHidden, rowEl);
+      } else {
+        // M-mart以外の場合は通常処理
+        categoryOptions.forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+        catHidden.value = selectedCategory;
+        updateButtonsByCategory(selectedCategory, rowEl);
+
+        // カテゴリー選択時にエラー表示を解消
+        const categoryGrid = rowEl.querySelector('.category-grid');
+        if (categoryGrid) {
+          // エラー表示クラスを削除
+          categoryGrid.classList.remove('input-error', 'error-pulse', 'error-outline');
+          const formGroup = categoryGrid.closest('.form-group');
+          if (formGroup) {
+            formGroup.classList.remove('error-outline');
+          }
+
+          // エラーキューからも削除
+          const idx = pendingErrorQueue.indexOf(categoryGrid);
+          if (idx > -1) {
+            pendingErrorQueue.splice(idx, 1);
+          }
+
+          // カテゴリーのhiddenフィールドもクリア
+          const catHidden = rowEl.querySelector('.category');
+          if (catHidden) {
+            const hiddenIdx = pendingErrorQueue.indexOf(catHidden);
+            if (hiddenIdx > -1) {
+              pendingErrorQueue.splice(hiddenIdx, 1);
+            }
           }
         }
       }

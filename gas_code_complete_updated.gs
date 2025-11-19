@@ -82,15 +82,15 @@ function processCorrectionData(data) {
 
     const correctionMark = data.correctionMark || "✏️修正";
     const rowData = createRowDataArray(data, correctionMark);
-    
+
     let targetRowIndex = null;
-    
+
     // 1. originalRowIndex による特定を試行
     if (data.originalRowIndex && typeof data.originalRowIndex === 'number' && data.originalRowIndex >= 2) {
       targetRowIndex = data.originalRowIndex;
       Logger.log(`🎯 originalRowIndex による行特定: ${targetRowIndex}`);
     }
-    
+
     // 2. originalCreatedAt による特定を試行（作成日時カラムは10列目）
     else if (data.originalCreatedAt) {
       Logger.log(`🔍 originalCreatedAt による行検索: ${data.originalCreatedAt}`);
@@ -99,7 +99,7 @@ function processCorrectionData(data) {
       if (lastRow > 1) {
         const dataRange = sheet.getRange(2, createdAtColumn, lastRow - 1, 1);
         const createdAtValues = dataRange.getValues();
-        
+
         for (let i = 0; i < createdAtValues.length; i++) {
           const cellValue = createdAtValues[i][0];
           if (cellValue && cellValue.toString().trim() === data.originalCreatedAt.trim()) {
@@ -110,7 +110,7 @@ function processCorrectionData(data) {
         }
       }
     }
-    
+
     // 3. originalRowId による特定を試行
     else if (data.originalRowId) {
       Logger.log(`🔍 originalRowId による行検索: ${data.originalRowId}`);
@@ -120,7 +120,7 @@ function processCorrectionData(data) {
       if (sheet.getLastColumn() >= idColumn && lastRow > 1) {
         const dataRange = sheet.getRange(2, idColumn, lastRow - 1, 1);
         const idValues = dataRange.getValues();
-        
+
         for (let i = 0; i < idValues.length; i++) {
           const cellValue = idValues[i][0];
           if (cellValue && cellValue.toString().trim() === data.originalRowId.trim()) {
@@ -131,34 +131,27 @@ function processCorrectionData(data) {
         }
       }
     }
-    
+
     // どの方法でも特定できない場合は先頭に挿入
     if (!targetRowIndex) {
       Logger.log("⚠️ 元行を特定できませんでした。先頭行（2行目）に挿入します。");
       targetRowIndex = 2;
     }
-    
+
     // 行番号の妥当性チェック
     const lastRow = sheet.getLastRow();
     if (targetRowIndex > lastRow + 1) {
       Logger.log(`⚠️ 計算された行番号 ${targetRowIndex} が範囲外。最終行後に挿入します。`);
       targetRowIndex = lastRow + 1;
     }
-    
+
     Logger.log(`📝 修正データを行 ${targetRowIndex} の直前に挿入します。`);
-    
+
     // 指定行の直前に新しい行を挿入
     sheet.insertRowBefore(targetRowIndex);
-    
+
     // 新しく挿入された行にデータを書き込み
     sheet.getRange(targetRowIndex, 1, 1, rowData.length).setValues([rowData]);
-    
-    // 数量列（G列=7列目）をプレーンテキストフォーマットに設定して小数点以下を保持
-    const quantityCell = sheet.getRange(targetRowIndex, 7); // G列
-    const quantityValue = String(rowData[6] || ''); // 確実に文字列に変換
-    quantityCell.setNumberFormat('@'); // プレーンテキスト形式で小数点以下を完全に保持
-    quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
-    Logger.log(`🔢 数量セル（行${targetRowIndex}）をテキスト形式に設定: "${quantityValue}"`);
 
     createBackup("correction");
     sendBorrowerEmail_(data, true);
@@ -186,13 +179,6 @@ function processNormalData(data) {
 
     sheet.insertRowBefore(2);
     sheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
-    
-    // 数量列（G列=7列目）をプレーンテキストフォーマットに設定して小数点以下を保持
-    const quantityCell = sheet.getRange(2, 7); // G列
-    const quantityValue = String(rowData[6] || ''); // 確実に文字列に変換
-    quantityCell.setNumberFormat('@'); // プレーンテキスト形式で小数点以下を完全に保持
-    quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
-    Logger.log(`🔢 数量セル（行2）をテキスト形式に設定: "${quantityValue}"`);
 
     createBackup(data.isCorrection ? "correction" : "normal");
     sendBorrowerEmail_(data, data.isCorrection === true);
@@ -223,20 +209,13 @@ function createRowDataArray(data, correctionMark) {
       }
     }
 
-    // 🔢 数量を文字列として明示的に処理（小数点以下を完全に保持）
+    // 🔢 数量を文字列として明示的に処理（小数点以下を保持）
     // 数値として解釈されると丸められる可能性があるため、文字列として扱う
     let quantityValue = '';
     if (data.quantity != null && data.quantity !== '') {
-      // 既に文字列の場合はそのまま、数値の場合は文字列に変換
-      // 小数点以下の末尾ゼロも含めて完全に保持
-      if (typeof data.quantity === 'string') {
-        quantityValue = data.quantity.trim();
-      } else {
-        // 数値の場合は、小数点以下を保持するために特別な処理
-        // toFixedを使用せず、そのまま文字列変換（小数点以下を完全に保持）
-        quantityValue = String(data.quantity).trim();
-      }
-      Logger.log(`🔢 数量フィールド: "${data.quantity}" (型: ${typeof data.quantity}) → "${quantityValue}" (文字列として保持)`);
+      // 文字列に変換して小数点以下を保持
+      quantityValue = String(data.quantity).trim();
+      Logger.log(`🔢 数量フィールド: "${data.quantity}" → "${quantityValue}" (文字列として保持)`);
     }
 
     // この配列の順番を、スプレッドシートのA列, B列, C列...の順番と完全に一致させる
@@ -353,9 +332,9 @@ function createBackup(backupType) {
     const backupFolder = getOrCreateBackupFolder_();
     const dateStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd_HH-mm-ss");
     const backupName = `${file.getName()}_backup_${dateStr}_${backupType}`;
-    
+
     const backupFile = file.makeCopy(backupName, backupFolder);
-    
+
     backupFile.setDescription(JSON.stringify({
       originalId: SPREADSHEET_ID,
       backupType: backupType,
@@ -389,7 +368,7 @@ function cleanupBackups() {
     const backupFolder = getOrCreateBackupFolder_();
     const files = backupFolder.getFiles();
     const now = new Date();
-    
+
     while (files.hasNext()) {
       const file = files.next();
       if (!file.getName().includes("_backup_")) continue;
@@ -419,11 +398,11 @@ function cleanupBackups() {
 function handleIngredientsUpload(uploadData) {
   try {
     const sheet = SpreadsheetApp.openById('1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY').getSheetByName('食材コスト');
-    
+
     if (!sheet) {
       throw new Error('食材コストシートが見つかりません');
     }
-    
+
     // データを配列に変換
     const rows = uploadData.map(item => [
       '', // データ区分（空）
@@ -469,17 +448,17 @@ function handleIngredientsUpload(uploadData) {
       '', // 送信日（空）
       ''  // 送信時間（空）
     ]);
-    
+
     // シートの一番下にデータを追加
     const lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 1, rows.length, rows[0].length).setValues(rows);
-    
+
     return ContentService.createTextOutput(JSON.stringify({
       status: 'SUCCESS',
       message: `${rows.length}件の食材データが正常にアップロードされました`,
       timestamp: new Date().toISOString()
     })).setMimeType(ContentService.MimeType.JSON);
-    
+
   } catch (error) {
     Logger.log('食材アップロードエラー:', error);
     return ContentService.createTextOutput(JSON.stringify({
@@ -495,11 +474,11 @@ function handleIngredientsUpload(uploadData) {
 function handleCostUpload(uploadData) {
   try {
     const sheet = SpreadsheetApp.openById('1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY').getSheetByName('原価リスト');
-    
+
     if (!sheet) {
       throw new Error('原価リストシートが見つかりません');
     }
-    
+
     // 全41列のデータ配列を作成
     const rows = uploadData.map(item => [
       item.dataType || '',           // A: データ区分
@@ -545,17 +524,17 @@ function handleCostUpload(uploadData) {
       item.sendDate || '',           // AO: 送信日
       item.sendTime || ''            // AP: 送信時間
     ]);
-    
+
     // シートの一番下にデータを追加
     const lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 2, rows.length, rows[0].length).setValues(rows);
-    
+
     return ContentService.createTextOutput(JSON.stringify({
       status: 'SUCCESS',
       message: `${rows.length}件のワイン原価データが正常にアップロードされました`,
       timestamp: new Date().toISOString()
     })).setMimeType(ContentService.MimeType.JSON);
-    
+
   } catch (error) {
     Logger.log('ワイン原価アップロードエラー:', error);
     return ContentService.createTextOutput(JSON.stringify({
@@ -629,4 +608,3 @@ function updateCategoryValidation() {
     return 'エラー: ' + error.toString();
   }
 }
-

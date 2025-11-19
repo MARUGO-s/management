@@ -1296,8 +1296,8 @@
 
                 // M-martカテゴリーで、貸主が「本部」のデータのみをフィルタリング
                 let results = this.data.filter(row => {
-                    // カテゴリーがM-martであることを確認
-                    const isMmart = row.category && row.category === 'M-mart';
+                    // カテゴリーがM-martで始まることを確認（M-mart、M-mart カード、M-mart 現金）
+                    const isMmart = row.category && row.category.startsWith('M-mart');
                     if (!isMmart) return false;
 
                     // 貸主が「本部」であることを確認（大文字小文字を区別しない）
@@ -1410,26 +1410,48 @@
                 </small>
             `;
 
-            // 店舗ごとに集計
+            // 店舗ごとに集計（カードと現金を分ける）
             const storeData = {};
             this.searchResults.forEach(row => {
                 const storeName = row.borrower;
+                const paymentMethod = row.category.includes('カード') ? 'card' : row.category.includes('現金') ? 'cash' : 'other';
+
                 if (!storeData[storeName]) {
                     storeData[storeName] = {
                         storeName: storeName,
                         totalAmount: 0,
+                        cardAmount: 0,
+                        cashAmount: 0,
+                        otherAmount: 0,
                         count: 0,
+                        cardCount: 0,
+                        cashCount: 0,
+                        otherCount: 0,
                         items: []
                     };
                 }
+
                 storeData[storeName].totalAmount += row.amount;
                 storeData[storeName].count++;
+
+                if (paymentMethod === 'card') {
+                    storeData[storeName].cardAmount += row.amount;
+                    storeData[storeName].cardCount++;
+                } else if (paymentMethod === 'cash') {
+                    storeData[storeName].cashAmount += row.amount;
+                    storeData[storeName].cashCount++;
+                } else {
+                    storeData[storeName].otherAmount += row.amount;
+                    storeData[storeName].otherCount++;
+                }
+
                 storeData[storeName].items.push({
                     date: row.date,
                     item: row.item,
                     quantity: row.quantity,
                     unitPrice: row.unitPrice,
-                    amount: row.amount
+                    amount: row.amount,
+                    paymentMethod: paymentMethod
                 });
             });
 
@@ -1452,26 +1474,50 @@
                     </tr>
                     <tr class="store-detail-row" data-store-name="${store.storeName}" style="display: none;">
                         <td colspan="10" style="padding: 0;">
-                            <table style="width: 100%; margin: 0; border: none;">
+                            <table class="mmart-detail-table" data-store="${store.storeName}" style="width: 100%; margin: 0; border: none;">
                                 <thead style="background: #e9ecef;">
                                     <tr>
-                                        <th style="padding: 8px;">日付</th>
-                                        <th style="padding: 8px;">品目</th>
-                                        <th style="padding: 8px;">数量</th>
-                                        <th style="padding: 8px;">単価</th>
-                                        <th style="padding: 8px;">金額</th>
+                                        <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="date" title="クリックでソート">
+                                            日付 <span class="sort-indicator"></span>
+                                        </th>
+                                        <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="item" title="クリックでソート">
+                                            品目 <span class="sort-indicator"></span>
+                                        </th>
+                                        <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="payment" title="クリックでソート">
+                                            支払い方法 <span class="sort-indicator"></span>
+                                        </th>
+                                        <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="quantity" title="クリックでソート">
+                                            数量 <span class="sort-indicator"></span>
+                                        </th>
+                                        <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="unitPrice" title="クリックでソート">
+                                            単価 <span class="sort-indicator"></span>
+                                        </th>
+                                        <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="amount" title="クリックでソート">
+                                            金額 <span class="sort-indicator"></span>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${store.items.map(item => `
-                                        <tr style="background: white;">
+                                    ${store.items.map(item => {
+                                        const paymentIcon = item.paymentMethod === 'card' ? '💳' : item.paymentMethod === 'cash' ? '💵' : '🛒';
+                                        const paymentText = item.paymentMethod === 'card' ? 'カード' : item.paymentMethod === 'cash' ? '現金' : 'M-mart';
+                                        return `
+                                        <tr style="background: white;"
+                                            data-date="${item.date}"
+                                            data-item="${item.item}"
+                                            data-payment="${item.paymentMethod}"
+                                            data-quantity="${item.quantity || 0}"
+                                            data-unitprice="${this.parseAmount(item.unitPrice)}"
+                                            data-amount="${item.amount}">
                                             <td style="padding: 8px;">${item.date}</td>
                                             <td style="padding: 8px;">${item.item}</td>
+                                            <td style="padding: 8px; text-align: center;">${paymentIcon} ${paymentText}</td>
                                             <td style="padding: 8px;">${item.quantity || ''}</td>
                                             <td style="padding: 8px;">¥${this.parseAmount(item.unitPrice).toLocaleString()}</td>
                                             <td style="padding: 8px; font-weight: bold;">¥${item.amount.toLocaleString()}</td>
                                         </tr>
-                                    `).join('')}
+                                        `;
+                                    }).join('')}
                                 </tbody>
                             </table>
                         </td>
@@ -1514,6 +1560,9 @@
                 });
             });
 
+            // M-mart詳細テーブルのソート機能を追加
+            this.addMmartTableSortHandlers();
+
             // ソート状態をリセット
             sortDirection = {};
             const headers = document.querySelectorAll("#results-table th");
@@ -1525,12 +1574,21 @@
         updateMmartSummaryCards(sortedStores) {
             const summaryCards = document.getElementById('summary-cards');
 
-            // 総金額と総件数を計算
+            // 総金額と総件数を計算（カード・現金別）
             let totalAmount = 0;
             let totalCount = 0;
+            let cardAmount = 0;
+            let cardCount = 0;
+            let cashAmount = 0;
+            let cashCount = 0;
+
             sortedStores.forEach(store => {
                 totalAmount += store.totalAmount;
                 totalCount += store.count;
+                cardAmount += store.cardAmount;
+                cardCount += store.cardCount;
+                cashAmount += store.cashAmount;
+                cashCount += store.cashCount;
             });
 
             // 平均金額を計算
@@ -1553,11 +1611,19 @@
                     </div>
                 </div>
                 <div class="summary-card positive">
-                    <h3>借入店舗数</h3>
-                    <div class="value">${sortedStores.length}</div>
-                    <p>店舗</p>
+                    <h3>💳 カード決済</h3>
+                    <div class="value">¥${cardAmount.toLocaleString()}</div>
+                    <p>${cardCount}件</p>
                     <div class="breakdown">
-                        M-martカテゴリー
+                        M-martカード取引
+                    </div>
+                </div>
+                <div class="summary-card positive">
+                    <h3>💵 現金決済</h3>
+                    <div class="value">¥${cashAmount.toLocaleString()}</div>
+                    <p>${cashCount}件</p>
+                    <div class="breakdown">
+                        M-mart現金取引
                     </div>
                 </div>
                 <div class="summary-card neutral">
@@ -1577,7 +1643,8 @@
                                 return `
                                     <span class="breakdown-item" style="display: block; margin: 3px 0; padding: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 0.95em;">
                                         ${globalIndex + 1}. ${store.storeName}<br>
-                                        <strong>¥${store.totalAmount.toLocaleString()}</strong> (${store.count}件)
+                                        <strong>¥${store.totalAmount.toLocaleString()}</strong> (${store.count}件)<br>
+                                        <small style="opacity: 0.8;">💳 ¥${store.cardAmount.toLocaleString()} (${store.cardCount}件) / 💵 ¥${store.cashAmount.toLocaleString()} (${store.cashCount}件)</small>
                                     </span>
                                 `;
                             }).join('')}
@@ -1585,6 +1652,104 @@
                     </div>
                 `).join('')}
             `;
+        }
+
+        addMmartTableSortHandlers() {
+            // 各M-mart詳細テーブルにソート機能を追加
+            const mmartTables = document.querySelectorAll('.mmart-detail-table');
+            const tableSortState = new Map(); // 各テーブルのソート状態を保持
+
+            mmartTables.forEach(table => {
+                const storeName = table.dataset.store;
+                tableSortState.set(storeName, { column: null, direction: 'asc' });
+
+                const headers = table.querySelectorAll('thead th[data-sort]');
+                headers.forEach(header => {
+                    header.addEventListener('click', () => {
+                        const sortColumn = header.dataset.sort;
+                        const tbody = table.querySelector('tbody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+                        // ソート状態の更新
+                        const currentState = tableSortState.get(storeName);
+                        let direction = 'asc';
+                        if (currentState.column === sortColumn) {
+                            direction = currentState.direction === 'asc' ? 'desc' : 'asc';
+                        }
+                        tableSortState.set(storeName, { column: sortColumn, direction });
+
+                        // ソートインジケーターをクリア
+                        headers.forEach(h => {
+                            const indicator = h.querySelector('.sort-indicator');
+                            indicator.textContent = '';
+                            h.style.background = '#e9ecef';
+                        });
+
+                        // 現在の列にソートインジケーターを表示
+                        const indicator = header.querySelector('.sort-indicator');
+                        indicator.textContent = direction === 'asc' ? ' ▲' : ' ▼';
+                        header.style.background = '#d0e1f9';
+
+                        // 行をソート
+                        rows.sort((a, b) => {
+                            let aValue, bValue;
+
+                            switch (sortColumn) {
+                                case 'date':
+                                    aValue = a.dataset.date;
+                                    bValue = b.dataset.date;
+                                    break;
+                                case 'item':
+                                    aValue = a.dataset.item;
+                                    bValue = b.dataset.item;
+                                    break;
+                                case 'payment':
+                                    aValue = a.dataset.payment;
+                                    bValue = b.dataset.payment;
+                                    break;
+                                case 'quantity':
+                                    aValue = parseFloat(a.dataset.quantity) || 0;
+                                    bValue = parseFloat(b.dataset.quantity) || 0;
+                                    break;
+                                case 'unitPrice':
+                                    aValue = parseFloat(a.dataset.unitprice) || 0;
+                                    bValue = parseFloat(b.dataset.unitprice) || 0;
+                                    break;
+                                case 'amount':
+                                    aValue = parseFloat(a.dataset.amount) || 0;
+                                    bValue = parseFloat(b.dataset.amount) || 0;
+                                    break;
+                                default:
+                                    return 0;
+                            }
+
+                            // 数値または文字列の比較
+                            if (typeof aValue === 'number' && typeof bValue === 'number') {
+                                return direction === 'asc' ? aValue - bValue : bValue - aValue;
+                            } else {
+                                const comparison = String(aValue).localeCompare(String(bValue), 'ja');
+                                return direction === 'asc' ? comparison : -comparison;
+                            }
+                        });
+
+                        // ソートされた行をテーブルに再追加
+                        rows.forEach(row => tbody.appendChild(row));
+                    });
+
+                    // ホバー効果
+                    header.addEventListener('mouseenter', () => {
+                        if (!header.querySelector('.sort-indicator').textContent) {
+                            header.style.background = '#dee2e6';
+                        }
+                    });
+
+                    header.addEventListener('mouseleave', () => {
+                        if (!header.querySelector('.sort-indicator').textContent) {
+                            header.style.background = '#e9ecef';
+                        }
+                    });
+                });
+            });
         }
 
         displayAllDataResults(titleText = "全取引詳細") { // タイトルを引数で受け取る

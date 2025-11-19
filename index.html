@@ -706,6 +706,29 @@
     .full-two-line .full-date-wrap { flex: 1 1 100%; order: 1; }
     .full-two-line .full-lender-wrap { flex: 1 1 calc(50% - 5px); order: 2; }
     .full-two-line .full-borrower-wrap { flex: 1 1 calc(50% - 5px); order: 3; }
+
+    /* M-mart支払い方法選択ボタン */
+    .payment-method-btn {
+      width: 100%;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .payment-method-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(74, 85, 104, 0.4);
+    }
+
+    .payment-method-btn:active {
+      transform: translateY(0);
+    }
   </style>
 
 <link rel="icon" href="assets/icons/favicon.ico" type="image/x-icon">
@@ -891,6 +914,26 @@
       <div class="modal-body" id="errorModalBody">入力内容をご確認ください。</div>
       <div class="modal-actions">
         <button type="button" class="list-btn" id="errorModalCloseBtn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- M-mart支払い方法選択ポップアップ -->
+  <div class="modal-overlay" id="paymentMethodModal">
+    <div class="modal-card">
+      <div class="modal-title">M-mart 支払い方法を選択</div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+          <button type="button" class="payment-method-btn" data-method="カード">
+            💳 カード
+          </button>
+          <button type="button" class="payment-method-btn" data-method="現金">
+            💵 現金
+          </button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="list-btn" id="paymentMethodCancelBtn">キャンセル</button>
       </div>
     </div>
   </div>
