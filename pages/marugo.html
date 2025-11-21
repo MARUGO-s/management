@@ -467,10 +467,11 @@
 </div>
 <div class="form-group" style="grid-column: 1 / -1; margin-top: 0;">
 <div class="button-group">
-<button class="search-btn" type="submit">🔍 店舗別検索実行</button>
-<button class="correction-search-btn" id="correction-search-btn" type="button">✏️ 修正データ検索</button>
-<button class="all-data-btn" id="all-data-btn" type="button">📋 全データ表示</button>
-<button class="mmart-analysis-btn" id="mmart-analysis-btn" type="button">🛒 M-mart分析</button>
+            <button class="search-btn" type="submit">🔍 店舗別検索実行</button>
+            <button class="correction-search-btn" id="correction-search-btn" type="button">✏️ 修正データ検索</button>
+            <button class="all-data-btn" id="all-data-btn" type="button">📋 全データ表示</button>
+            <button class="mmart-analysis-btn" id="mmart-analysis-btn" type="button">🛒 M-mart分析</button>
+            <button class="store-balance-btn" id="store-balance-btn" type="button">💰 店舗別貸借り合計</button>
 </div>
 </div>
 </form>
@@ -1173,6 +1174,7 @@
             const allDataBtn = document.getElementById('all-data-btn');
             const correctionSearchBtn = document.getElementById('correction-search-btn');
             const mmartAnalysisBtn = document.getElementById('mmart-analysis-btn');
+            const storeBalanceBtn = document.getElementById('store-balance-btn');
 
             searchForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -1191,7 +1193,16 @@
                 this.analyzeMmart();
             });
 
-            exportBtn.addEventListener('click', () => {
+            storeBalanceBtn.addEventListener('click', () => {
+                this.analyzeStoreBalance();
+            });
+
+            exportBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔘 CSV出力ボタンがクリックされました');
+                console.log('this.searchResults:', this.searchResults);
+                console.log('this.searchResults.length:', this.searchResults ? this.searchResults.length : 'undefined');
                 this.exportResults();
             });
         }
@@ -1278,6 +1289,54 @@
             catch (error) {
                 console.error('修正検索エラー:', error);
                 this.log('修正データの検索中にエラーが発生しました。', 'error');
+            }
+        }
+
+        // 店舗別貸借り合計分析機能
+        analyzeStoreBalance() {
+            this.log('店舗別貸借り合計を分析中...', 'loading');
+
+            try {
+                if (!this.data || this.data.length === 0) {
+                    this.log('データを先に読み込んでください。「📋 全データを表示」をクリックしてください。', 'error');
+                    return;
+                }
+
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+
+                // 指定期間内のデータをフィルタリング
+                let results = this.data.filter(row => {
+                    // 日付フィルター
+                    const rowDate = row.date ? new Date(row.date) : null;
+                    if (startDate && (!rowDate || rowDate < new Date(startDate))) {
+                        return false;
+                    }
+                    if (endDate) {
+                        const endOfDay = new Date(endDate);
+                        endOfDay.setHours(23, 59, 59, 999);
+                        if (!rowDate || rowDate > endOfDay) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+
+                this.searchResults = results;
+
+                this.log(`店舗別貸借り合計分析完了: ${this.searchResults.length}件の取引が見つかりました`, 'success');
+
+                // 店舗ごとに集計して表示
+                this.displayStoreBalanceAnalysis();
+
+                if (results.length === 0) {
+                    this.log('指定された期間内に取引が見つかりませんでした。', 'info');
+                }
+            }
+            catch (error) {
+                console.error('店舗別貸借り合計分析エラー:', error);
+                this.log('店舗別貸借り合計分析中にエラーが発生しました。', 'error');
             }
         }
 
@@ -1412,6 +1471,15 @@
 
             // 店舗ごとに集計（カードと現金を分ける）
             const storeData = {};
+            console.log('📊 M-mart分析: searchResults数:', this.searchResults.length);
+            console.log('📊 最初の3件のcorrection値:', this.searchResults.slice(0, 3).map(r => ({
+                date: r.date,
+                item: r.item,
+                correction: r.correction,
+                correctionType: typeof r.correction,
+                hasCorrection: r.correction && r.correction.includes('✏️修正')
+            })));
+            
             this.searchResults.forEach(row => {
                 const storeName = row.borrower;
                 const paymentMethod = row.category.includes('カード') ? 'card' : row.category.includes('現金') ? 'cash' : 'other';
@@ -1445,15 +1513,111 @@
                     storeData[storeName].otherCount++;
                 }
 
+                // 修正タグを確認
+                const correctionValue = row.correction || '';
+                const hasCorrection = correctionValue && correctionValue.includes('✏️修正');
+                
+                if (hasCorrection) {
+                    console.log('✅ 修正データを発見:', {
+                        storeName: storeName,
+                        date: row.date,
+                        item: row.item,
+                        correction: correctionValue
+                    });
+                }
+                
                 storeData[storeName].items.push({
                     date: row.date,
                     item: row.item,
                     quantity: row.quantity,
                     unitPrice: row.unitPrice,
                     amount: row.amount,
-                    paymentMethod: paymentMethod
+                    paymentMethod: paymentMethod,
+                    correction: correctionValue // 修正タグを追加
                 });
             });
+
+            // 修正データと元データを相殺して削除（元データの並び順で、修正データの真下が元データ）
+            try {
+                const self = this; // thisのコンテキストを保持
+                Object.keys(storeData).forEach(storeName => {
+                    try {
+                        const items = storeData[storeName].items;
+                        if (!items || items.length === 0) return;
+                        
+                        const excludeIndices = new Set();
+                        
+                        // 修正データを探して、真下のデータ（元データ）と相殺ペアを特定
+                        items.forEach((item, index) => {
+                            try {
+                                const hasCorrection = item.correction && (
+                                    item.correction.includes('✏️修正') || 
+                                    item.correction.includes('修正')
+                                );
+                                
+                                if (!hasCorrection) return;
+                                
+                                // 真下のデータを確認（元データの並び順で、修正データの真下が元データ）
+                                const nextIndex = index + 1;
+                                if (nextIndex >= items.length) return;
+                                
+                                const nextItem = items[nextIndex];
+                                if (!nextItem) return;
+                                
+                                // 金額を取得
+                                const correctionAmount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
+                                const nextAmount = typeof nextItem.amount === 'number' ? nextItem.amount : (self.parseAmount ? self.parseAmount(nextItem.amount) : parseFloat(nextItem.amount) || 0);
+                                
+                                // 品目名と金額が同じで、真下のデータ（元データ）の場合
+                                const isAmountSame = Math.abs(correctionAmount - nextAmount) < 0.01;
+                                const isItemSame = item.item === nextItem.item;
+                                const isOffset = isAmountSame && isItemSame;
+                                
+                                if (isOffset) {
+                                    excludeIndices.add(index);
+                                    excludeIndices.add(nextIndex);
+                                }
+                            } catch (err) {
+                                console.error(`相殺判定エラー(${storeName}, インデックス${index}):`, err);
+                            }
+                        });
+                        
+                        // 相殺ペアを除外
+                        if (excludeIndices.size > 0) {
+                            // 除外するデータの金額を集計から差し引く
+                            excludeIndices.forEach(idx => {
+                                try {
+                                    const item = items[idx];
+                                    const amount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
+                                    storeData[storeName].totalAmount -= amount;
+                                    storeData[storeName].count--;
+                                    
+                                    if (item.paymentMethod === 'card') {
+                                        storeData[storeName].cardAmount -= amount;
+                                        storeData[storeName].cardCount--;
+                                    } else if (item.paymentMethod === 'cash') {
+                                        storeData[storeName].cashAmount -= amount;
+                                        storeData[storeName].cashCount--;
+                                    } else {
+                                        storeData[storeName].otherAmount -= amount;
+                                        storeData[storeName].otherCount--;
+                                    }
+                                } catch (err) {
+                                    console.error(`相殺削除エラー(${storeName}, インデックス${idx}):`, err);
+                                }
+                            });
+                            
+                            // itemsから除外
+                            storeData[storeName].items = items.filter((item, index) => !excludeIndices.has(index));
+                        }
+                    } catch (err) {
+                        console.error(`店舗別相殺削除エラー(${storeName}):`, err);
+                    }
+                });
+            } catch (err) {
+                console.error('相殺削除処理エラー:', err);
+                // エラーが発生しても処理を続行
+            }
 
             // 合計金額でソート（降順）
             const sortedStores = Object.values(storeData).sort((a, b) => b.totalAmount - a.totalAmount);
@@ -1495,12 +1659,38 @@
                                         <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="amount" title="クリックでソート">
                                             金額 <span class="sort-indicator"></span>
                                         </th>
+                                        <th style="padding: 8px;">修正</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${store.items.map(item => {
                                         const paymentIcon = item.paymentMethod === 'card' ? '💳' : item.paymentMethod === 'cash' ? '💵' : '🛒';
                                         const paymentText = item.paymentMethod === 'card' ? 'カード' : item.paymentMethod === 'cash' ? '現金' : 'M-mart';
+                                        
+                                        // 修正タグの判定（デバッグログ付き）
+                                        const correctionValue = item.correction || '';
+                                        const hasCorrection = correctionValue && (
+                                            correctionValue.includes('✏️修正') || 
+                                            correctionValue.includes('修正') ||
+                                            correctionValue.trim() !== ''
+                                        );
+                                        
+                                        if (correctionValue) {
+                                            console.log('🔍 修正タグチェック:', {
+                                                storeName: store.storeName,
+                                                date: item.date,
+                                                item: item.item,
+                                                correctionValue: correctionValue,
+                                                hasCorrection: hasCorrection,
+                                                includes修正: correctionValue.includes('✏️修正'),
+                                                includes修正2: correctionValue.includes('修正')
+                                            });
+                                        }
+                                        
+                                        const correctionTag = hasCorrection 
+                                            ? '<span style="color: #dc3545; font-weight: bold;">✏️修正</span>' 
+                                            : '';
+                                        
                                         return `
                                         <tr style="background: white;"
                                             data-date="${item.date}"
@@ -1515,6 +1705,7 @@
                                             <td style="padding: 8px;">${item.quantity || ''}</td>
                                             <td style="padding: 8px;">¥${this.parseAmount(item.unitPrice).toLocaleString()}</td>
                                             <td style="padding: 8px; font-weight: bold;">¥${item.amount.toLocaleString()}</td>
+                                            <td style="padding: 8px; text-align: center;">${correctionTag}</td>
                                         </tr>
                                         `;
                                     }).join('')}
@@ -1652,6 +1843,625 @@
                     </div>
                 `).join('')}
             `;
+        }
+
+        // 店舗別貸借り合計表示機能
+        displayStoreBalanceAnalysis() {
+            const resultsSection = document.getElementById('results-section');
+            resultsSection.style.display = 'block';
+
+            // ヘッダーとサブタイトルを設定
+            document.getElementById('details-title').textContent = '店舗別貸借り合計 - 残高一覧';
+            document.getElementById('details-subtitle').innerHTML = `
+                <small style="color: white; font-size: 12px;">
+                    指定期間内の各店舗の貸借り合計と残高<br>
+                    ▶ プラス（緑）= 貸しが多い、マイナス（赤）= 借りが多い<br>
+                    ▶ 各列をクリックでソート、店舗をクリックで詳細表示
+                </small>
+            `;
+
+            // 店舗ごとに集計
+            const storeData = {};
+            this.searchResults.forEach(row => {
+                // 貸主としての取引
+                if (row.lender) {
+                    const storeName = row.lender;
+                    if (!storeData[storeName]) {
+                        storeData[storeName] = {
+                            storeName: storeName,
+                            lentAmount: 0,
+                            borrowedAmount: 0,
+                            lentCount: 0,
+                            borrowedCount: 0,
+                            lentItems: [],
+                            borrowedItems: []
+                        };
+                    }
+                    const correctionValue = row.correction || '';
+                    storeData[storeName].lentAmount += row.amount;
+                    storeData[storeName].lentCount++;
+                    storeData[storeName].lentItems.push({
+                        date: row.date,
+                        item: row.item,
+                        category: row.category,
+                        quantity: row.quantity,
+                        unitPrice: row.unitPrice,
+                        amount: row.amount,
+                        borrower: row.borrower,
+                        name: row.name,
+                        correction: correctionValue
+                    });
+                }
+
+                // 借主としての取引
+                if (row.borrower) {
+                    const storeName = row.borrower;
+                    if (!storeData[storeName]) {
+                        storeData[storeName] = {
+                            storeName: storeName,
+                            lentAmount: 0,
+                            borrowedAmount: 0,
+                            lentCount: 0,
+                            borrowedCount: 0,
+                            lentItems: [],
+                            borrowedItems: []
+                        };
+                    }
+                    const correctionValue = row.correction || '';
+                    storeData[storeName].borrowedAmount += row.amount;
+                    storeData[storeName].borrowedCount++;
+                    storeData[storeName].borrowedItems.push({
+                        date: row.date,
+                        item: row.item,
+                        category: row.category,
+                        quantity: row.quantity,
+                        unitPrice: row.unitPrice,
+                        amount: row.amount,
+                        lender: row.lender,
+                        name: row.name,
+                        correction: correctionValue
+                    });
+                }
+            });
+
+            // 修正データと元データを相殺して削除
+            const self = this; // thisのコンテキストを保持
+            try {
+                Object.keys(storeData).forEach(storeName => {
+                    try {
+                        const store = storeData[storeName];
+                        
+                        // 貸出取引の相殺削除（元データの並び順で、修正データの真下が元データ）
+                        const lentExcludeIndices = new Set();
+                        
+                        try {
+                            store.lentItems.forEach((item, index) => {
+                                try {
+                                    const hasCorrection = item.correction && (
+                                        item.correction.includes('✏️修正') || 
+                                        item.correction.includes('修正')
+                                    );
+                                    
+                                    if (!hasCorrection) return;
+                                    
+                                    // 真下のデータを確認（元データの並び順で、修正データの真下が元データ）
+                                    const nextIndex = index + 1;
+                                    if (nextIndex >= store.lentItems.length) return;
+                                    
+                                    const nextItem = store.lentItems[nextIndex];
+                                    if (!nextItem) return;
+                                    
+                                    const correctionAmount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
+                                    const nextAmount = typeof nextItem.amount === 'number' ? nextItem.amount : (self.parseAmount ? self.parseAmount(nextItem.amount) : parseFloat(nextItem.amount) || 0);
+                                    const isAmountSame = Math.abs(correctionAmount - nextAmount) < 0.01;
+                                    const isItemSame = item.item === nextItem.item;
+                                    const isOffset = isAmountSame && isItemSame;
+                                    
+                                    if (isOffset) {
+                                        lentExcludeIndices.add(index);
+                                        lentExcludeIndices.add(nextIndex);
+                                    }
+                                } catch (err) {
+                                    console.error(`貸出相殺判定エラー(${storeName}, インデックス${index}):`, err);
+                                }
+                            });
+                        } catch (err) {
+                            console.error(`貸出相殺削除処理エラー(${storeName}):`, err);
+                        }
+                        
+                        if (lentExcludeIndices.size > 0) {
+                            try {
+                                lentExcludeIndices.forEach(idx => {
+                                    try {
+                                        const item = store.lentItems[idx];
+                                        const amount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
+                                        store.lentAmount -= amount;
+                                        store.lentCount--;
+                                    } catch (err) {
+                                        console.error(`貸出相殺削除エラー(${storeName}, インデックス${idx}):`, err);
+                                    }
+                                });
+                                store.lentItems = store.lentItems.filter((item, index) => !lentExcludeIndices.has(index));
+                            } catch (err) {
+                                console.error(`貸出相殺削除処理エラー(${storeName}):`, err);
+                            }
+                        }
+                        
+                        // 借入取引の相殺削除（元データの並び順で、修正データの真下が元データ）
+                        const borrowedExcludeIndices = new Set();
+                        
+                        try {
+                            store.borrowedItems.forEach((item, index) => {
+                                try {
+                                    const hasCorrection = item.correction && (
+                                        item.correction.includes('✏️修正') || 
+                                        item.correction.includes('修正')
+                                    );
+                                    
+                                    if (!hasCorrection) return;
+                                    
+                                    // 真下のデータを確認（元データの並び順で、修正データの真下が元データ）
+                                    const nextIndex = index + 1;
+                                    if (nextIndex >= store.borrowedItems.length) return;
+                                    
+                                    const nextItem = store.borrowedItems[nextIndex];
+                                    if (!nextItem) return;
+                                    
+                                    const correctionAmount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
+                                    const nextAmount = typeof nextItem.amount === 'number' ? nextItem.amount : (self.parseAmount ? self.parseAmount(nextItem.amount) : parseFloat(nextItem.amount) || 0);
+                                    const isAmountSame = Math.abs(correctionAmount - nextAmount) < 0.01;
+                                    const isItemSame = item.item === nextItem.item;
+                                    const isOffset = isAmountSame && isItemSame;
+                                    
+                                    if (isOffset) {
+                                        borrowedExcludeIndices.add(index);
+                                        borrowedExcludeIndices.add(nextIndex);
+                                    }
+                                } catch (err) {
+                                    console.error(`借入相殺判定エラー(${storeName}, インデックス${index}):`, err);
+                                }
+                            });
+                        } catch (err) {
+                            console.error(`借入相殺削除処理エラー(${storeName}):`, err);
+                        }
+                        
+                        if (borrowedExcludeIndices.size > 0) {
+                            try {
+                                borrowedExcludeIndices.forEach(idx => {
+                                    try {
+                                        const item = store.borrowedItems[idx];
+                                        const amount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
+                                        store.borrowedAmount -= amount;
+                                        store.borrowedCount--;
+                                    } catch (err) {
+                                        console.error(`借入相殺削除エラー(${storeName}, インデックス${idx}):`, err);
+                                    }
+                                });
+                                store.borrowedItems = store.borrowedItems.filter((item, index) => !borrowedExcludeIndices.has(index));
+                            } catch (err) {
+                                console.error(`借入相殺削除処理エラー(${storeName}):`, err);
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`店舗別相殺削除エラー(${storeName}):`, err);
+                    }
+                });
+            } catch (err) {
+                console.error('相殺削除処理エラー:', err);
+                // エラーが発生しても処理を続行
+            }
+
+            // 残高を計算してソート（残高の絶対値で降順）
+            const sortedStores = Object.values(storeData).map(store => {
+                store.balance = store.lentAmount - store.borrowedAmount;
+                store.totalTransactions = store.lentCount + store.borrowedCount;
+                return store;
+            }).sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+
+            // 貸し合計、借り合計、総計のサマリーカードを表示（店舗別残高のカードは除く）
+            this.updateStoreBalanceSummaryCardsWithoutStoreDetails(sortedStores);
+            showSummary();
+
+            // 店舗別集計テーブルを表示
+            const detailsTable = document.getElementById('details-table');
+            detailsTable.innerHTML = sortedStores.map((store, index) => {
+                const balanceClass = store.balance >= 0 ? 'positive' : 'negative';
+                const balanceSign = store.balance >= 0 ? '+' : '';
+                return `
+                    <tr style="cursor: pointer; background: #f8f9fa;" class="store-balance-summary-row" data-store-name="${store.storeName}">
+                        <td colspan="2" style="font-weight: bold;">${index + 1}. ${store.storeName}</td>
+                        <td colspan="2" style="text-align: center;">
+                            <div style="font-size: 0.9em;">
+                                <div>貸: ¥${store.lentAmount.toLocaleString()} (${store.lentCount}件)</div>
+                                <div>借: ¥${store.borrowedAmount.toLocaleString()} (${store.borrowedCount}件)</div>
+                            </div>
+                        </td>
+                        <td colspan="4" class="amount ${balanceClass}" style="font-size: 1.3em; font-weight: bold; text-align: center;">
+                            ${balanceSign}¥${store.balance.toLocaleString()}
+                        </td>
+                        <td colspan="2" style="text-align: center;"><span class="toggle-icon">▼</span> クリックで詳細表示</td>
+                    </tr>
+                    <tr class="store-balance-detail-row" data-store-name="${store.storeName}" style="display: none;">
+                        <td colspan="10" style="padding: 0;">
+                            <div style="display: flex; gap: 10px; padding: 10px;">
+                                <div style="flex: 1;">
+                                    <h4 style="margin: 0 0 10px 0; color: #28a745;">📤 貸出取引 (${store.lentCount}件)</h4>
+                                    <table class="balance-detail-table" data-store="${store.storeName}" data-type="lent" style="width: 100%; margin: 0; border: none;">
+                                        <thead style="background: #e9ecef;">
+                                            <tr>
+                                                <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="date" title="クリックでソート">
+                                                    日付 <span class="sort-indicator"></span>
+                                                </th>
+                                                <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="item" title="クリックでソート">
+                                                    品目 <span class="sort-indicator"></span>
+                                                </th>
+                                                <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="borrower" title="クリックでソート">
+                                                    借主 <span class="sort-indicator"></span>
+                                                </th>
+                                                <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="amount" title="クリックでソート">
+                                                    金額 <span class="sort-indicator"></span>
+                                                </th>
+                                                <th style="padding: 8px;">修正</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${store.lentItems.map(item => {
+                                                const hasCorrection = item.correction && (
+                                                    item.correction.includes('✏️修正') || 
+                                                    item.correction.includes('修正')
+                                                );
+                                                const correctionTag = hasCorrection 
+                                                    ? '<span style="color: #dc3545; font-weight: bold;">✏️修正</span>' 
+                                                    : '';
+                                                return `
+                                                <tr style="background: white;"
+                                                    data-date="${item.date}"
+                                                    data-item="${item.item}"
+                                                    data-borrower="${item.borrower}"
+                                                    data-amount="${item.amount}">
+                                                    <td style="padding: 8px;">${item.date}</td>
+                                                    <td style="padding: 8px;">${item.item}</td>
+                                                    <td style="padding: 8px;">${item.borrower}</td>
+                                                    <td style="padding: 8px; font-weight: bold;">¥${item.amount.toLocaleString()}</td>
+                                                    <td style="padding: 8px; text-align: center;">${correctionTag}</td>
+                                                </tr>
+                                                `;
+                                            }).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div style="flex: 1;">
+                                    <h4 style="margin: 0 0 10px 0; color: #dc3545;">📥 借入取引 (${store.borrowedCount}件)</h4>
+                                    <table class="balance-detail-table" data-store="${store.storeName}" data-type="borrowed" style="width: 100%; margin: 0; border: none;">
+                                        <thead style="background: #e9ecef;">
+                                            <tr>
+                                                <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="date" title="クリックでソート">
+                                                    日付 <span class="sort-indicator"></span>
+                                                </th>
+                                                <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="item" title="クリックでソート">
+                                                    品目 <span class="sort-indicator"></span>
+                                                </th>
+                                                <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="lender" title="クリックでソート">
+                                                    貸主 <span class="sort-indicator"></span>
+                                                </th>
+                                                <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="amount" title="クリックでソート">
+                                                    金額 <span class="sort-indicator"></span>
+                                                </th>
+                                                <th style="padding: 8px;">修正</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${store.borrowedItems.map(item => {
+                                                const hasCorrection = item.correction && (
+                                                    item.correction.includes('✏️修正') || 
+                                                    item.correction.includes('修正')
+                                                );
+                                                const correctionTag = hasCorrection 
+                                                    ? '<span style="color: #dc3545; font-weight: bold;">✏️修正</span>' 
+                                                    : '';
+                                                return `
+                                                <tr style="background: white;"
+                                                    data-date="${item.date}"
+                                                    data-item="${item.item}"
+                                                    data-lender="${item.lender}"
+                                                    data-amount="${item.amount}">
+                                                    <td style="padding: 8px;">${item.date}</td>
+                                                    <td style="padding: 8px;">${item.item}</td>
+                                                    <td style="padding: 8px;">${item.lender}</td>
+                                                    <td style="padding: 8px; font-weight: bold;">¥${item.amount.toLocaleString()}</td>
+                                                    <td style="padding: 8px; text-align: center;">${correctionTag}</td>
+                                                </tr>
+                                                `;
+                                            }).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // 店舗行のクリックイベントを追加
+            document.querySelectorAll('.store-balance-summary-row').forEach(row => {
+                row.addEventListener('click', (e) => {
+                    const storeName = row.dataset.storeName;
+                    const detailRow = document.querySelector(`.store-balance-detail-row[data-store-name="${storeName}"]`);
+                    const toggleIcon = row.querySelector('.toggle-icon');
+
+                    if (detailRow.style.display === 'none') {
+                        detailRow.style.display = 'table-row';
+                        toggleIcon.textContent = '▲';
+                        row.style.background = '#e3f2fd';
+                    } else {
+                        detailRow.style.display = 'none';
+                        toggleIcon.textContent = '▼';
+                        row.style.background = '#f8f9fa';
+                    }
+                });
+
+                // ホバー効果を追加
+                row.addEventListener('mouseenter', () => {
+                    if (row.querySelector('.toggle-icon').textContent === '▼') {
+                        row.style.background = '#e9ecef';
+                    }
+                });
+
+                row.addEventListener('mouseleave', () => {
+                    const toggleIcon = row.querySelector('.toggle-icon');
+                    if (toggleIcon.textContent === '▼') {
+                        row.style.background = '#f8f9fa';
+                    } else {
+                        row.style.background = '#e3f2fd';
+                    }
+                });
+            });
+
+            // 詳細テーブルのソート機能を追加
+            this.addBalanceTableSortHandlers();
+
+            // ソート状態をリセット
+            sortDirection = {};
+            const headers = document.querySelectorAll("#results-table th");
+            headers.forEach(header => {
+                header.classList.remove('sort-asc', 'sort-desc');
+            });
+        }
+
+        // 店舗別貸借り合計サマリーカード更新
+        updateStoreBalanceSummaryCards(sortedStores) {
+            const summaryCards = document.getElementById('summary-cards');
+
+            // 総計を計算
+            let totalLent = 0;
+            let totalBorrowed = 0;
+            let totalBalance = 0;
+            let totalTransactions = 0;
+            let positiveStores = 0;
+            let negativeStores = 0;
+
+            sortedStores.forEach(store => {
+                totalLent += store.lentAmount;
+                totalBorrowed += store.borrowedAmount;
+                totalBalance += store.balance;
+                totalTransactions += store.totalTransactions;
+                if (store.balance >= 0) {
+                    positiveStores++;
+                } else {
+                    negativeStores++;
+                }
+            });
+
+            // 店舗を4つずつのグループに分割
+            const storesPerCard = 4;
+            const storeGroups = [];
+            for (let i = 0; i < sortedStores.length; i += storesPerCard) {
+                storeGroups.push(sortedStores.slice(i, i + storesPerCard));
+            }
+
+            summaryCards.innerHTML = `
+                <div class="summary-card positive">
+                    <h3>総貸出金額</h3>
+                    <div class="value">¥${totalLent.toLocaleString()}</div>
+                    <p>全店舗合計</p>
+                    <div class="breakdown">
+                        指定期間内の貸出総額
+                    </div>
+                </div>
+                <div class="summary-card negative">
+                    <h3>総借入金額</h3>
+                    <div class="value">¥${totalBorrowed.toLocaleString()}</div>
+                    <p>全店舗合計</p>
+                    <div class="breakdown">
+                        指定期間内の借入総額
+                    </div>
+                </div>
+                <div class="summary-card ${totalBalance >= 0 ? 'positive' : 'negative'}">
+                    <h3>総残高</h3>
+                    <div class="value">${totalBalance >= 0 ? '+' : ''}¥${totalBalance.toLocaleString()}</div>
+                    <p>全店舗合計</p>
+                    <div class="breakdown">
+                        貸出 - 借入
+                    </div>
+                </div>
+                <div class="summary-card neutral">
+                    <h3>店舗数</h3>
+                    <div class="value">${sortedStores.length}</div>
+                    <p>店舗</p>
+                    <div class="breakdown">
+                        プラス: ${positiveStores}店舗 / マイナス: ${negativeStores}店舗
+                    </div>
+                </div>
+                ${storeGroups.map((group, groupIndex) => `
+                    <div class="summary-card ${groupIndex % 2 === 0 ? 'positive' : 'negative'}">
+                        <h3>店舗別残高</h3>
+                        <div class="breakdown" style="font-size: 0.8em; margin-top: 10px; max-height: 250px; overflow-y: auto;">
+                            ${group.map((store, index) => {
+                                const globalIndex = groupIndex * storesPerCard + index;
+                                const balanceClass = store.balance >= 0 ? 'positive' : 'negative';
+                                const balanceSign = store.balance >= 0 ? '+' : '';
+                                return `
+                                    <span class="breakdown-item" style="display: block; margin: 3px 0; padding: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 0.95em;">
+                                        ${globalIndex + 1}. ${store.storeName}<br>
+                                        <strong style="color: ${store.balance >= 0 ? '#28a745' : '#dc3545'};">${balanceSign}¥${store.balance.toLocaleString()}</strong><br>
+                                        <small style="opacity: 0.8;">貸: ¥${store.lentAmount.toLocaleString()} (${store.lentCount}件) / 借: ¥${store.borrowedAmount.toLocaleString()} (${store.borrowedCount}件)</small>
+                                    </span>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        // 店舗別貸借り合計サマリーカード更新（店舗別残高のカードを除く）
+        updateStoreBalanceSummaryCardsWithoutStoreDetails(sortedStores) {
+            const summaryCards = document.getElementById('summary-cards');
+
+            // 総計を計算
+            let totalLent = 0;
+            let totalBorrowed = 0;
+            let totalBalance = 0;
+            let totalTransactions = 0;
+            let positiveStores = 0;
+            let negativeStores = 0;
+
+            sortedStores.forEach(store => {
+                totalLent += store.lentAmount;
+                totalBorrowed += store.borrowedAmount;
+                totalBalance += store.balance;
+                totalTransactions += store.totalTransactions;
+                if (store.balance >= 0) {
+                    positiveStores++;
+                } else {
+                    negativeStores++;
+                }
+            });
+
+            // 店舗別残高のカードは生成せず、貸し合計、借り合計、総計、店舗数のみ
+            summaryCards.innerHTML = `
+                <div class="summary-card positive">
+                    <h3>総貸出金額</h3>
+                    <div class="value">¥${totalLent.toLocaleString()}</div>
+                    <p>全店舗合計</p>
+                    <div class="breakdown">
+                        指定期間内の貸出総額
+                    </div>
+                </div>
+                <div class="summary-card negative">
+                    <h3>総借入金額</h3>
+                    <div class="value">¥${totalBorrowed.toLocaleString()}</div>
+                    <p>全店舗合計</p>
+                    <div class="breakdown">
+                        指定期間内の借入総額
+                    </div>
+                </div>
+                <div class="summary-card ${totalBalance >= 0 ? 'positive' : 'negative'}">
+                    <h3>総残高</h3>
+                    <div class="value">${totalBalance >= 0 ? '+' : ''}¥${totalBalance.toLocaleString()}</div>
+                    <p>全店舗合計</p>
+                    <div class="breakdown">
+                        貸出 - 借入
+                    </div>
+                </div>
+                <div class="summary-card neutral">
+                    <h3>店舗数</h3>
+                    <div class="value">${sortedStores.length}</div>
+                    <p>店舗</p>
+                    <div class="breakdown">
+                        プラス: ${positiveStores}店舗 / マイナス: ${negativeStores}店舗
+                    </div>
+                </div>
+            `;
+        }
+
+        // 貸借り合計詳細テーブルのソート機能
+        addBalanceTableSortHandlers() {
+            const balanceTables = document.querySelectorAll('.balance-detail-table');
+            const tableSortState = new Map();
+
+            balanceTables.forEach(table => {
+                const storeName = table.dataset.store;
+                const type = table.dataset.type;
+                const key = `${storeName}_${type}`;
+                tableSortState.set(key, { column: null, direction: 'asc' });
+
+                const headers = table.querySelectorAll('thead th[data-sort]');
+                headers.forEach(header => {
+                    header.addEventListener('click', () => {
+                        const sortColumn = header.dataset.sort;
+                        const tbody = table.querySelector('tbody');
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+                        const currentState = tableSortState.get(key);
+                        let direction = 'asc';
+                        if (currentState.column === sortColumn) {
+                            direction = currentState.direction === 'asc' ? 'desc' : 'asc';
+                        }
+                        tableSortState.set(key, { column: sortColumn, direction });
+
+                        headers.forEach(h => {
+                            const indicator = h.querySelector('.sort-indicator');
+                            indicator.textContent = '';
+                            h.style.background = '#e9ecef';
+                        });
+
+                        const indicator = header.querySelector('.sort-indicator');
+                        indicator.textContent = direction === 'asc' ? ' ▲' : ' ▼';
+                        header.style.background = '#d0e1f9';
+
+                        rows.sort((a, b) => {
+                            let aValue, bValue;
+
+                            switch (sortColumn) {
+                                case 'date':
+                                    aValue = a.dataset.date;
+                                    bValue = b.dataset.date;
+                                    break;
+                                case 'item':
+                                    aValue = a.dataset.item;
+                                    bValue = b.dataset.item;
+                                    break;
+                                case 'borrower':
+                                    aValue = a.dataset.borrower;
+                                    bValue = b.dataset.borrower;
+                                    break;
+                                case 'lender':
+                                    aValue = a.dataset.lender;
+                                    bValue = b.dataset.lender;
+                                    break;
+                                case 'amount':
+                                    aValue = parseFloat(a.dataset.amount) || 0;
+                                    bValue = parseFloat(b.dataset.amount) || 0;
+                                    break;
+                                default:
+                                    return 0;
+                            }
+
+                            if (typeof aValue === 'number' && typeof bValue === 'number') {
+                                return direction === 'asc' ? aValue - bValue : bValue - aValue;
+                            } else {
+                                const comparison = String(aValue).localeCompare(String(bValue), 'ja');
+                                return direction === 'asc' ? comparison : -comparison;
+                            }
+                        });
+
+                        rows.forEach(row => tbody.appendChild(row));
+                    });
+
+                    header.addEventListener('mouseenter', () => {
+                        if (!header.querySelector('.sort-indicator').textContent) {
+                            header.style.background = '#dee2e6';
+                        }
+                    });
+
+                    header.addEventListener('mouseleave', () => {
+                        if (!header.querySelector('.sort-indicator').textContent) {
+                            header.style.background = '#e9ecef';
+                        }
+                    });
+                });
+            });
         }
 
         addMmartTableSortHandlers() {
@@ -2399,24 +3209,612 @@
         }
 
         exportResults() {
+            console.log('📊 exportResults() が呼ばれました');
+            console.log('検索結果数:', this.searchResults.length);
+            
             if (this.searchResults.length === 0) {
                 this.showCustomAlertDialog('エクスポートするデータがありません');
                 return;
             }
 
-            const csvData = Papa.unparse(this.searchResults.map(row => ({
-                日付: row.date,
-                入力者: row.name,
-                貸主: row.lender,
-                借主: row.borrower,
-                カテゴリー: row.category,
-                品目: row.item,
-                '個/本/g': row.quantity,
-                単価: row.unitPrice,
-                金額: row.amount,
-                入力日時: row.inputDate,
-                修正: row.correction || ''
-            })));
+            // 修正データと元データのペアを特定
+            const correctionPairs = this.findCorrectionPairs(this.searchResults);
+            console.log('修正データペア数:', correctionPairs.length);
+            console.log('修正データペア詳細:', correctionPairs);
+            
+            // 常にモーダルを表示（修正データがある場合とない場合の両方）
+            this.showExportDialog(correctionPairs);
+        }
+
+        // CSV出力選択ダイアログ（修正データの有無に関わらず表示）
+        showExportDialog(correctionPairs) {
+            console.log('📋 showExportDialog() が呼ばれました');
+            console.log('修正データペア数:', correctionPairs.length);
+            
+            const dialogId = 'export-dialog';
+            let dialog = document.getElementById(dialogId);
+
+            if (dialog) {
+                console.log('既存のダイアログを削除します');
+                dialog.remove();
+            }
+
+            dialog = document.createElement('div');
+            dialog.id = dialogId;
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background-color: white;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                z-index: 10000;
+                text-align: left;
+                max-width: 90%;
+                width: 500px;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                border-top: 4px solid #5a7c5a;
+            `;
+
+            const titleDiv = document.createElement('h2');
+            titleDiv.textContent = '📊 CSV出力 - 出力方法を選択';
+            titleDiv.style.marginBottom = '15px';
+            titleDiv.style.color = '#333';
+            titleDiv.style.fontSize = '20px';
+            dialog.appendChild(titleDiv);
+
+            const infoDiv = document.createElement('div');
+            infoDiv.style.marginBottom = '20px';
+            infoDiv.style.fontSize = '14px';
+            infoDiv.style.color = '#666';
+            infoDiv.style.lineHeight = '1.6';
+            
+            if (correctionPairs.length > 0) {
+                infoDiv.innerHTML = `
+                    <p style="margin: 0 0 10px 0;">現在表示されている <strong>${this.searchResults.length}件</strong> のデータがあります。</p>
+                    <p style="margin: 0;">修正データが <strong>${correctionPairs.length}組</strong> 見つかりました。</p>
+                `;
+            } else {
+                infoDiv.innerHTML = `
+                    <p style="margin: 0;">現在表示されている <strong>${this.searchResults.length}件</strong> のデータをCSV出力します。</p>
+                `;
+            }
+            dialog.appendChild(infoDiv);
+
+            // 背景オーバーレイ（先に作成）
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+            `;
+            overlay.addEventListener('click', () => {
+                dialog.remove();
+                overlay.remove();
+            });
+
+            // オプション1: 全てを表示
+            const option1 = document.createElement('div');
+            option1.style.cssText = `
+                padding: 15px;
+                margin-bottom: 10px;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            `;
+            option1.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 5px; color: #007bff;">✓ 全てを表示</div>
+                <div style="font-size: 12px; color: #666;">現在表示されているすべてのデータをそのまま出力します</div>
+            `;
+            option1.addEventListener('mouseenter', () => {
+                option1.style.borderColor = '#007bff';
+                option1.style.background = '#f0f7ff';
+            });
+            option1.addEventListener('mouseleave', () => {
+                option1.style.borderColor = '#e0e0e0';
+                option1.style.background = 'white';
+            });
+            option1.addEventListener('click', () => {
+                dialog.remove();
+                overlay.remove();
+                this.performExport(this.searchResults, 'include', correctionPairs);
+            });
+            dialog.appendChild(option1);
+
+            // オプション2: 修正データと元データを相殺して削除（常に表示）
+            const option2 = document.createElement('div');
+            option2.style.cssText = `
+                padding: 15px;
+                margin-bottom: 20px;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            `;
+            
+            if (correctionPairs.length > 0) {
+                option2.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 5px; color: #28a745;">✓ 修正データと元データを相殺して削除</div>
+                    <div style="font-size: 12px; color: #666;">修正データと元データの両方を除外して出力します（相殺済み）</div>
+                `;
+            } else {
+                option2.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 5px; color: #6c757d;">✓ 修正データと元データを相殺して削除</div>
+                    <div style="font-size: 12px; color: #999;">修正データがないため、このオプションを選択しても全てのデータが出力されます</div>
+                `;
+            }
+            
+            option2.addEventListener('mouseenter', () => {
+                option2.style.borderColor = correctionPairs.length > 0 ? '#28a745' : '#6c757d';
+                option2.style.background = correctionPairs.length > 0 ? '#f0f9f0' : '#f8f9fa';
+            });
+            option2.addEventListener('mouseleave', () => {
+                option2.style.borderColor = '#e0e0e0';
+                option2.style.background = 'white';
+            });
+            option2.addEventListener('click', () => {
+                dialog.remove();
+                overlay.remove();
+                if (correctionPairs.length > 0) {
+                    this.performExport(this.searchResults, 'exclude', correctionPairs);
+                } else {
+                    // 修正データがない場合は、全てを表示と同じ動作
+                    this.performExport(this.searchResults, 'include', correctionPairs);
+                }
+            });
+            dialog.appendChild(option2);
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.style.cssText = `
+                background-color: #f1f1f1;
+                color: #333;
+                border: 1px solid #ccc;
+                padding: 10px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: 600;
+                transition: all 0.2s ease;
+                width: 100%;
+            `;
+            cancelBtn.addEventListener('mouseenter', () => {
+                cancelBtn.style.backgroundColor = '#e0e0e0';
+            });
+            cancelBtn.addEventListener('mouseleave', () => {
+                cancelBtn.style.backgroundColor = '#f1f1f1';
+            });
+            cancelBtn.addEventListener('click', () => {
+                dialog.remove();
+                overlay.remove();
+            });
+            dialog.appendChild(cancelBtn);
+
+            document.body.appendChild(overlay);
+            document.body.appendChild(dialog);
+            console.log('✅ モーダルをDOMに追加しました（showExportDialog）');
+            console.log('ダイアログ要素:', dialog);
+            console.log('オーバーレイ要素:', overlay);
+        }
+
+        // 修正データと元データのペアを特定（真下のデータと金額が相殺される場合）
+        findCorrectionPairs(results) {
+            const pairs = [];
+
+            // 修正データを探して、真下のデータと金額が相殺されるか確認
+            results.forEach((row, index) => {
+                const isCorrection = row.correction && row.correction.includes('✏️修正');
+                
+                if (!isCorrection) return;
+
+                // 真下のデータを確認（配列の次のインデックス）
+                const nextIndex = index + 1;
+                if (nextIndex >= results.length) {
+                    console.log(`⚠️ 修正データ（インデックス${index}）の真下にデータがありません`);
+                    return;
+                }
+
+                const nextRow = results[nextIndex];
+                if (!nextRow) {
+                    console.log(`⚠️ 修正データ（インデックス${index}）の真下のデータがnullです`);
+                    return;
+                }
+
+                // 金額を取得（parseAmountを使用して文字列も数値も正しく処理）
+                const correctionAmount = typeof row.amount === 'number' ? row.amount : this.parseAmount(row.amount);
+                const nextAmount = typeof nextRow.amount === 'number' ? nextRow.amount : this.parseAmount(nextRow.amount);
+
+                console.log(`🔍 相殺判定チェック（インデックス${index}）:`, {
+                    修正データ: {
+                        amount: row.amount,
+                        parsedAmount: correctionAmount,
+                        lender: row.lender,
+                        borrower: row.borrower,
+                        item: row.item
+                    },
+                    真下のデータ: {
+                        amount: nextRow.amount,
+                        parsedAmount: nextAmount,
+                        lender: nextRow.lender,
+                        borrower: nextRow.borrower,
+                        item: nextRow.item
+                    }
+                });
+
+                // 金額が相殺されるか確認（プラマイ0になる）
+                // 貸し借りが逆で金額が同じ場合
+                const isLenderBorrowerReversed = 
+                    row.lender === nextRow.borrower && 
+                    row.borrower === nextRow.lender;
+                
+                const isAmountSame = Math.abs(correctionAmount - nextAmount) < 0.01;
+                const isAmountOffset = Math.abs(correctionAmount + nextAmount) < 0.01;
+
+                const isOffset = 
+                    // 貸し借りが入れ替わっていて金額が同じ
+                    (isLenderBorrowerReversed && isAmountSame) ||
+                    // または金額の合計が0（プラマイ0）
+                    isAmountOffset;
+
+                console.log(`🔍 相殺判定結果（インデックス${index}）:`, {
+                    isLenderBorrowerReversed,
+                    isAmountSame,
+                    isAmountOffset,
+                    isOffset
+                });
+
+                if (isOffset) {
+                    console.log('✅ 相殺ペアを発見:', {
+                        修正データ: { index, amount: correctionAmount, lender: row.lender, borrower: row.borrower, item: row.item },
+                        真下のデータ: { index: nextIndex, amount: nextAmount, lender: nextRow.lender, borrower: nextRow.borrower, item: nextRow.item }
+                    });
+                    
+                    pairs.push({
+                        correction: row,
+                        original: nextRow,
+                        correctionIndex: index,
+                        originalIndex: nextIndex
+                    });
+                } else {
+                    console.log(`❌ 相殺ペアではありません（インデックス${index}）`);
+                }
+            });
+
+            console.log('📊 相殺ペア総数:', pairs.length);
+            return pairs;
+        }
+
+        // 修正データ出力選択ダイアログ
+        showCorrectionExportDialog(correctionPairs) {
+            const dialogId = 'correction-export-dialog';
+            let dialog = document.getElementById(dialogId);
+
+            if (dialog) dialog.remove();
+
+            dialog = document.createElement('div');
+            dialog.id = dialogId;
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background-color: white;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                z-index: 10000;
+                text-align: left;
+                max-width: 90%;
+                width: 500px;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                border-top: 4px solid #5a7c5a;
+            `;
+
+            const titleDiv = document.createElement('h2');
+            titleDiv.textContent = '📊 CSV出力 - 修正データの処理方法';
+            titleDiv.style.marginBottom = '15px';
+            titleDiv.style.color = '#333';
+            titleDiv.style.fontSize = '20px';
+            dialog.appendChild(titleDiv);
+
+            const infoDiv = document.createElement('div');
+            infoDiv.style.marginBottom = '20px';
+            infoDiv.style.fontSize = '14px';
+            infoDiv.style.color = '#666';
+            infoDiv.style.lineHeight = '1.6';
+            infoDiv.innerHTML = `
+                <p style="margin: 0 0 10px 0;">修正データが <strong>${correctionPairs.length}組</strong> 見つかりました。</p>
+                <p style="margin: 0;">以下のいずれかの方法で出力してください：</p>
+            `;
+            dialog.appendChild(infoDiv);
+
+            const option1 = document.createElement('div');
+            option1.style.cssText = `
+                padding: 15px;
+                margin-bottom: 10px;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            `;
+            option1.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 5px; color: #28a745;">✓ 相殺して削除</div>
+                <div style="font-size: 12px; color: #666;">元データと修正データの両方を除外して出力します（相殺済み）</div>
+            `;
+            option1.addEventListener('mouseenter', () => {
+                option1.style.borderColor = '#28a745';
+                option1.style.background = '#f0f9f0';
+            });
+            option1.addEventListener('mouseleave', () => {
+                option1.style.borderColor = '#e0e0e0';
+                option1.style.background = 'white';
+            });
+            option1.addEventListener('click', () => {
+                dialog.remove();
+                this.performExport(this.searchResults, 'exclude', correctionPairs);
+            });
+            dialog.appendChild(option1);
+
+            const option2 = document.createElement('div');
+            option2.style.cssText = `
+                padding: 15px;
+                margin-bottom: 20px;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            `;
+            option2.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 5px; color: #007bff;">✓ そのまま出力</div>
+                <div style="font-size: 12px; color: #666;">元データと修正データの両方を出力します</div>
+            `;
+            option2.addEventListener('mouseenter', () => {
+                option2.style.borderColor = '#007bff';
+                option2.style.background = '#f0f7ff';
+            });
+            option2.addEventListener('mouseleave', () => {
+                option2.style.borderColor = '#e0e0e0';
+                option2.style.background = 'white';
+            });
+            option2.addEventListener('click', () => {
+                dialog.remove();
+                this.performExport(this.searchResults, 'include', correctionPairs);
+            });
+            dialog.appendChild(option2);
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.style.cssText = `
+                background-color: #f1f1f1;
+                color: #333;
+                border: 1px solid #ccc;
+                padding: 10px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: 600;
+                transition: all 0.2s ease;
+                width: 100%;
+            `;
+            cancelBtn.addEventListener('mouseenter', () => {
+                cancelBtn.style.backgroundColor = '#e0e0e0';
+            });
+            cancelBtn.addEventListener('mouseleave', () => {
+                cancelBtn.style.backgroundColor = '#f1f1f1';
+            });
+            cancelBtn.addEventListener('click', () => {
+                dialog.remove();
+            });
+            dialog.appendChild(cancelBtn);
+
+            // 背景オーバーレイ
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+            `;
+            overlay.addEventListener('click', () => {
+                dialog.remove();
+                overlay.remove();
+            });
+
+            document.body.appendChild(overlay);
+            document.body.appendChild(dialog);
+        }
+
+        // 実際のCSV出力処理
+        performExport(results, correctionMode, correctionPairs = []) {
+            console.log('📤 performExport が呼ばれました');
+            console.log('correctionMode:', correctionMode);
+            console.log('correctionPairs.length:', correctionPairs.length);
+            console.log('results.length:', results.length);
+            
+            let exportData = [...results];
+
+            // 相殺処理：修正データと元データを除外
+            if (correctionMode === 'exclude' && correctionPairs.length > 0) {
+                console.log('✅ 相殺削除モードで処理します');
+                console.log('correctionPairs:', correctionPairs);
+                
+                // 除外するデータのインデックスを収集（findCorrectionPairsで計算済みのインデックスを使用）
+                const excludeIndices = new Set();
+                
+                correctionPairs.forEach(pair => {
+                    // findCorrectionPairsで計算されたインデックスを使用
+                    if (pair.correctionIndex !== undefined) {
+                        excludeIndices.add(pair.correctionIndex);
+                        console.log('修正データを除外（インデックス）:', pair.correctionIndex, pair.correction);
+                    }
+                    if (pair.originalIndex !== undefined) {
+                        excludeIndices.add(pair.originalIndex);
+                        console.log('元データを除外（インデックス）:', pair.originalIndex, pair.original);
+                    }
+                });
+
+                console.log('除外するインデックス:', Array.from(excludeIndices));
+                console.log('除外前のデータ数:', exportData.length);
+                
+                // 除外セットに含まれていないデータのみを出力
+                exportData = results.filter((row, index) => !excludeIndices.has(index));
+                
+                console.log('除外後のデータ数:', exportData.length);
+                console.log('除外されたデータ数:', results.length - exportData.length);
+            } else {
+                if (correctionMode === 'exclude') {
+                    console.log('⚠️ 相殺削除モードですが、修正データペアがありません。全てのデータを出力します。');
+                } else {
+                    console.log('ℹ️ 全て表示モードです。全てのデータを出力します。');
+                }
+            }
+
+            // 現在の表示モードを判定
+            const detailsTitle = document.getElementById('details-title').textContent;
+            let csvData;
+            let fileName;
+
+            // 店舗別貸借り合計分析の場合
+            if (detailsTitle.includes('店舗別貸借り合計') || detailsTitle.includes('残高一覧')) {
+                // 店舗ごとに集計
+                const storeData = {};
+                exportData.forEach(row => {
+                    // 貸主としての取引
+                    if (row.lender) {
+                        const storeName = row.lender;
+                        if (!storeData[storeName]) {
+                            storeData[storeName] = {
+                                店舗名: storeName,
+                                貸出金額: 0,
+                                貸出件数: 0,
+                                借入金額: 0,
+                                借入件数: 0
+                            };
+                        }
+                        storeData[storeName].貸出金額 += row.amount;
+                        storeData[storeName].貸出件数++;
+                    }
+
+                    // 借主としての取引
+                    if (row.borrower) {
+                        const storeName = row.borrower;
+                        if (!storeData[storeName]) {
+                            storeData[storeName] = {
+                                店舗名: storeName,
+                                貸出金額: 0,
+                                貸出件数: 0,
+                                借入金額: 0,
+                                借入件数: 0
+                            };
+                        }
+                        storeData[storeName].借入金額 += row.amount;
+                        storeData[storeName].借入件数++;
+                    }
+                });
+
+                // 残高を計算してソート（残高の絶対値で降順）
+                const sortedStores = Object.values(storeData).map(store => {
+                    store.残高 = store.貸出金額 - store.借入金額;
+                    return store;
+                }).sort((a, b) => Math.abs(b.残高) - Math.abs(a.残高));
+
+                // CSVデータを生成（画像の形式に合わせる）
+                csvData = Papa.unparse(sortedStores.map((store, index) => ({
+                    順位: index + 1,
+                    店舗名: store.店舗名,
+                    貸出: `¥${store.貸出金額.toLocaleString()} (${store.貸出件数}件)`,
+                    借入: `¥${store.借入金額.toLocaleString()} (${store.借入件数}件)`,
+                    残高: store.残高 >= 0 ? `+¥${store.残高.toLocaleString()}` : `¥${store.残高.toLocaleString()}`,
+                    貸出金額: store.貸出金額,
+                    貸出件数: store.貸出件数,
+                    借入金額: store.借入金額,
+                    借入件数: store.借入件数,
+                    残高金額: store.残高
+                })), {
+                    columns: ['順位', '店舗名', '貸出', '借入', '残高', '貸出金額', '貸出件数', '借入金額', '借入件数', '残高金額']
+                });
+
+                fileName = '店舗別貸借り合計';
+            }
+            // M-mart分析の場合
+            else if (detailsTitle.includes('M-mart分析')) {
+                // 店舗ごとに集計（カードと現金を分ける）
+                const storeData = {};
+                exportData.forEach(row => {
+                    const storeName = row.borrower;
+                    const paymentMethod = row.category.includes('カード') ? 'card' : row.category.includes('現金') ? 'cash' : 'other';
+
+                    if (!storeData[storeName]) {
+                        storeData[storeName] = {
+                            店舗名: storeName,
+                            総金額: 0,
+                            カード金額: 0,
+                            現金金額: 0,
+                            その他金額: 0,
+                            総件数: 0,
+                            カード件数: 0,
+                            現金件数: 0,
+                            その他件数: 0
+                        };
+                    }
+
+                    storeData[storeName].総金額 += row.amount;
+                    storeData[storeName].総件数++;
+
+                    if (paymentMethod === 'card') {
+                        storeData[storeName].カード金額 += row.amount;
+                        storeData[storeName].カード件数++;
+                    } else if (paymentMethod === 'cash') {
+                        storeData[storeName].現金金額 += row.amount;
+                        storeData[storeName].現金件数++;
+                    } else {
+                        storeData[storeName].その他金額 += row.amount;
+                        storeData[storeName].その他件数++;
+                    }
+                });
+
+                const sortedStores = Object.values(storeData).sort((a, b) => b.総金額 - a.総金額);
+
+                csvData = Papa.unparse(sortedStores.map((store, index) => ({
+                    順位: index + 1,
+                    店舗名: store.店舗名,
+                    総借入金額: `¥${store.総金額.toLocaleString()}`,
+                    総借入件数: `${store.総件数}件`,
+                    カード決済: `¥${store.カード金額.toLocaleString()} (${store.カード件数}件)`,
+                    現金決済: `¥${store.現金金額.toLocaleString()} (${store.現金件数}件)`,
+                    その他: `¥${store.その他金額.toLocaleString()} (${store.その他件数}件)`
+                })));
+
+                fileName = 'M-mart分析';
+            }
+            // 通常の検索結果の場合
+            else {
+                csvData = Papa.unparse(exportData.map(row => ({
+                    日付: row.date,
+                    入力者: row.name,
+                    貸主: row.lender,
+                    借主: row.borrower,
+                    カテゴリー: row.category,
+                    品目: row.item,
+                    '個/本/g': row.quantity,
+                    単価: row.unitPrice,
+                    金額: row.amount,
+                    入力日時: row.inputDate,
+                    修正: row.correction || ''
+                })));
+
+                fileName = '検索結果';
+            }
 
             const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
@@ -2429,7 +3827,7 @@
             const day = String(today.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
             
-            link.setAttribute('download', `検索結果_${dateStr}.csv`);
+            link.setAttribute('download', `${fileName}_${dateStr}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
