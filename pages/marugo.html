@@ -3217,6 +3217,14 @@
                 return;
             }
 
+            // 店舗別貸借り合計の場合は、ポップアップを表示せずに直接「全てを表示」でエクスポート
+            const detailsTitle = document.getElementById('details-title')?.textContent || '';
+            if (detailsTitle.includes('店舗別貸借り合計') || detailsTitle.includes('残高一覧')) {
+                console.log('店舗別貸借り合計のため、直接エクスポートします');
+                this.performExport(this.searchResults, 'include', []);
+                return;
+            }
+
             // 修正データと元データのペアを特定
             const correctionPairs = this.findCorrectionPairs(this.searchResults);
             console.log('修正データペア数:', correctionPairs.length);
