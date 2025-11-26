@@ -491,8 +491,14 @@ function autoFillReverseData() {
   document.getElementById('category').value = originalData.category || '';
   document.getElementById('item').value = originalData.item || '';
   
+  // 数量フィールドのデバッグログ
+  addDebugLog('元データの数量', {
+    value: originalData.quantity,
+    type: typeof originalData.quantity
+  });
+
   document.getElementById('quantity').value = originalData.quantity || '';
-  const unitPriceValue = originalData.unitPrice ? 
+  const unitPriceValue = originalData.unitPrice ?
     parseInt(convertToHalfWidthNumber(originalData.unitPrice)).toLocaleString('ja-JP') : '';
   document.getElementById('unitPrice').value = unitPriceValue;
   
@@ -709,6 +715,19 @@ async function submitCorrectionData() {
 
     updateManualInputNotice();
 
+    // 🔍 送信前の数量フィールドのデバッグ
+    const quantityInputValue = document.getElementById("quantity").value;
+    addDebugLog('数量入力フィールドの値（送信前）', {
+      rawValue: quantityInputValue,
+      type: typeof quantityInputValue
+    });
+
+    const quantityConverted = convertToHalfWidthNumber(quantityInputValue || '');
+    addDebugLog('数量変換後の値', {
+      converted: quantityConverted,
+      type: typeof quantityConverted
+    });
+
     const data = {
       date: document.getElementById("date").value?.trim(),
       name: document.getElementById("name").value?.trim(),
@@ -716,7 +735,7 @@ async function submitCorrectionData() {
       borrower: document.getElementById("borrower").value?.trim(),
       category: document.getElementById("category").value?.trim(),
       item: document.getElementById("item").value?.trim(),
-      quantity: convertToHalfWidthNumber(document.getElementById("quantity").value || ''), // convertToHalfWidthNumberが文字列を返すのでそのまま使用
+      quantity: quantityConverted, // convertToHalfWidthNumberが文字列を返すのでそのまま使用
       unitPrice: convertToHalfWidthNumber(document.getElementById("unitPrice").value),
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: true,

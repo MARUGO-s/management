@@ -922,7 +922,7 @@
                         borrower: this.normalizeStoreName(getValue(borrowerIndex).trim()),
                         category: getValue(categoryIndex),
                         item: getValue(itemIndex),
-                        quantity: getValue(quantityIndex),
+                        quantity: String(getValue(quantityIndex)), // 🔍 数量を明示的に文字列として保存
                         unitPrice: getValue(unitPriceIndex),
                         amount: parsedAmount,
                         originalAmount: amountValue,
@@ -1015,7 +1015,7 @@
                     borrower: this.normalizeStoreName(getValue(borrowerIndex).trim()),
                     category: getValue(categoryIndex),
                     item: getValue(itemIndex),
-                    quantity: getValue(quantityIndex),
+                    quantity: String(getValue(quantityIndex)), // 🔍 数量を明示的に文字列として保存
                     unitPrice: getValue(unitPriceIndex),
                     amount: this.parseAmount(getValue(amountIndex)),
                     originalAmount: getValue(amountIndex),
