@@ -304,15 +304,21 @@ function delay(ms) {
 // 金額を半角数字に変換する関数
 function convertToHalfWidthNumber(value) {
   if (!value) return '';
-  
+
   // 全角数字を半角数字に変換
   let converted = value.toString().replace(/[０-９]/g, function(s) {
     return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
   });
-  
-  // カンマと数字以外を除去
-  converted = converted.replace(/[^0-9]/g, '');
-  
+
+  // カンマと数字と小数点以外を除去
+  converted = converted.replace(/[^0-9.]/g, '');
+
+  // 複数の小数点がある場合、最初の1つだけを残す
+  const parts = converted.split('.');
+  if (parts.length > 2) {
+    converted = parts[0] + '.' + parts.slice(1).join('');
+  }
+
   return converted;
 }
 
