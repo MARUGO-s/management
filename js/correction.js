@@ -304,15 +304,21 @@ function delay(ms) {
 // 金額を半角数字に変換する関数
 function convertToHalfWidthNumber(value) {
   if (!value) return '';
-  
+
   // 全角数字を半角数字に変換
   let converted = value.toString().replace(/[０-９]/g, function(s) {
     return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
   });
-  
-  // カンマと数字以外を除去
-  converted = converted.replace(/[^0-9]/g, '');
-  
+
+  // カンマと数字と小数点以外を除去
+  converted = converted.replace(/[^0-9.]/g, '');
+
+  // 複数の小数点がある場合、最初の1つだけを残す
+  const parts = converted.split('.');
+  if (parts.length > 2) {
+    converted = parts[0] + '.' + parts.slice(1).join('');
+  }
+
   return converted;
 }
 
@@ -484,9 +490,15 @@ function autoFillReverseData() {
   document.getElementById('borrower').value = originalData.lender || '';
   document.getElementById('category').value = originalData.category || '';
   document.getElementById('item').value = originalData.item || '';
-  
+
+  // 🔍 数量フィールドのデバッグログ
+  addDebugLog('元データの数量', {
+    value: originalData.quantity,
+    type: typeof originalData.quantity
+  });
+
   document.getElementById('quantity').value = originalData.quantity || '';
-  const unitPriceValue = originalData.unitPrice ? 
+  const unitPriceValue = originalData.unitPrice ?
     parseInt(convertToHalfWidthNumber(originalData.unitPrice)).toLocaleString('ja-JP') : '';
   document.getElementById('unitPrice').value = unitPriceValue;
   
@@ -703,6 +715,19 @@ async function submitCorrectionData() {
 
     updateManualInputNotice();
 
+    // 🔍 送信前の数量フィールドのデバッグ
+    const quantityInputValue = document.getElementById("quantity").value;
+    addDebugLog('数量入力フィールドの値（送信前）', {
+      rawValue: quantityInputValue,
+      type: typeof quantityInputValue
+    });
+
+    const quantityConverted = convertToHalfWidthNumber(quantityInputValue || '');
+    addDebugLog('数量変換後の値', {
+      converted: quantityConverted,
+      type: typeof quantityConverted
+    });
+
     const data = {
       date: document.getElementById("date").value?.trim(),
       name: document.getElementById("name").value?.trim(),
@@ -710,7 +735,7 @@ async function submitCorrectionData() {
       borrower: document.getElementById("borrower").value?.trim(),
       category: document.getElementById("category").value?.trim(),
       item: document.getElementById("item").value?.trim(),
-      quantity: convertToHalfWidthNumber(document.getElementById("quantity").value || ''), // convertToHalfWidthNumberが文字列を返すのでそのまま使用
+      quantity: quantityConverted, // convertToHalfWidthNumberが文字列を返すのでそのまま使用
       unitPrice: convertToHalfWidthNumber(document.getElementById("unitPrice").value),
       amount: convertToHalfWidthNumber(document.getElementById("amount").value),
       isCorrection: true,
