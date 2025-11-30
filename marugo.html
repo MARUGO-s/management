@@ -1,0 +1,2033 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>店舗別貸借分析システム</title>
+<link href="css/styles.css" rel="stylesheet"/>
+<script src="../config.js"></script>
+<!-- シンプル認証システム -->
+<script src="../js/simple-auth.js"></script>
+<!-- 統合データローダー（API呼び出し最適化） -->
+<script src="../js/unified-data-loader.js"></script>
+<!-- シンプル最適化システム -->
+<script src="../js/simple-optimization.js"></script>
+<!-- API使用量監視・アラートシステム（ポップアップのみ） -->
+<script src="../js/quota-alert-system.js"></script>
+<!-- API使用量インジケーター -->
+<script src="../js/usage-indicator.js"></script>
+<script defer="" src="js/scripts.js"></script>
+<script>
+        function showSummary() {
+            const summary = document.getElementById('summary-cards');
+            if (summary) summary.style.display = 'grid';
+        }
+        function hideSummary() {
+            const summary = document.getElementById('summary-cards');
+            if (summary) {
+                summary.innerHTML = '';
+                summary.style.display = 'none';
+            }
+        }
+    </script>
+<style>
+    /* =========================================================== */
+    /* === ページレイアウトと確認ダイアログ専用の追加スタイル === */
+    /* === このファイル以外（通常テーブル等）には影響しません === */
+    /* =========================================================== */
+
+    /* 1. ページ全体を左寄せにする */
+    body .container {
+        margin: 0;
+    }
+
+    /* 2. 検索フォームと結果テーブルの間にマージンを追加 */
+    body .results-section {
+        margin-top: 40px;
+    }
+
+    /* 3. 確認ダイアログのテーブル専用スタイル */
+    #custom-confirm-dialog .confirm-table {
+        margin-top: 15px;
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #custom-confirm-dialog .confirm-table td {
+        text-align: left !important;
+        padding: 10px 8px;
+        border-bottom: 1px solid #eee;
+    }
+
+    #custom-confirm-dialog .confirm-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* 4. 「はい、続行します」ボタン専用のスタイル */
+    #custom-confirm-dialog .confirm-btn-yes {
+        background-color: #f5deb3;
+        color: #333;
+        border: 1px solid #d2b48c;
+    }
+    #custom-confirm-dialog .confirm-btn-yes:hover {
+        background-color: #e6cdaa;
+    }
+
+    /* 控えめな管理画面リンクのスタイル */
+    .admin-link-small {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.1);
+        color: #666;
+        text-decoration: none;
+        border-radius: 50%;
+        font-size: 10px;
+        opacity: 0.6;
+        transition: all 0.2s ease;
+        z-index: 100;
+    }
+
+    /* タブレット・PC表示での位置調整 */
+    @media (min-width: 768px) {
+        .admin-link-small {
+            top: -15px;  /* 中間の位置に配置 */
+            right: 15px;
+            width: 22px;
+            height: 22px;
+            font-size: 11px;
+        }
+    }
+
+    /* 大画面での位置調整 */
+    @media (min-width: 1024px) {
+        .admin-link-small {
+            top: -18px;  /* 中間の位置に配置 */
+            right: 20px;
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
+        }
+    }
+
+    .admin-link-small:hover {
+        opacity: 1;
+        background: rgba(0, 0, 0, 0.2);
+        color: #333;
+        transform: scale(1.1);
+    }
+
+    .admin-link-small:active {
+        transform: scale(0.95);
+    }
+
+    /* 元のUIスタイルを継承したシンプル認証画面 */
+    .password-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background: linear-gradient(135deg, #4a4a4a 0%, #363636 100%);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 0.5s ease-out;
+        padding: 20px;
+    }
+
+    .password-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        max-width: 400px;
+        width: 90%;
+        backdrop-filter: blur(10px);
+        animation: slideUp 0.6s ease-out;
+    }
+
+    .password-title {
+        font-size: 2rem;
+        background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 30px;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    .password-info {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 16px;
+        line-height: 1.5;
+    }
+
+    .password-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .password-input {
+        width: 100%;
+        padding: 15px;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        font-size: 16px;
+        background: #f9f9f9;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+    }
+
+    .password-input:focus {
+        outline: none;
+        border-color: #5a7c5a;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(90, 124, 90, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .password-btn {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(45deg, #5a7c5a, #4a6b4a);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: none;
+    }
+
+    .password-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(90, 124, 90, 0.3);
+    }
+
+    .password-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .password-error {
+        background: #ffe6e6;
+        color: #d63031;
+        padding: 12px;
+        border-radius: 8px;
+        text-align: center;
+        font-weight: 500;
+        border: 1px solid #fab1a0;
+    }
+
+    .setup-message {
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 16px;
+        text-align: center;
+        font-weight: 500;
+    }
+
+    .setup-message.error {
+        background: #ffe6e6;
+        color: #d63031;
+        border: 1px solid #fab1a0;
+    }
+
+    .setup-message.success {
+        background: #e6f7e6;
+        color: #00b894;
+        border: 1px solid #81ecec;
+    }
+
+    .password-features {
+        display: flex;
+        justify-content: space-around;
+        margin: 30px 0 20px 0;
+        padding: 20px 0;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .feature-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 12px;
+        color: #666;
+        text-align: center;
+    }
+
+    .feature-icon {
+        font-size: 20px;
+        margin-bottom: 5px;
+    }
+
+    .password-back-link {
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    .back-to-top-btn {
+        color: #5a7c5a;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
+
+    .back-to-top-btn:hover {
+        color: #4a6b4a;
+    }
+
+    /* アニメーション（元のスタイルを継承） */
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+
+    /* レスポンシブデザイン */
+    @media (max-width: 480px) {
+        .password-card {
+            margin: 20px;
+            padding: 30px 20px;
+        }
+        
+        .password-title {
+            font-size: 1.5rem;
+        }
+        
+        .password-features {
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .feature-item {
+            flex-direction: row;
+            justify-content: center;
+            gap: 10px;
+        }
+    }
+</style>
+</head>
+<body><div id="main-wrapper">
+<div class="container">
+<!-- 🔐 シンプル認証画面 -->
+<div class="password-screen" id="password-screen" style="display: none;">
+    <div class="password-card">
+        <h1 class="password-title">🔐 システムアクセス</h1>
+        
+        <!-- パスワード設定セクション（初回のみ） -->
+        <div id="setup-section" style="display: none;">
+            <div class="password-info">
+                <p>初回アクセスです。<br>システムパスワードを設定してください</p>
+            </div>
+            <form class="password-form" id="setup-form">
+                <input 
+                    class="password-input" 
+                    id="new-password" 
+                    type="password" 
+                    placeholder="新しいパスワード (6文字以上)" 
+                    required 
+                    minlength="6"
+                />
+                <input 
+                    class="password-input" 
+                    id="confirm-password" 
+                    type="password" 
+                    placeholder="パスワード確認" 
+                    required 
+                    minlength="6"
+                />
+                <button class="password-btn" id="setup-btn" type="submit">
+                    🔐 パスワード設定
+                </button>
+            </form>
+            <div class="setup-message" id="setup-error" style="display: none;"></div>
+        </div>
+
+        <!-- ログインセクション -->
+        <div id="login-section" style="display: block;">
+            <div class="password-info">
+                <p>システムにアクセスするには<br>パスワードが必要です</p>
+            </div>
+            <form class="password-form" id="password-form">
+                <input 
+                    class="password-input" 
+                    id="password-input" 
+                    type="password" 
+                    placeholder="パスワードを入力してください" 
+                    required 
+                />
+                <button class="password-btn" id="password-btn" type="submit">
+                    🚪 ログイン
+                </button>
+            </form>
+            <div class="password-error" id="password-error" style="display: none;">
+                ❌ パスワードが正しくありません
+            </div>
+        </div>
+
+        <div class="password-features">
+            <div class="feature-item">
+                <span class="feature-icon">🔒</span>
+                <span>安全な認証</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">⚡</span>
+                <span>高速ログイン</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">🛡️</span>
+                <span>セッション管理</span>
+            </div>
+        </div>
+
+        <div class="password-back-link">
+            <a href="../index.html" class="back-to-top-btn">🏠 トップページに戻る</a>
+        </div>
+    </div>
+</div>
+<div class="auto-login-screen" id="auto-login-screen">
+<div class="auto-login-card">
+<h1 class="auto-login-title">🔐 システム認証</h1>
+            <div class="auto-login-status" id="auto-login-status">
+                Google Sheets APIに<br>接続中...
+            </div>
+<div class="auto-login-spinner"></div>
+            <div style="margin-top: 20px; font-size: 14px; color: #666;">
+                🛡️ セキュア接続でデータに<br>アクセス中です
+            </div>
+</div>
+</div>
+<div class="main-app" id="main-app">
+<div class="header" style="position: relative;">
+<h1 class="app-title">📊 店舗別貸借分析システム</h1>
+<div style="display: flex; gap: 10px;">
+<a class="home-btn" href="../index.html">🏠 トップページ</a>
+<button class="logout-btn" id="logout-btn">🚪 ログアウト</button>
+</div>
+<!-- 控えめな管理画面リンク -->
+<a href="../admin.html" class="admin-link-small">⚙️</a>
+</div>
+<div class="status-section">
+<h3>📈 システム状態</h3>
+<div class="status-info" id="status-info">
+                APIキーを入力して接続を開始してください
+            </div>
+<button class="retry-btn" id="debug-btn" style="display: none; margin-top: 10px;">
+                🐛 詳細デバッグ情報を表示
+            </button>
+<div id="debug-info" style="display: none; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 15px; margin-top: 10px; font-family: 'Courier New', monospace; font-size: 12px; max-height: 300px; overflow-y: auto;"></div>
+</div>
+<div class="search-section" id="search-section">
+<h2 style="margin-bottom: 20px;">🔍 データ検索・分析</h2>
+<form class="search-form" id="search-form">
+<div class="form-group">
+<label for="start-date">開始日</label>
+<input id="start-date" name="startDate" required="" type="date"/>
+</div>
+<div class="form-group">
+<label for="end-date">終了日</label>
+<input id="end-date" name="endDate" required="" type="date"/>
+</div>
+<div class="form-group">
+<label for="store-name">店舗名</label>
+<select id="store-name" name="storeName"> <option value="">店舗を選択してください（任意）</option>
+</select>
+</div>
+<div class="form-group" style="grid-column: 1 / -1; margin-top: 0;">
+<div class="button-group">
+<button class="search-btn" type="submit">🔍 店舗別検索実行</button>
+<button class="correction-search-btn" id="correction-search-btn" type="button">✏️ 修正データ検索</button>
+<button class="all-data-btn" id="all-data-btn" type="button">📋 全データ表示</button>
+</div>
+</div>
+</form>
+</div>
+<div class="results-section" id="results-section">
+<div class="summary-cards responsive-card-grid" id="summary-cards" style="display: none;">
+</div>
+<div class="details-section">
+<div class="details-header">
+<h3 id="details-title">取引詳細</h3>
+<p id="details-subtitle">期間内の全取引データ（各列をクリックでソート）</p>
+</div>
+<div class="table-scroll-wrapper">
+<div class="scroll-hint" id="scroll-hint">↔️</div>
+<div class="table-container" id="scroll-container">
+<table id="results-table">
+<thead>
+<tr>
+    <th class="sortable" onclick="sortTable(0)">日付</th>
+    <th onclick="sortTable(1)">タイプ</th>
+    <th class="sortable" onclick="sortTable(2)">相手先</th>
+    <th class="sortable" onclick="sortTable(3)">品目</th>
+    <th class="sortable" onclick="sortTable(4)">カテゴリー</th>
+    <th class="sortable" onclick="sortTable(5)">個/本/g</th>
+    <th class="sortable" onclick="sortTable(6)">単価</th>
+    <th class="sortable" onclick="sortTable(7)">金額</th>
+    <th class="sortable" onclick="sortTable(8)">入力者</th>
+    <th class="sortable" onclick="sortTable(9)">修正</th>
+</tr>
+</thead>
+<tbody id="details-table">
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="export-section">
+<button class="export-btn" id="export-btn">📊 結果をCSV出力</button>
+</div>
+</div>
+</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+<!-- 削除: 脆弱な難読化認証スクリプトを除去 -->
+<script>
+    // ソート機能用の変数
+    let sortDirection = {};
+    let currentTableData = [];
+
+    // シンプル認証システムの初期化
+    function initializeSimpleAuth() {
+        // シンプル認証システムが利用可能になるまで待機
+        if (typeof window.simpleAuth !== 'undefined') {
+            console.log('✅ シンプル認証システムが初期化されました');
+        } else {
+            // 認証システムが読み込まれるまで待機
+            setTimeout(initializeSimpleAuth, 100);
+        }
+    }
+
+    // ログアウト機能
+    function logout() {
+        if (window.simpleAuth) {
+            window.simpleAuth.logout();
+        } else {
+            // フォールバック: ページリロード
+            window.location.reload();
+        }
+    }
+
+    // パスワードリセット機能（管理者用）
+    function resetPassword() {
+        if (window.simpleAuth) {
+            window.simpleAuth.resetPassword();
+        }
+    }
+
+    // ソート機能
+    function sortTable(columnIndex) {
+        const table = document.getElementById("results-table");
+        const tbody = table.querySelector("tbody");
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        
+        if (rows.length === 0) return;
+        
+        // ソート方向を決定
+        if (sortDirection[columnIndex] === 'asc') {
+            sortDirection[columnIndex] = 'desc';
+        } else {
+            sortDirection[columnIndex] = 'asc';
+        }
+        
+        // ヘッダーのクラスを更新
+        const headers = table.querySelectorAll("th");
+        headers.forEach((header, index) => {
+            header.classList.remove('sort-asc', 'sort-desc');
+            if (index === columnIndex) {
+                header.classList.add(sortDirection[columnIndex] === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+        
+        // ソート実行
+        rows.sort((a, b) => {
+            const aText = a.cells[columnIndex].textContent.trim();
+            const bText = b.cells[columnIndex].textContent.trim();
+            
+            let comparison = 0;
+            
+            // 列ごとのソート処理
+            if (columnIndex === 0) {
+                // 日付列
+                const dateA = new Date(aText);
+                const dateB = new Date(bText);
+                comparison = dateA - dateB;
+            } else if ([5, 6, 7].includes(columnIndex)) { // Indices for Quantity, Unit Price, Amount
+                // 数値列 - 数値として比較
+                const numA = parseFloat(aText.replace(/[¥,]/g, '')) || 0;
+                const numB = parseFloat(bText.replace(/[¥,]/g, '')) || 0;
+                comparison = numA - numB;
+            } else {
+                // その他の列 - 文字列として比較
+                comparison = aText.localeCompare(bText, 'ja');
+            }
+            
+            return sortDirection[columnIndex] === 'asc' ? comparison : -comparison;
+        });
+        
+        // テーブルを更新
+        tbody.innerHTML = '';
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    class GoogleSheetsAPIAnalyzer {
+        constructor() {
+            console.log('=== GoogleSheetsAPIAnalyzer 初期化開始 ===');
+            
+            this.data = []; // スプレッドシートから読み込んだ全データ
+            this.searchResults = []; // 検索結果データ
+            this.statusDiv = document.getElementById('status-info');
+            this.stores = new Set();
+            this.sheetName = '貸借表'; // シート名
+            
+            console.log('基本設定完了');
+            console.log('自動認証開始');
+            
+            // 自動認証を開始
+            this.initAutoAuth();
+            
+            console.log('=== コンストラクタ完了 ===');
+        }
+
+        async initAutoAuth() {
+            console.log('=== 自動認証開始 ===');
+            
+            // ログアウトボタンのイベントリスナーを設定
+            this.setupLogoutListener();
+            
+            // 既にログイン済みかチェック
+            const isAuthenticated = sessionStorage.getItem('apiAuthenticated') === 'true';
+            console.log('既存認証状態:', isAuthenticated);
+            
+            if (isAuthenticated) {
+                console.log('既にAPI認証済み - メインアプリを表示');
+                await this.showMainApp();
+            } else {
+                console.log('API認証実行中...');
+                await this.performAutoAuth();
+            }
+            
+            console.log('=== 自動認証完了 ===');
+        }
+
+        async performAutoAuth() {
+            const autoLoginScreen = document.getElementById('auto-login-screen');
+            const statusElement = document.getElementById('auto-login-status');
+            
+            // ロード画面を表示
+            if (autoLoginScreen) {
+                autoLoginScreen.style.display = 'block';
+            }
+
+            try {
+                // 認証ステータス更新
+                statusElement.textContent = 'Google Sheets API に接続中...';
+                
+                // 少し待ってから認証開始（ユーザー体験向上）
+                await this.delay(1000);
+                
+                // APIキーの有効性をテスト
+                const isValidKey = await this.validateApiKey();
+                
+                if (isValidKey) {
+                    statusElement.textContent = '✅ API認証成功 - システムを初期化中...';
+                    await this.delay(500);
+                    
+                    // 認証成功をセッションに保存
+                    sessionStorage.setItem('apiAuthenticated', 'true');
+                    
+                    // メインアプリに移行
+                    await this.showMainApp();
+                    
+                } else {
+                    throw new Error('APIキーが無効または期限切れです');
+                }
+                
+            } catch (error) {
+                console.error('自動認証エラー:', error);
+                statusElement.textContent = `❌ 認証失敗: ${error.message}`;
+                
+                // エラー時の再試行ボタンを表示
+                setTimeout(() => {
+                    if (statusElement) {
+                        statusElement.innerHTML = `
+                            ❌ 認証に失敗しました<br>
+                            <button onclick="location.reload()" style="margin-top: 15px; padding: 10px 20px; background: #5a7c5a; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                                🔄 再試行
+                            </button>
+                        `;
+                    }
+                }, 2000);
+            }
+        }
+
+        async validateApiKey() {
+            // 統合データローダーの初期化で検証されるため、個別のAPI呼び出しは不要
+            console.log('📦 API検証: 統合データローダーの初期化で実行されます');
+            return true;
+        }
+
+        setupLogoutListener() {
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    this.handleLogout();
+                });
+                console.log('ログアウトリスナー設定完了');
+            }
+        }
+
+        handleLogout() {
+            // パスワード認証とAPI認証の両方をクリア
+            sessionStorage.removeItem('apiAuthenticated');
+            sessionStorage.removeItem('passwordAuth');
+            window.location.reload(); // ページをリロードして初期状態に戻る
+        }
+
+        async showMainApp() {
+            console.log('=== メインアプリ表示開始 ===');
+            
+            const autoLoginScreen = document.getElementById('auto-login-screen');
+            const mainApp = document.getElementById('main-app');
+            
+            console.log('自動ログイン画面要素:', autoLoginScreen);
+            console.log('メインアプリ要素:', mainApp);
+            
+            if (autoLoginScreen && mainApp) {
+                autoLoginScreen.style.display = 'none';
+                mainApp.style.display = 'block';
+                console.log('画面切り替え完了');
+                
+                // メインアプリを初期化
+                try {
+                    await this.init();
+                    console.log('メインアプリ初期化完了');
+                } catch (error) {
+                    console.error('メインアプリ初期化エラー:', error);
+                }
+            } else {
+                console.error('画面要素が見つかりません');
+                console.error('自動ログイン画面:', autoLoginScreen);
+                console.error('メインアプリ:', mainApp);
+            }
+            
+            console.log('=== メインアプリ表示完了 ===');
+        }
+
+        delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async init() {
+            this.log('システム初期化中...', 'loading');
+            this.setupEventListeners();
+            this.setDefaultDates();
+            
+            // セキュアAPIを使用して接続
+            await this.connectToGoogleSheets();
+        }
+
+        debugLog(message, data = null) {
+            const debugDiv = document.getElementById('debug-info');
+            const timestamp = new Date().toLocaleTimeString();
+            let logEntry = `[${timestamp}] ${message}`;
+            if (data) {
+                logEntry += `\n${JSON.stringify(data, null, 2)}`;
+            }
+            
+            const logElement = document.createElement('div');
+            logElement.style.marginBottom = '10px';
+            logElement.style.paddingBottom = '10px';
+            logElement.style.borderBottom = '1px solid #e9ecef';
+            logElement.textContent = logEntry;
+            debugDiv.appendChild(logElement);
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+            
+            console.log(message, data);
+        }
+
+        showDebugInfo() {
+            const debugBtn = document.getElementById('debug-btn');
+            const debugInfo = document.getElementById('debug-info');
+            
+            debugBtn.style.display = 'block';
+            debugBtn.onclick = () => {
+                debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+                debugBtn.textContent = debugInfo.style.display === 'none' ? '🐛 詳細デバッグ情報を表示' : '🐛 デバッグ情報を非表示';
+            };
+        }
+
+        log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            if (type === 'loading') {
+                this.statusDiv.className = 'status-loading';
+                this.statusDiv.innerHTML = `<span class="loading-spinner"></span>${logEntry}`;
+            } else {
+                this.statusDiv.className = type === 'error' ? 'status-error' : type === 'success' ? 'status-success' : 'status-info';
+                this.statusDiv.textContent = logEntry;
+            }
+            
+            console.log(logEntry);
+        }
+
+        // 他のシステムにデータを配布
+        async distributeDataToOtherSystems(unifiedData) {
+            console.log('📦 他のシステムにデータを配布中...');
+            
+            try {
+                // グローバルキャッシュとして保存
+                window._globalDataCache = {
+                    names: unifiedData.names,
+                    items: unifiedData.items,
+                    stores: Array.from(unifiedData.stores),
+                    timestamp: Date.now()
+                };
+                
+                // main.js の関数に直接データを提供
+                if (typeof window.renderNameList === 'function') {
+                    window.renderNameList(unifiedData.names);
+                    console.log('📋 名前リストを配布完了');
+                }
+                
+                if (typeof window.renderItemList === 'function') {
+                    window.renderItemList(unifiedData.items);
+                    console.log('📋 品目リストを配布完了');
+                }
+                
+                // キャッシュ変数を設定
+                if (typeof window.cachedNames !== 'undefined') {
+                    window.cachedNames = unifiedData.names;
+                }
+                if (typeof window.cachedItems !== 'undefined') {
+                    window.cachedItems = unifiedData.items;
+                }
+                
+                console.log('✅ データ配布完了');
+            } catch (error) {
+                console.error('❌ データ配布エラー:', error);
+            }
+        }
+
+        async connectToGoogleSheets() {
+            this.log('Google Sheets API に接続中...', 'loading');
+            this.showDebugInfo();
+
+            try {
+                // 統合データローダーを使用して最適化されたデータ取得
+                this.debugLog('統合データローダーを使用してデータ取得開始');
+
+                const unifiedData = await window.unifiedDataLoader.loadAllData();
+
+                this.debugLog('統合データ取得完了', unifiedData.stats);
+
+                if (!unifiedData.rawData || unifiedData.rawData.length === 0) {
+                    throw new Error('スプレッドシートにデータが見つかりません。');
+                }
+
+                this.log('データ取得成功', 'success');
+                
+                // 統合データから必要な情報を設定（management-main-42と同じ処理方法）
+                const values = unifiedData.rawData;
+                
+                // ヘッダー行から列インデックスを取得
+                const headers = values[0] || [];
+                const getColumnIndex = (aliases) => {
+                    for (const alias of aliases) {
+                        const index = headers.findIndex(header => {
+                            if (header === alias) return true;
+                            if (header.toLowerCase().includes(alias.toLowerCase()) || 
+                                alias.toLowerCase().includes(header.toLowerCase())) return true;
+                            if (alias === 'date' && (header === '›' || header.includes('日付'))) return true;
+                            return false;
+                        });
+                        if (index !== -1) return index;
+                    }
+                    return -1;
+                };
+
+                const dateIndex = getColumnIndex(['›', '日付', 'date', '取引日']);
+                const nameIndex = getColumnIndex(['名前', 'name', '入力者']);
+                const lenderIndex = getColumnIndex(['貸主', 'lender']);
+                const borrowerIndex = getColumnIndex(['借主', 'borrower']);
+                const categoryIndex = getColumnIndex(['カテゴリー', 'category']);
+                const itemIndex = getColumnIndex(['品目', 'item']);
+                const quantityIndex = getColumnIndex(['個/本/g', '個/本', 'quantity']);
+                const unitPriceIndex = getColumnIndex(['単価', 'unitPrice']);
+                const amountIndex = getColumnIndex(['金額', 'amount']);
+                const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']);
+                const correctionIndex = getColumnIndex(['修正', 'correction']);
+
+                console.log('🔍 列インデックス:', { amountIndex, dateIndex, lenderIndex, borrowerIndex });
+
+                // データ行を処理（ヘッダーをスキップ）
+                this.data = values.slice(1).map((row, index) => {
+                    const getValue = (colIndex) => colIndex !== -1 && row[colIndex] ? row[colIndex] : '';
+                    
+                    let extractedDate = '';
+                    if (dateIndex !== -1 && row[dateIndex]) {
+                        extractedDate = this.extractDateFromDateTime(row[dateIndex]);
+                    } else if (inputDateIndex !== -1 && row[inputDateIndex]) {
+                        extractedDate = this.extractDateFromDateTime(row[inputDateIndex]);
+                    }
+
+                    const amountValue = getValue(amountIndex);
+                    const parsedAmount = this.parseAmount(amountValue);
+                    
+                    console.log('🔍 データ処理:', {
+                        row: index + 2,
+                        amountValue,
+                        parsedAmount,
+                        lender: getValue(lenderIndex),
+                        borrower: getValue(borrowerIndex)
+                    });
+
+                    return {
+                        date: extractedDate,
+                        name: getValue(nameIndex),
+                        lender: this.normalizeStoreName(getValue(lenderIndex).trim()),
+                        borrower: this.normalizeStoreName(getValue(borrowerIndex).trim()),
+                        category: getValue(categoryIndex),
+                        item: getValue(itemIndex),
+                        quantity: String(getValue(quantityIndex)), // 🔍 数量を明示的に文字列として保存
+                        unitPrice: getValue(unitPriceIndex),
+                        amount: parsedAmount,
+                        originalAmount: amountValue,
+                        inputDate: getValue(inputDateIndex),
+                        correction: getValue(correctionIndex),
+                        originalRowIndex: index + 2
+                    };
+                });
+                
+                this.stores = unifiedData.stores;
+                
+                this.populateStoreDropdown();
+
+                // 他のシステムに必要なデータを提供
+                await this.distributeDataToOtherSystems(unifiedData);
+
+                this.log(`データ読み込み完了！${this.data.length}件のレコード、${this.stores.size}店舗`, 'success');
+
+                document.getElementById('search-section').style.display = 'block';
+
+            } catch (error) {
+                this.log(`接続エラー: ${error.message}`, 'error');
+                this.debugLog('接続エラー詳細', error);
+            }
+        }
+
+        async processSheetData(values) {
+            this.log('データを解析中...', 'loading');
+            
+            if (values.length === 0) {
+                throw new Error('データが空です');
+            }
+
+            // ヘッダー行を取得
+            const headers = values[0];
+            this.debugLog('ヘッダー行', headers);
+            
+            // フィールドマッピング
+            const getColumnIndex = (aliases) => {
+                for (const alias of aliases) {
+                    const index = headers.findIndex(header => {
+                        if (header === alias) return true;
+                        if (header.toLowerCase().includes(alias.toLowerCase()) || 
+                            alias.toLowerCase().includes(header.toLowerCase())) return true;
+                        if (alias === 'date' && (header === '›' || header.includes('日付'))) return true;
+                        return false;
+                    });
+                    if (index !== -1) {
+                        this.debugLog(`フィールドマッピング成功: ${aliases[0]} -> ${headers[index]} (列${index})`);
+                        return index;
+                    }
+                }
+                this.debugLog(`フィールドマッピング失敗: ${aliases[0]}`);
+                return -1;
+            };
+
+            const dateIndex = getColumnIndex(['›', '日付', 'date', '取引日']); // A列
+            const nameIndex = getColumnIndex(['名前', 'name', '入力者']); // B列
+            const lenderIndex = getColumnIndex(['貸主', 'lender']); // C列
+            const borrowerIndex = getColumnIndex(['借主', 'borrower']); // D列
+            const categoryIndex = getColumnIndex(['カテゴリー', 'category']); // E列
+            const itemIndex = getColumnIndex(['品目', 'item']); // F列
+            const quantityIndex = getColumnIndex(['個/本/g', '個/本', 'quantity']); // G列
+            const unitPriceIndex = getColumnIndex(['単価', 'unitPrice']); // H列
+            const amountIndex = getColumnIndex(['金額', 'amount']); // I列
+            const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']); // J列
+            const correctionIndex = getColumnIndex(['修正', 'correction']); // K列
+
+            this.debugLog('フィールドインデックス', {
+                dateIndex, nameIndex, lenderIndex, borrowerIndex, 
+                categoryIndex, itemIndex, quantityIndex, unitPriceIndex, 
+                amountIndex, inputDateIndex, correctionIndex
+            });
+
+            // データ行を処理（ヘッダーをスキップ）
+            this.data = values.slice(1).map((row, index) => {
+                const getValue = (colIndex) => colIndex !== -1 && row[colIndex] ? row[colIndex] : '';
+                
+                let extractedDate = '';
+                if (dateIndex !== -1 && row[dateIndex]) {
+                    extractedDate = this.extractDateFromDateTime(row[dateIndex]);
+                } else if (inputDateIndex !== -1 && row[inputDateIndex]) {
+                    extractedDate = this.extractDateFromDateTime(row[inputDateIndex]);
+                }
+
+                const processedRow = {
+                    date: extractedDate,
+                    name: getValue(nameIndex),
+                    lender: this.normalizeStoreName(getValue(lenderIndex).trim()),
+                    borrower: this.normalizeStoreName(getValue(borrowerIndex).trim()),
+                    category: getValue(categoryIndex),
+                    item: getValue(itemIndex),
+                    quantity: String(getValue(quantityIndex)), // 🔍 数量を明示的に文字列として保存
+                    unitPrice: getValue(unitPriceIndex),
+                    amount: this.parseAmount(getValue(amountIndex)),
+                    originalAmount: getValue(amountIndex),
+                    inputDate: getValue(inputDateIndex),
+                    correction: getValue(correctionIndex), // 修正フラグを追加
+                    originalRowIndex: index + 2 // 🔥 追加: スプレッドシートの実際の行番号
+                };
+
+                // 店舗名を収集
+                if (processedRow.lender) this.stores.add(processedRow.lender);
+                if (processedRow.borrower) this.stores.add(processedRow.borrower);
+
+                if (index < 5) {
+                    this.debugLog(`処理済みデータサンプル（行${index + 2}）`, processedRow);
+                }
+
+                return processedRow;
+            }).filter((row, index) => {
+                const isValid = row.date && (row.lender || row.borrower);
+                if (!isValid && index < 10) {
+                    this.debugLog(`無効行をフィルタ（行${index + 2}）`, row);
+                }
+                return isValid;
+            });
+
+            this.debugLog(`最終データ件数: ${this.data.length}件`);
+            this.debugLog('検出された店舗一覧', Array.from(this.stores).sort());
+        }
+
+        // 店舗名の正規化
+        normalizeStoreName(storeName) {
+            if (!storeName) return '';
+            
+            // まず基本的なクリーニング
+            let normalized = storeName.trim().toUpperCase();
+            
+            const normalizations = {
+                'クラウディア２': 'Claudia2',
+                'クラウディア2': 'Claudia2',
+                'マルゴ': 'MARUGO',
+                'マルゴセカンド': 'MARUGO2',
+                
+                // BISTRO CAVA系の正規化を追加
+                'BISTRO CAVA,CAVA': 'BISTRO CAVACAVA',
+                'BISTRO CAVA CAVA': 'BISTRO CAVACAVA',
+                'BISTROCAVACAVA': 'BISTRO CAVACAVA',
+                'BISTRO CAVA・CAVA': 'BISTRO CAVACAVA',
+                
+                // その他の正規化ルール
+                'MARUGO GRANDE': 'MARUGO GRANDE',
+                'MARUGO MARUNOUCHI': 'MARUGO MARUNOUCHI',
+                'MARUGO YOTSUYA': 'MARUGO YOTSUYA',
+                'MARUGO-D': 'MARUGO-D',
+                'MARUGO-OTTO': 'MARUGO-OTTO'
+            };
+            
+            // 完全一致での正規化
+            if (normalizations[normalized]) {
+                return normalizations[normalized];
+            }
+            
+            // BISTRO CAVA系の部分的正規化
+            if (normalized.includes('BISTRO') && normalized.includes('CAVA')) {
+                return 'BISTRO CAVACAVA';
+            }
+            
+            return storeName; // 元の形式を保持
+        }
+
+        extractDateFromDateTime(dateTimeStr) {
+            if (!dateTimeStr) return '';
+            
+            try {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateTimeStr)) {
+                    return dateTimeStr;
+                }
+                
+                const date = new Date(dateTimeStr);
+                if (!isNaN(date.getTime())) {
+                    // タイムゾーン問題を回避：ローカル日付として処理
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                }
+                
+                const japaneseMatch = dateTimeStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+                if (japaneseMatch) {
+                    const [, year, month, day] = japaneseMatch;
+                    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                }
+                
+                const slashMatch = dateTimeStr.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+                if (slashMatch) {
+                    const [, year, month, day] = slashMatch;
+                    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                }
+                
+                const hyphenMatch = dateTimeStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+                if (hyphenMatch) {
+                    const [, year, month, day] = hyphenMatch;
+                    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                }
+                
+                return '';
+            } catch (error) {
+                return '';
+            }
+        }
+
+        parseAmount(amountStr) {
+            if (!amountStr) return 0;
+            const normalized = amountStr.toString().replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
+            const cleaned = normalized.replace(/[,\s]/g, '');
+            const result = parseFloat(cleaned) || 0;
+            
+            // 🔍 数値解析デバッグ（重要な変換のみ）
+            if (result > 1000 || amountStr.toString().includes(',') || amountStr.toString().length > 5) {
+                console.log('🔍 parseAmount:', {
+                    input: amountStr,
+                    normalized: normalized,
+                    cleaned: cleaned,
+                    result: result
+                });
+            }
+            
+            return result;
+        }
+
+        populateStoreDropdown() {
+            const storeSelect = document.getElementById('store-name');
+            
+            // 既存のオプションをクリア
+            while (storeSelect.children.length > 1) {
+                storeSelect.removeChild(storeSelect.lastChild);
+            }
+
+            // 店舗をソートして追加
+            const sortedStores = Array.from(this.stores).sort();
+            sortedStores.forEach(store => {
+                const option = document.createElement('option');
+                option.value = store;
+                option.textContent = store;
+                storeSelect.appendChild(option);
+            });
+
+            this.debugLog('店舗プルダウン設定完了', sortedStores);
+            this.log(`店舗プルダウン設定完了: ${sortedStores.length}店舗`, 'success');
+        }
+
+        setupEventListeners() {
+            const searchForm = document.getElementById('search-form');
+            const exportBtn = document.getElementById('export-btn');
+            const allDataBtn = document.getElementById('all-data-btn');
+            const correctionSearchBtn = document.getElementById('correction-search-btn');
+
+            searchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.performSearch();
+            });
+
+            allDataBtn.addEventListener('click', () => {
+                this.showAllData();
+            });
+
+            correctionSearchBtn.addEventListener('click', () => {
+                this.searchCorrections();
+            });
+
+            exportBtn.addEventListener('click', () => {
+                this.exportResults();
+            });
+        }
+
+        setDefaultDates() {
+            const today = new Date();
+            const oneMonthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+            
+            // タイムゾーン問題を回避：ローカル日付として処理
+            const formatDate = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+            
+            document.getElementById('start-date').value = formatDate(oneMonthAgo);
+            document.getElementById('end-date').value = formatDate(today);
+        }
+
+        // 修正データのみを検索する機能（ロジック改善版）
+        searchCorrections() {
+            this.log('修正データを検索中...', 'loading');
+            
+            try {
+                if (!this.data || this.data.length === 0) {
+                    this.log('データを先に読み込んでください。「📋 全データを表示」をクリックしてください。', 'error');
+                    return;
+                }
+
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                const storeName = document.getElementById('store-name').value;
+                
+                let results = this.data.filter(row => {
+                    // 1. 修正マークの有無をチェック
+                    const isCorrectionMarked = row.correction && row.correction.includes('✏️修正');
+                    if (!isCorrectionMarked) {
+                        return false;
+                    }
+
+                    // 2. 日付フィルター（より厳密な判定）
+                    const rowDate = row.date ? new Date(row.date) : null;
+                    
+                    // 開始日が指定されていて、行に日付がないか、日付が開始日より前の場合は除外
+                    if (startDate && (!rowDate || rowDate < new Date(startDate))) {
+                        return false;
+                    }
+                    
+                    // 終了日が指定されていて、行に日付がないか、日付が終了日より後の場合は除外
+                    if (endDate) {
+                        const endOfDay = new Date(endDate);
+                        endOfDay.setHours(23, 59, 59, 999); // 終了日の終わりまでを範囲に含める
+                        if (!rowDate || rowDate > endOfDay) {
+                            return false;
+                        }
+                    }
+
+                    // 3. 店舗名による絞り込み
+                    if (storeName) {
+                        return row.lender === storeName || row.borrower === storeName;
+                    }
+
+                    // 上記のフィルターをすべて通過した場合、結果に含める
+                    return true;
+                });
+
+                this.searchResults = results;
+                
+                const displayTitle = storeName ? `${storeName}の修正データ詳細` : '修正データ詳細（全店舗）';
+                
+                this.log(`修正データ検索完了: ${this.searchResults.length}件の修正取引が見つかりました`, 'success');
+                
+                hideSummary();
+                this.displayAllDataResults(displayTitle);
+                
+                if (results.length === 0) {
+                    const message = storeName 
+                        ? `${storeName}の修正データが指定された期間内に見つかりませんでした。`
+                        : '指定された期間内に修正データが見つかりませんでした。';
+                    this.log(message, 'info');
+                }
+            }
+            catch (error) {
+                console.error('修正検索エラー:', error);
+                this.log('修正データの検索中にエラーが発生しました。', 'error');
+            }
+        }
+
+        // 店舗別検索機能
+        performSearch() { 
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const storeName = document.getElementById('store-name').value;
+
+            if (!startDate || !endDate) {
+                this.log('開始日と終了日を両方入力してください', 'error');
+                return;
+            }
+            
+            this.log('検索実行中...', 'loading');
+
+            this.searchResults = this.data.filter(row => {
+                const dateMatch = row.date >= startDate && row.date <= endDate;
+                // 店舗名が選択されている場合のみ店舗で絞り込み
+                const storeMatch = storeName ? (row.lender === storeName || row.borrower === storeName) : true; 
+                return dateMatch && storeMatch;
+            });
+
+            this.log(`検索完了: ${this.searchResults.length}件の取引が見つかりました`, 'success');
+            this.displayResults(storeName || "全店舗"); // 店舗名がない場合は「全店舗」と表示
+        }
+
+        showAllData() {
+            this.log('全データ表示中...', 'loading');
+            // 真の全データ表示（期間フィルタも適用しない）
+            this.searchResults = [...this.data]; // 全データをコピー
+
+            this.log(`全データ表示: ${this.searchResults.length}件の取引を表示中`, 'success');
+            this.displayAllDataResults("全取引詳細");
+        }
+
+        displayResults(storeName) {
+            const resultsSection = document.getElementById('results-section');
+            resultsSection.style.display = 'block';
+
+            // ヘッダーとサブタイトルを店舗検索用に設定
+            document.getElementById('details-title').textContent = `${storeName}の取引詳細`;
+            document.getElementById('details-subtitle').innerHTML = `
+                <small style="color: white; font-size: 12px;">
+                    期間内の取引データ<br>
+                    ▶ 各列をクリックでソート<br>
+                    ▶ 各行をクリックでデータ修正
+                </small>
+            `;
+
+            showSummary(); // サマリーを表示する関数を呼び出す
+            this.updateSummaryCards(storeName);
+            this.updateDetailsTable(false); // 店舗別検索モード
+            
+            // ソート状態をリセット
+            sortDirection = {};
+            const headers = document.querySelectorAll("#results-table th");
+            headers.forEach(header => {
+                header.classList.remove('sort-asc', 'sort-desc');
+            });
+        }
+
+        displayAllDataResults(titleText = "全取引詳細") { // タイトルを引数で受け取る
+            const resultsSection = document.getElementById('results-section');
+            resultsSection.style.display = 'block';
+
+            // ヘッダーとサブタイトルを更新
+            document.getElementById('details-title').textContent = titleText;
+            
+            // すべての詳細画面に統一した説明を追加
+            document.getElementById('details-subtitle').innerHTML = `
+                <small style="color: white; font-size: 12px;">
+                    期間内の取引データ<br>
+                    ▶ 各列をクリックでソート<br>
+                    ▶ 各行をクリックでデータ修正
+                </small>
+            `;
+
+            hideSummary(); // サマリーを非表示にする関数を呼び出す
+            this.updateDetailsTable(true); // 全データ表示モード
+            
+            // ソート状態をリセット
+            sortDirection = {};
+            const headers = document.querySelectorAll("#results-table th");
+            headers.forEach(header => {
+                header.classList.remove('sort-asc', 'sort-desc');
+            });
+        }
+
+        updateAllDataSummaryCards() {
+            const summaryCards = document.getElementById('summary-cards');
+            
+            // カテゴリー別集計用オブジェクト
+            const totalByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+            const countByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+            const storeTransactions = {};
+            
+            let totalAmount = 0;
+            
+            this.searchResults.forEach(row => {
+                // カテゴリーの正規化
+                let category = row.category || 'その他';
+                const item = (row.item || '').toLowerCase();
+                
+                // 品目から飲料を判定
+                if (category.includes('飲料') || category.includes('ドリンク') || category.includes('酒') ||
+                    item.includes('酒') || item.includes('ビール') || item.includes('ワイン') || 
+                    item.includes('日本酒') || item.includes('焼酎') || item.includes('ウイスキー') ||
+                    item.includes('カクテル') || item.includes('チューハイ') || item.includes('サワー') ||
+                    item.includes('ジュース') || item.includes('コーヒー') || item.includes('茶') ||
+                    item.includes('水') || item.includes('ソーダ') || item.includes('コーラ')) {
+                    category = '飲料';
+                } 
+                // 食材の判定
+                else if (category.includes('食材') || category.includes('食品') ||
+                    item.includes('肉') || item.includes('魚') || item.includes('野菜') ||
+                    item.includes('米') || item.includes('パン') || item.includes('麺') ||
+                    item.includes('調味料') || item.includes('油') || item.includes('塩') ||
+                    item.includes('砂糖') || item.includes('醤油') || item.includes('味噌') ||
+                    item.includes('だし') || item.includes('スパイス') || item.includes('香辛料') ||
+                    item.includes('人参') || item.includes('玉ねぎ') || item.includes('じゃがいも') ||
+                    item.includes('アサリ') || item.includes('鮭') || item.includes('麻') || 
+                    item.includes('オリーブオイル')) {
+                    category = '食材';
+                } 
+                // その他
+                else {
+                    category = 'その他';
+                }
+                
+                totalAmount += row.amount;
+                totalByCategory[category] = (totalByCategory[category] || 0) + row.amount;
+                countByCategory[category] = (countByCategory[category] || 0) + 1;
+
+                // 店舗別統計
+                if (row.lender) {
+                    if (!storeTransactions[row.lender]) storeTransactions[row.lender] = { lent: 0, borrowed: 0, count: 0 };
+                    storeTransactions[row.lender].lent += row.amount;
+                    storeTransactions[row.lender].count++;
+                }
+                if (row.borrower) {
+                    if (!storeTransactions[row.borrower]) storeTransactions[row.borrower] = { lent: 0, borrowed: 0, count: 0 };
+                    storeTransactions[row.borrower].borrowed += row.amount;
+                    storeTransactions[row.borrower].count++;
+                }
+            });
+
+            // 最も活発な店舗（取引件数ベース）
+            const mostActiveStore = Object.entries(storeTransactions)
+                .sort((a, b) => b[1].count - a[1].count)[0];
+
+            // 内訳表示用のヘルパー関数
+            const createBreakdown = (categoryData, showCounts = false, countData = null) => {
+                const categories = ['食材', '飲料', 'その他'];
+                return categories
+                    .filter(category => (categoryData[category] || 0) !== 0)
+                    .map(category => {
+                        const amount = categoryData[category] || 0;
+                        const countText = showCounts && countData && (countData[category] || 0) > 0
+                            ? ` (${countData[category]}件)` 
+                            : '';
+                        return `<span class="breakdown-item">${category}: ¥${amount.toLocaleString()}${countText}</span>`;
+                    })
+                    .join('<br>');
+            };
+
+            summaryCards.innerHTML = `
+                <div class="summary-card neutral">
+                    <h3>総取引金額</h3>
+                    <div class="value">¥${totalAmount.toLocaleString()}</div>
+                    <p>${this.searchResults.length}件</p>
+                    <div class="breakdown">
+                        ${createBreakdown(totalByCategory, true, countByCategory)}
+                    </div>
+                </div>
+                <div class="summary-card positive">
+                    <h3>取引店舗数</h3>
+                    <div class="value">${Object.keys(storeTransactions).length}</div>
+                    <p>店舗</p>
+                    <div class="breakdown">
+                        最多取引: ${mostActiveStore ? mostActiveStore[0] : 'なし'}<br>
+                        ${mostActiveStore ? `(${mostActiveStore[1].count}件)` : ''}
+                    </div>
+                </div>
+                <div class="summary-card neutral">
+                    <h3>平均取引額</h3>
+                    <div class="value">¥${this.searchResults.length > 0 ? Math.round(totalAmount / this.searchResults.length).toLocaleString() : '0'}</div>
+                    <p>1件あたり</p>
+                    <div class="breakdown">
+                        ${(() => {
+                            const categories = ['食材', '飲料', 'その他'];
+                            return categories
+                                .filter(category => (countByCategory[category] || 0) > 0)
+                                .map(category => {
+                                    const avg = Math.round(totalByCategory[category] / countByCategory[category]);
+                                    return `<span class="breakdown-item">${category}: ¥${avg.toLocaleString()}</span>`;
+                                })
+                                .join('<br>');
+                        })()}
+                    </div>
+                </div>
+                <div class="summary-card negative">
+                    <h3>データ範囲</h3>
+                    <div class="value" style="font-size: 1.2rem;">全期間</div>
+                    <div class="value" style="font-size: 1.2rem;">全店舗</div>
+                    <div class="breakdown">
+                        完全なデータセット
+                    </div>
+                </div>
+            `;
+        }
+
+        updateSummaryCards(storeName) {
+            const summaryCards = document.getElementById('summary-cards');
+            
+            // カテゴリー別集計用オブジェクト
+            const lentByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+            const borrowedByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+            const lentCountByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+            const borrowedCountByCategory = { '食材': 0, '飲料': 0, 'その他': 0 };
+            
+            let totalLent = 0;
+            let totalBorrowed = 0;
+            
+            // 🔍 初期値確認
+            console.log('🔍 初期値:', { totalLent: typeof totalLent, totalBorrowed: typeof totalBorrowed });
+            
+            this.searchResults.forEach(row => {
+                // カテゴリーの正規化
+                let category = row.category || 'その他';
+                const item = (row.item || '').toLowerCase();
+                
+                // 品目から飲料を判定
+                if (category.includes('飲料') || category.includes('ドリンク') || category.includes('酒') ||
+                    item.includes('酒') || item.includes('ビール') || item.includes('ワイン') || 
+                    item.includes('日本酒') || item.includes('焼酎') || item.includes('ウイスキー') ||
+                    item.includes('カクテル') || item.includes('チューハイ') || item.includes('サワー') ||
+                    item.includes('ジュース') || item.includes('コーヒー') || item.includes('茶') ||
+                    item.includes('水') || item.includes('ソーダ') || item.includes('コーラ')) {
+                    category = '飲料';
+                } 
+                // 食材の判定
+                else if (category.includes('食材') || category.includes('食品') ||
+                    item.includes('肉') || item.includes('魚') || item.includes('野菜') ||
+                    item.includes('米') || item.includes('パン') || item.includes('麺') ||
+                    item.includes('調味料') || item.includes('油') || item.includes('塩') ||
+                    item.includes('砂糖') || item.includes('醤油') || item.includes('味噌') ||
+                    item.includes('だし') || item.includes('スパイス') || item.includes('香辛料') ||
+                    item.includes('人参') || item.includes('玉ねぎ') || item.includes('じゃがいも') ||
+                    item.includes('アサリ') || item.includes('鮭') || item.includes('麻') || 
+                    item.includes('オリーブオイル')) {
+                    category = '食材';
+                } 
+                // その他
+                else {
+                    category = 'その他';
+                }
+                
+                if (row.lender === storeName) {
+                    console.log('🔍 貸出加算:', { 
+                        amount: row.amount, 
+                        type: typeof row.amount,
+                        originalAmount: row.originalAmount
+                    });
+                    
+                    totalLent += row.amount;
+                    lentByCategory[category] = (lentByCategory[category] || 0) + row.amount;
+                    lentCountByCategory[category] = (lentCountByCategory[category] || 0) + 1;
+                } else if (row.borrower === storeName) {
+                    console.log('🔍 借入加算:', { 
+                        amount: row.amount, 
+                        type: typeof row.amount,
+                        originalAmount: row.originalAmount
+                    });
+                    
+                    totalBorrowed += row.amount;
+                    borrowedByCategory[category] = (borrowedByCategory[category] || 0) + row.amount;
+                    borrowedCountByCategory[category] = (borrowedCountByCategory[category] || 0) + 1;
+                }
+            });
+
+            const balance = totalLent - totalBorrowed;
+            const balanceByCategory = {
+                '食材': (lentByCategory['食材'] || 0) - (borrowedByCategory['食材'] || 0),
+                '飲料': (lentByCategory['飲料'] || 0) - (borrowedByCategory['飲料'] || 0),
+                'その他': (lentByCategory['その他'] || 0) - (borrowedByCategory['その他'] || 0)
+            };
+            
+            // 🔍 デバッグ: 計算結果を確認
+            console.log('🔍 集計デバッグ for', storeName);
+            console.log('検索結果数:', this.searchResults.length);
+            console.log('貸出合計:', totalLent);
+            console.log('借入合計:', totalBorrowed);
+            console.log('残高:', balance);
+            
+            // 🔍 各取引の詳細確認（最初の3件）
+            console.log('🔍 取引サンプル:');
+            this.searchResults.slice(0, 3).forEach((row, i) => {
+                const isLender = row.lender === storeName;
+                const isBorrower = row.borrower === storeName;
+                console.log(`取引${i+1}:`, {
+                    lender: row.lender,
+                    borrower: row.borrower,
+                    amount: row.amount,
+                    originalAmount: row.originalAmount,
+                    isLender: isLender,
+                    isBorrower: isBorrower,
+                    店舗一致: isLender || isBorrower
+                });
+            });
+
+            // 内訳表示用のヘルパー関数
+            const createBreakdown = (categoryData, showCounts = false, countData = null) => {
+                const categories = ['食材', '飲料', 'その他'];
+                return categories
+                    .filter(category => (categoryData[category] || 0) !== 0)
+                    .map(category => {
+                        const amount = categoryData[category] || 0;
+                        const countText = showCounts && countData && (countData[category] || 0) > 0
+                            ? ` (${countData[category]}件)` 
+                            : '';
+                        return `<span class="breakdown-item">${category}: ¥${amount.toLocaleString()}${countText}</span>`;
+                    })
+                    .join('<br>');
+            };
+
+            summaryCards.innerHTML = `
+                <div class="summary-card positive">
+                    <h3>貸出合計</h3>
+                    <div class="value">¥${totalLent.toLocaleString()}</div>
+                    <p>${this.searchResults.filter(row => row.lender === storeName).length}件</p>
+                    <div class="breakdown">
+                        ${createBreakdown(lentByCategory, true, lentCountByCategory)}
+                    </div>
+                </div>
+                <div class="summary-card negative">
+                    <h3>借入合計</h3>
+                    <div class="value">¥${totalBorrowed.toLocaleString()}</div>
+                    <p>${this.searchResults.filter(row => row.borrower === storeName).length}件</p>
+                    <div class="breakdown">
+                        ${createBreakdown(borrowedByCategory, true, borrowedCountByCategory)}
+                    </div>
+                </div>
+                <div class="summary-card ${balance >= 0 ? 'positive' : 'negative'}">
+                    <h3>残高</h3>
+                    <div class="value">¥${balance.toLocaleString()}</div>
+                    <p> </p>
+                    <div class="breakdown">
+                        ${createBreakdown(balanceByCategory)}
+                    </div>
+                </div>
+                <div class="summary-card neutral">
+                    <h3>取引件数</h3>
+                    <div class="value">${this.searchResults.length}</div>
+                    <p>件</p>
+                    <div class="breakdown">
+                        ${(() => {
+                            const totalCountByCategory = {
+                                '食材': (lentCountByCategory['食材'] || 0) + (borrowedCountByCategory['食材'] || 0),
+                                '飲料': (lentCountByCategory['飲料'] || 0) + (borrowedCountByCategory['飲料'] || 0),
+                                'その他': (lentCountByCategory['その他'] || 0) + (borrowedCountByCategory['その他'] || 0)
+                            };
+                            
+                            const categories = ['食材', '飲料', 'その他'];
+                            return categories
+                                .filter(category => (totalCountByCategory[category] || 0) > 0)
+                                .map(category => `<span class="breakdown-item">${category}: ${totalCountByCategory[category]}件</span>`)
+                                .join('<br>');
+                        })()}
+                    </div>
+                </div>
+            `;
+        }
+
+        updateDetailsTable(isAllData = false) {
+            const detailsTable = document.getElementById('details-table');
+            
+            if (this.searchResults.length === 0) {
+                detailsTable.innerHTML = '<tr><td colspan="10" class="no-results">検索条件に該当するデータがありません</td></tr>';
+                return;
+            }
+
+            detailsTable.innerHTML = this.searchResults.map((row, index) => {
+                const correctionDisplay = row.correction || ''; 
+                const unitPriceDisplay = row.unitPrice ? '¥' + this.parseAmount(row.unitPrice).toLocaleString() : '';
+
+                if (isAllData) {
+                    // 全データ表示時: 貸主→借主の形で表示
+                    return `
+                        <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;" title="クリックして逆取引修正">
+                            <td>${row.date}</td>
+                            <td><span class="type-tag type-貸借">貸借</span></td>
+                            <td>${row.lender} → ${row.borrower}</td>
+                            <td>${row.item}</td>
+                            <td>${row.category}</td>
+                            <td>${row.quantity || ''}</td>
+                            <td>${unitPriceDisplay}</td>
+                            <td class="amount">¥${row.amount.toLocaleString()}</td>
+                            <td>${row.name}</td>
+                            <td>${correctionDisplay}</td>
+                        </tr>
+                    `;
+                } else {
+                    // 店舗別検索時: 従来の表示
+                    const storeName = document.getElementById('store-name').value;
+                    const isLender = row.lender === storeName;
+                    const transactionType = isLender ? '貸出' : '借入';
+                    const counterpart = isLender ? row.borrower : row.lender;
+                    const amountClass = isLender ? 'positive' : 'negative';
+
+                    return `
+                        <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;" title="クリックして逆取引修正">
+                            <td>${row.date}</td>
+                            <td><span class="type-tag type-${transactionType}">${transactionType}</span></td>
+                            <td>${counterpart}</td>
+                            <td>${row.item}</td>
+                            <td>${row.category}</td>
+                            <td>${row.quantity || ''}</td>
+                            <td>${unitPriceDisplay}</td>
+                            <td class="amount ${amountClass}">¥${row.amount.toLocaleString()}</td>
+                            <td>${row.name}</td>
+                            <td>${correctionDisplay}</td>
+                        </tr>
+                    `;
+                }
+            }).join('');
+
+            // テーブルデータを保存（ソート用）
+            currentTableData = this.searchResults;
+            
+            // 行クリックイベントを追加
+            this.addRowClickEvents();
+        }
+
+        // 行クリックイベントを追加（修正版）
+        addRowClickEvents() {
+            const dataRows = document.querySelectorAll('.data-row');
+            
+            dataRows.forEach(rowElement => { // 変数名を 'row' から 'rowElement' に変更
+                rowElement.addEventListener('click', (e) => {
+                    // イベントバブリングを防止
+                    e.stopPropagation();
+                    
+                    // data-original-row-index から直接スプレッドシートの行番号を取得
+                    const originalRowIndex = parseInt(rowElement.dataset.originalRowIndex);
+                    
+                    // this.searchResults から対応するデータを検索
+                    const selectedData = this.searchResults.find(data => data.originalRowIndex === originalRowIndex);
+
+                    if (!selectedData) {
+                        console.error('選択されたデータが見つかりません', {
+                            originalRowIndex: originalRowIndex,
+                            searchResultsLength: this.searchResults.length,
+                            searchResults: this.searchResults
+                        });
+                        // alert('選択されたデータが見つかりません。ページを再読み込みして再度お試しください。'); // alert の代わりにカスタムモーダルを使用
+                        this.showCustomAlertDialog('選択されたデータが見つかりません。ページを再読み込みして再度お試しください。');
+                        return;
+                    }
+                    
+                    console.log('行クリック - データ選択:', selectedData);
+                    this.showDeleteConfirmDialog(selectedData);
+                });
+                
+                // ホバー効果を強化
+                rowElement.addEventListener('mouseenter', () => {
+                    rowElement.style.backgroundColor = 'rgba(214, 158, 46, 0.1)';
+                    rowElement.style.transform = 'scale(1.02)';
+                    rowElement.style.transition = 'all 0.2s ease';
+                    rowElement.style.cursor = 'pointer';
+                });
+                
+                rowElement.addEventListener('mouseleave', () => {
+                    rowElement.style.backgroundColor = '';
+                    rowElement.style.transform = '';
+                });
+            });
+            
+            console.log(`${dataRows.length}行にクリックイベントを追加しました`);
+        }
+
+        // カスタムアラートダイアログの表示
+        showCustomAlertDialog(message) {
+            const dialogId = 'custom-alert-dialog';
+            let dialog = document.getElementById(dialogId);
+
+            if (!dialog) {
+                dialog = document.createElement('div');
+                dialog.id = dialogId;
+                dialog.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background-color: white;
+                    padding: 20px;
+                    border-radius: 10px;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                    z-index: 10000;
+                    text-align: center;
+                    max-width: 80%;
+                    min-width: 300px;
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                `;
+                const msgDiv = document.createElement('div');
+                msgDiv.id = 'custom-alert-message';
+                msgDiv.style.marginBottom = '20px';
+                msgDiv.style.fontSize = '16px';
+                msgDiv.style.color = '#333';
+                dialog.appendChild(msgDiv);
+
+                const closeBtn = document.createElement('button');
+                closeBtn.textContent = 'OK';
+                closeBtn.style.cssText = `
+                    background-color: #5a7c5a;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    font-weight: 600;
+                    transition: background-color 0.3s ease;
+                `;
+                closeBtn.onmouseover = () => closeBtn.style.backgroundColor = '#4a6b4a';
+                closeBtn.onmouseout = () => closeBtn.style.backgroundColor = '#5a7c5a';
+                closeBtn.onclick = () => dialog.remove();
+                dialog.appendChild(closeBtn);
+
+                document.body.appendChild(dialog);
+            }
+
+            document.getElementById('custom-alert-message').textContent = message;
+            dialog.style.display = 'block';
+        }
+
+        // 削除確認ダイアログを表示（修正版 - 新UI対応）
+        showDeleteConfirmDialog(selectedData) {
+            console.log('確認ダイアログ表示:', selectedData);
+
+            if (!selectedData) {
+                console.error('選択されたデータが無効です');
+                this.showCustomAlertDialog('選択されたデータが無効です。再度お試しください。');
+                return;
+            }
+
+            const amountFormatted = selectedData.amount ? `¥${parseInt(selectedData.amount).toLocaleString('ja-JP')}` : '不明';
+            const unitPriceFormatted = selectedData.unitPrice ? `¥${this.parseAmount(selectedData.unitPrice).toLocaleString()}` : '不明';
+
+            const dataForMessage = {
+                date: selectedData.date || '',
+                name: selectedData.name || '',
+                lender: selectedData.lender || '',
+                borrower: selectedData.borrower || '',
+                category: selectedData.category || '',
+                item: selectedData.item || '',
+                quantity: selectedData.quantity || '',
+                unitPriceFormatted: unitPriceFormatted,
+                amountFormatted: amountFormatted,
+                originalRowIndex: selectedData.originalRowIndex || ''
+            };
+
+            this.showCustomConfirmDialog(dataForMessage, () => {
+                console.log('ユーザーが確認 - リダイレクト開始');
+                this.redirectToCorrectionPage(selectedData);
+            }, () => {
+                console.log('ユーザーがキャンセル');
+            });
+        }
+        
+        // カスタム確認ダイアログの表示（UI改善版）
+        showCustomConfirmDialog(message, onConfirm, onCancel) {
+            const dialogId = 'custom-confirm-dialog';
+            let dialog = document.getElementById(dialogId);
+
+            if (dialog) dialog.remove(); // 既存のダイアログがあれば削除
+
+            dialog = document.createElement('div');
+            dialog.id = dialogId;
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background-color: white;
+                padding: 25px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                z-index: 10000;
+                text-align: left;
+                max-width: 90%;
+                width: 450px;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                border-top: 4px solid #333;
+            `;
+            const titleDiv = document.createElement('h2');
+            titleDiv.textContent = '🗑️ 逆取引の確認';
+            titleDiv.style.marginBottom = '10px';
+            titleDiv.style.color = '#333';
+            titleDiv.style.fontSize = '20px';
+            dialog.appendChild(titleDiv);
+
+            const msgDiv = document.createElement('div');
+            msgDiv.id = 'custom-confirm-message';
+            msgDiv.style.marginBottom = '20px';
+            msgDiv.style.fontSize = '16px';
+            msgDiv.style.color = '#555';
+            msgDiv.style.lineHeight = '1.6';
+            dialog.appendChild(msgDiv);
+            
+            // 注意書きは削除
+            // const warningDiv = document.createElement('div');
+            // ...
+            // dialog.appendChild(warningDiv);
+
+            const btnContainer = document.createElement('div');
+            btnContainer.style.display = 'flex';
+            btnContainer.style.justifyContent = 'flex-end';
+            btnContainer.style.gap = '10px';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'キャンセル';
+            cancelBtn.style.cssText = `
+                background-color: #f1f1f1;
+                color: #333;
+                border: 1px solid #ccc;
+                padding: 10px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: 600;
+                transition: all 0.2s ease;
+            `;
+            cancelBtn.onmouseover = () => { cancelBtn.style.backgroundColor = '#e0e0e0'; cancelBtn.style.borderColor = '#bbb'; };
+            cancelBtn.onmouseout = () => { cancelBtn.style.backgroundColor = '#f1f1f1'; cancelBtn.style.borderColor = '#ccc'; };
+            cancelBtn.onclick = () => { dialog.remove(); onCancel(); };
+            btnContainer.appendChild(cancelBtn);
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.textContent = 'はい、続行します';
+            confirmBtn.className = 'confirm-btn-yes'; // 専用クラスを追加
+            confirmBtn.style.cssText = `
+                padding: 10px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: 600;
+                transition: all 0.2s ease;
+            `;
+            confirmBtn.onclick = () => { dialog.remove(); onConfirm(); };
+            btnContainer.appendChild(confirmBtn);
+
+            dialog.appendChild(btnContainer);
+            document.body.appendChild(dialog);
+
+            let formattedMessage = `
+                <p style="font-size: 14px; color: #666; margin-top:0;">以下の取引を修正します。内容を確認してください。</p>
+                <table class="confirm-table">
+                    <tbody>
+                        <tr><td>📅 日付</td><td>${message.date || '不明'}</td></tr>
+                        <tr><td>👤 入力者</td><td>${message.name || '不明'}</td></tr>
+                        <tr><td>📤 貸主</td><td>${message.lender || '不明'}</td></tr>
+                        <tr><td>📥 借主</td><td>${message.borrower || '不明'}</td></tr>
+                        <tr><td>🏷️ カテゴリー</td><td>${message.category || '不明'}</td></tr>
+                        <tr><td>📝 品目</td><td>${message.item || '不明'}</td></tr>
+                        <tr><td>🔢 個/本/g</td><td>${message.quantity || '不明'}</td></tr>
+                        <tr><td>💰 単価</td><td>${message.unitPriceFormatted || '不明'}</td></tr>
+                        <tr><td>💵 金額</td><td>${message.amountFormatted || '不明'}</td></tr>
+                        <tr><td>📄 行番号</td><td>${message.originalRowIndex || '不明'}</td></tr>
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('custom-confirm-message').innerHTML = formattedMessage;
+            dialog.style.display = 'block';
+        }
+
+        // correction.htmlページにリダイレクト（修正版）
+        redirectToCorrectionPage(selectedData) {
+            try {
+                console.log('=== リダイレクト処理開始 ===');
+                console.log('選択されたデータ(スプレッドシート行番号を含む):', selectedData);
+                
+                if (!selectedData) throw new Error('送信するデータが無効です');
+                
+                const dataToSave = JSON.stringify(selectedData);
+                sessionStorage.setItem('correctionData', dataToSave);
+                
+                const savedData = sessionStorage.getItem('correctionData');
+                if (!savedData) throw new Error('sessionStorageへの保存に失敗しました');
+                
+                let correctionUrl = 'correction.html';
+                const currentPath = window.location.pathname;
+                if (currentPath.includes('/data/')) {
+                    correctionUrl = '../correction.html';
+                }
+                
+                console.log('リダイレクト先URL:', correctionUrl);
+                localStorage.setItem('correctionData', dataToSave);
+                window.location.href = correctionUrl;
+                
+            } catch (error) {
+                console.error('リダイレクトエラー:', error);
+                this.showCustomAlertDialog(`修正ページへの移動中にエラーが発生しました: ${error.message}`);
+                console.log('- 選択されたデータ:', selectedData);
+            }
+        }
+
+        exportResults() {
+            if (this.searchResults.length === 0) {
+                this.showCustomAlertDialog('エクスポートするデータがありません');
+                return;
+            }
+
+            const csvData = Papa.unparse(this.searchResults.map(row => ({
+                日付: row.date,
+                入力者: row.name,
+                貸主: row.lender,
+                借主: row.borrower,
+                カテゴリー: row.category,
+                品目: row.item,
+                '個/本/g': row.quantity,
+                単価: row.unitPrice,
+                金額: row.amount,
+                入力日時: row.inputDate,
+                修正: row.correction || ''
+            })));
+
+            const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            // タイムゾーン問題を回避：ローカル日付として処理
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
+            
+            link.setAttribute('download', `検索結果_${dateStr}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            this.log('CSV出力完了', 'success');
+        }
+    }
+
+    // アプリケーション初期化
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeSimpleAuth();
+    });
+</script>
+</div>
+<!-- 削除: 脆弱な認証スクリプトを除去 -->
+<script src="js/scripts.js"></script>
+</body>
+</html>

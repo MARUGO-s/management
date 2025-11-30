@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>貸借管理フォーム</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+      /* iPhone対応 */
+      -webkit-overflow-scrolling: touch;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="75" cy="75" r="0.3" fill="rgba(255,255,255,0.03)"/><circle cx="50" cy="10" r="0.4" fill="rgba(255,255,255,0.04)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .floating-shapes {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .shape {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      animation: float 6s ease-in-out infinite;
+    }
+
+    .shape:nth-child(1) {
+      width: 80px;
+      height: 80px;
+      top: 10%;
+      left: 10%;
+      animation-delay: -1s;
+    }
+
+    .shape:nth-child(2) {
+      width: 60px;
+      height: 60px;
+      top: 20%;
+      right: 20%;
+      animation-delay: -2s;
+    }
+
+    .shape:nth-child(3) {
+      width: 40px;
+      height: 40px;
+      bottom: 30%;
+      left: 30%;
+      animation-delay: -3s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(180deg); }
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+      max-width: 500px;
+      width: 100%;
+      position: relative;
+      z-index: 2;
+      transform: translateY(20px);
+      opacity: 0;
+      animation: slideIn 0.8s ease-out forwards;
+    }
+
+    @keyframes slideIn {
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    h2 {
+      color: #2d3748;
+      font-size: 2.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 30px;
+      background: linear-gradient(135deg, #4a5568, #2d3748);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .form-group {
+      margin-bottom: 25px;
+      position: relative;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 16px 20px;
+      font-size: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.8);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: inherit;
+    }
+    
+    /* iPhone用の日付入力フィールドの修正 */
+    input[type="date"] {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      position: relative;
+      z-index: 1;
+    }
+    
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+    }
+    
+    /* iPhone用のドロップダウンの修正 */
+    select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 12px;
+      padding-right: 40px;
+    }
+    
+    /* iPhone用のドロップダウンのフォーカス修正 */
+    select:focus {
+      outline: none;
+      border-color: #4a5568;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.1);
+      transform: translateY(-2px);
+    }
+    
+    input[readonly] {
+        background-color: #f1f5f9;
+        cursor: not-allowed;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #4a5568;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.1);
+      transform: translateY(-2px);
+    }
+
+    input:hover, select:hover {
+      border-color: #cbd5e0;
+      transform: translateY(-1px);
+    }
+    
+    input[readonly]:hover, input[readonly]:focus {
+        border-color: #e2e8f0;
+        transform: none;
+        box-shadow: none;
+    }
+
+    /* フォーカス関連のスタイルを削除（シンプルな状態に戻す） */
+    
+    /* フォーカス関連のCSSを完全に削除（シンプルな状態に戻す） */
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 18px 24px;
+      background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(74, 85, 104, 0.4);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .submit-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .submit-btn:hover::before {
+      left: 100%;
+    }
+
+    .icon {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .category-option {
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.8);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .category-option:hover {
+      border-color: #4a5568;
+      background: rgba(74, 85, 104, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .category-option.selected {
+      border-color: #4a5568;
+      background: linear-gradient(135deg, #4a5568, #2d3748);
+      color: white;
+    }
+
+    .amount-input {
+      position: relative;
+    }
+
+    .amount-input::before {
+      content: '¥';
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #4a5568;
+      font-weight: 600;
+      font-size: 1.2rem;
+      z-index: 1;
+    }
+
+    .amount-input input {
+      padding-left: 40px;
+    }
+
+    .success-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #68d391, #4fd1c7);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(104, 211, 145, 0.3);
+      transform: translateX(400px);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      font-weight: 600;
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .success-message.show {
+      transform: translateX(0);
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .error-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #f56565, #e53e3e);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(245, 101, 101, 0.3);
+      transform: translateX(400px);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      font-weight: 600;
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .error-message.show {
+      transform: translateX(0);
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    #status-popup-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+      backdrop-filter: blur(5px);
+    }
+
+    #status-popup {
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+      animation: popupSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    @keyframes popupSlideIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    #status-popup h3 {
+      color: #2d3748;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      animation: pulse 1s infinite alternate;
+    }
+    
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.05); }
+    }
+
+    .status-step {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 12px 0;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0.3;
+      transition: all 0.4s ease;
+      color: #4a5568;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .status-step.active {
+      opacity: 1;
+      color: #4a5568;
+      transform: scale(1.05);
+    }
+
+    .status-step.completed {
+      opacity: 1;
+      color: #38a169;
+    }
+
+    .status-step.error {
+      opacity: 1;
+      color: #e53e3e;
+    }
+    
+    .status-step.final-completed {
+      opacity: 1;
+      color: #38a169;
+      transform: scale(1.1);
+      font-size: 1.2rem;
+    }
+
+    .status-icon {
+      margin-right: 8px;
+      font-size: 16px;
+    }
+    
+    .mini-loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(74, 85, 104, 0.2);
+      border-top: 2px solid #4a5568;
+      border-radius: 50%;
+      animation: miniSpin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes miniSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 30px 20px;
+        margin: 10px;
+        border-radius: 16px;
+      }
+
+      h2 {
+        font-size: 2rem;
+      }
+
+      .category-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+
+      .category-option {
+        padding: 10px 8px;
+        font-size: 0.8rem;
+        border-radius: 6px;
+      }
+
+      .form-row {
+        gap: 10px;
+      }
+
+      .form-row .form-group label {
+        font-size: 0.8rem;
+      }
+
+      .form-row .form-group select,
+      .form-row .form-group input {
+        font-size: 14px;
+        padding: 14px 16px;
+      }
+
+      .success-message, .error-message {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+        left: 20px;
+        transform: translateY(100px);
+      }
+
+      .success-message.show, .error-message.show {
+        transform: translateY(0);
+      }
+
+      .button-group {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      #status-popup {
+        padding: 20px;
+      }
+
+      #status-popup h3 {
+        font-size: 1.2rem;
+      }
+
+      /* 追加グループ: モバイルでは1段目=日付(全幅)、2段目=貸主+借主(2カラム) */
+      .full-two-line { gap: 10px; flex-wrap: wrap; }
+      .full-two-line .full-date-wrap { flex: 1 1 100%; order: 1; }
+      .full-two-line .full-lender-wrap { flex: 1 1 calc(50% - 5px); order: 2; }
+      .full-two-line .full-borrower-wrap { flex: 1 1 calc(50% - 5px); order: 3; }
+      
+      /* iPhone用の追加修正 */
+      body {
+        padding: 10px;
+        min-height: 100vh;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      .container {
+        max-width: 100%;
+        margin: 0 auto;
+      }
+      
+      /* 日付入力フィールドのモバイル対応 */
+      input[type="date"] {
+        font-size: 16px; /* iOS Safariのズーム防止 */
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+      }
+      
+      /* ドロップダウンのモバイル対応 */
+      select {
+        font-size: 16px; /* iOS Safariのズーム防止 */
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+      }
+    }
+
+    .loading {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .submit-btn.loading .loading {
+      display: inline-block;
+    }
+
+    .submit-btn.loading::before {
+      display: none;
+    }
+
+    .data-link-container {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .data-link-btn {
+      display: inline-block;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+      color: white;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .data-link-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(74, 85, 104, 0.4);
+    }
+
+    .data-link-btn.cost-btn {
+      background: rgba(56, 178, 172, 0.1);
+      color: rgba(56, 178, 172, 0.3);
+      border: 1px solid rgba(56, 178, 172, 0.2);
+      padding: 8px 12px;
+      font-size: 0.8rem;
+    }
+
+    .data-link-btn.cost-btn:hover {
+      background: rgba(56, 178, 172, 0.2);
+      color: rgba(56, 178, 172, 0.6);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .data-link-btn.ingredients-btn {
+      background: rgba(245, 158, 11, 0.1);
+      color: rgba(245, 158, 11, 0.3);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      padding: 8px 12px;
+      font-size: 0.8rem;
+    }
+
+    .data-link-btn.ingredients-btn:hover {
+      background: rgba(245, 158, 11, 0.2);
+      color: rgba(245, 158, 11, 0.6);
+      box-shadow: none;
+      transform: none;
+    }
+    .list-btn { padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f9fafb; color:#374151; cursor:pointer; }
+    .list-btn:hover { background:#f3f4f6; }
+    .select-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 4000; }
+    .select-modal.show { display:flex; }
+    .select-card { background: #fff; width: 92%; max-width: 480px; border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,0.25); padding: 16px; }
+    .select-title { font-weight: 700; margin-bottom: 8px; color:#111827; }
+    .select-search { width: 100%; padding: 10px 12px; border:1px solid #e5e7eb; border-radius: 10px; margin-bottom: 10px; }
+    .select-list { max-height: 320px; overflow: auto; border:1px solid #e5e7eb; border-radius: 10px; }
+    .select-item { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+    .select-item:hover { background: #f3f4f6; }
+
+    /* 入力エラー強調（赤系） */
+    .input-error {
+      border-color: #ef4444 !important; /* red-500 */
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+      background: #fff5f5 !important;
+    }
+    .error-outline {
+      outline: 3px solid rgba(239, 68, 68, 0.5);
+      border-radius: 10px;
+      transition: outline 0.2s ease-in-out;
+    }
+    @keyframes errorPulse {
+      0% { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.20); }
+      50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.08); }
+      100% { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.20); }
+    }
+    .error-pulse { animation: errorPulse 1.2s ease-in-out infinite; }
+    @keyframes errorPulseStrong {
+      0% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.45); }
+      50% { box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15); }
+      100% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.45); }
+    }
+    .error-pulse-strong { animation: errorPulseStrong 0.9s ease-in-out infinite; }
+
+    /* エラーモーダル（控えめカラー） */
+    .modal-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(17,24,39,0.35); z-index: 4500; backdrop-filter: blur(3px); }
+    .modal-overlay.show { display: flex; }
+    .modal-card { width: 92%; max-width: 440px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); padding: 16px; }
+    .modal-title { font-weight: 700; color:#374151; margin-bottom: 6px; font-size: 16px; }
+    .modal-body { color:#4b5563; font-size: 14px; line-height: 1.6; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top: 12px; }
+
+    /* 追加グループ: いつでも 1段目=日付(全幅)、2段目=貸主+借主(2カラム) */
+    .full-two-line { gap: 10px; flex-wrap: wrap; }
+    .full-two-line .full-date-wrap { flex: 1 1 100%; order: 1; }
+    .full-two-line .full-lender-wrap { flex: 1 1 calc(50% - 5px); order: 2; }
+    .full-two-line .full-borrower-wrap { flex: 1 1 calc(50% - 5px); order: 3; }
+
+    /* M-mart支払い方法選択ボタン */
+    .payment-method-btn {
+      width: 100%;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .payment-method-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(74, 85, 104, 0.4);
+    }
+
+    .payment-method-btn:active {
+      transform: translateY(0);
+    }
+  </style>
+
+<link rel="icon" href="assets/icons/favicon.ico" type="image/x-icon">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icons/icon-180x180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192x192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/icons/icon-512x512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/icons/icon-16x16.png">
+<!-- <link rel="manifest" href="assets/site-v2.webmanifest"> -->
+  
+</head>
+<body>
+  <div class="floating-shapes">
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+  </div>
+
+  <div class="container">
+    <h2>💰 貸借管理</h2>
+    <form id="loanForm" novalidate>
+      <div class="form-group">
+        <label for="date">📅 日付</label>
+        <input type="date" id="date" required>
+      </div>
+
+      <div class="form-group">
+        <label for="name">📋 名前</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" id="name" required placeholder="入力者名を入力" autocomplete="off">
+          <button type="button" class="list-btn" id="name-list-btn">選択</button>
+        </div>
+        <datalist id="nameList" style="display:none;"></datalist>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="lender">📤 貸主</label>
+          <select id="lender" required>
+            <option value="">選択してください</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="borrower">📥 借主</label>
+          <select id="borrower" required>
+            <option value="">選択してください</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>🏷️ 品目一覧</label>
+        <div id="entriesContainer" style="display:flex; flex-direction:column; gap:16px;">
+          <div class="entry-row" data-index="0" style="border:1px solid #e5e7eb; border-radius:12px; padding:16px; background:#fff;">
+            <div class="form-group" style="margin-bottom:16px;">
+              <label>🏷️ カテゴリー</label>
+              <div class="category-grid">
+                <div class="category-option" data-value="食材">🍎 食材</div>
+                <div class="category-option" data-value="飲料">🥤 飲料</div>
+                <div class="category-option" data-value="M-mart">🛒 M-mart</div>
+                <div class="category-option" data-value="その他">📦 その他</div>
+              </div>
+              <input type="hidden" class="category" required>
+            </div>
+
+            <div class="form-group">
+              <label>📝 品目</label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="text" class="item" required placeholder="品目を入力" autocomplete="off">
+                <button type="button" class="list-btn item-list-btn">履歴</button>
+                <button type="button" class="list-btn cost-list-btn" style="background: #e6fffa; border-color: #38b2ac; display: none;">原価</button>
+                <button type="button" class="list-btn ingredients-list-btn" style="background: #fef3c7; border-color: #f59e0b; display: none;">食材</button>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                  <label>＠ 単価(税込)</label>
+                  <input type="text" class="unit-price" required inputmode="numeric" placeholder="単価を入力">
+              </div>
+              <div class="form-group">
+                  <label>🔢 個/本/g</label>
+                  <input type="text" class="quantity" required inputmode="decimal" placeholder="数値を入力">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>💵 金額(税込)</label>
+              <div class="amount-input">
+                <input type="text" class="amount" required inputmode="numeric" placeholder="自動計算">
+              </div>
+            </div>
+
+            <div class="row-actions" style="display:flex; justify-content:flex-end; gap:8px;">
+              <button type="button" class="list-btn remove-row-btn" style="display:none; background:#fff5f5; border-color:#fecaca; color:#b91c1c;">行を削除</button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:10px; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-left:auto;">
+            <button type="button" id="add-full-row-btn" class="list-btn" style="background:#e6fffa; border-color:#99f6e4; color:#0f766e;">＋ 全データを追加</button>
+            <button type="button" id="add-row-btn" class="list-btn" style="background:#eef2ff; border-color:#c7d2fe; color:#4338ca;">＋ 品目を追加</button>
+          </div>
+        </div>
+        <datalist id="itemList" style="display:none;"></datalist>
+      </div>
+
+      <!-- 追加のフル入力グループを格納するコンテナ -->
+      <div id="extraGroups" style="display:flex; flex-direction:column; gap:16px; margin-top:12px;"></div>
+
+      <div class="button-group">
+        <button type="submit" class="submit-btn">
+          <span class="loading"></span>
+          <span class="btn-text">📨 送信する</span>
+        </button>
+      </div>
+    </form>
+    <div class="data-link-container">
+      <a href="pages/marugo.html" class="data-link-btn">📊 データを見る</a>
+      <!-- 要望によりボタン非表示
+      <a href="pages/cost.html" class="data-link-btn cost-btn">飲</a>
+      <a href="pages/ingredients.html" class="data-link-btn ingredients-btn">食</a>
+      -->
+    </div>
+  </div>
+
+  <div id="status-popup-overlay">
+    <div id="status-popup">
+      <h3 id="popup-title"></h3>
+      <div class="status-step" id="step-validation">
+        <span class="status-icon">📋</span>
+        <span>データを検証中...</span>
+      </div>
+      <div class="status-step" id="step-sending">
+        <span class="status-icon">📤</span>
+        <span>スプレッドシートに送信中...</span>
+      </div>
+      <div class="status-step" id="step-inserting">
+        <span class="status-icon">💾</span>
+        <span>データを挿入中...</span>
+      </div>
+      <div class="status-step" id="step-backup">
+        <span class="status-icon">🔄</span>
+        <span>バックアップを作成中...</span>
+      </div>
+      <div class="status-step" id="step-email">
+        <span class="status-icon">📧</span>
+        <span>借主へメール通知中...</span>
+      </div>
+      <div class="status-step" id="step-checking">
+        <span class="status-icon">🔍</span>
+        <span>送信内容をチェック中...</span>
+      </div>
+      <div class="status-step" id="step-complete">
+        <span class="status-icon">✅</span>
+        <span>送信完了！</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 選択モーダル（共用） -->
+  <div class="select-modal" id="selectModal">
+    <div class="select-card">
+      <div class="select-title" id="selectTitle">選択</div>
+      <input type="text" id="selectSearch" class="select-search" placeholder="検索..." autocomplete="off">
+      <div id="selectList" class="select-list"></div>
+    </div>
+  </div>
+
+  <div class="success-message" id="successMessage">
+    ✅ 送信完了しました！
+  </div>
+
+  <div class="error-message" id="errorMessage">
+    ❌ 送信に失敗しました
+  </div>
+
+  <!-- エラーモーダル -->
+  <div class="modal-overlay" id="errorModal">
+    <div class="modal-card">
+      <div class="modal-title">エラーが発生しました</div>
+      <div class="modal-body" id="errorModalBody">入力内容をご確認ください。</div>
+      <div class="modal-actions">
+        <button type="button" class="list-btn" id="errorModalCloseBtn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- M-mart支払い方法選択ポップアップ -->
+  <div class="modal-overlay" id="paymentMethodModal">
+    <div class="modal-card">
+      <div class="modal-title">M-mart 支払い方法を選択</div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+          <button type="button" class="payment-method-btn" data-method="カード">
+            💳 カード
+          </button>
+          <button type="button" class="payment-method-btn" data-method="現金">
+            💵 現金
+          </button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="list-btn" id="paymentMethodCancelBtn">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+    <script src="pages/js/main.js?v=2025011620"></script>
+  <script src="js/simple-auth.js"></script>
+  <script src="js/quota-alert-system.js"></script>
+  <script src="js/usage-indicator.js"></script>
+  <script>
+    // index.html専用の初期化
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('📋 index.html 初期化開始');
+      
+      // 日付を今日に設定（タイムゾーン対応）
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      document.getElementById('date').value = `${year}-${month}-${day}`;
+      
+      // フォーム要素を初期化
+      if (typeof initializeElements === 'function') {
+        initializeElements();
+      }
+      
+      console.log('✅ index.html 初期化完了');
+      
+      // フォーカス関連の機能を削除（シンプルな状態に戻す）
+      
+      // フォーカス関連のコードを完全に削除（シンプルな状態に戻す）
+    });
+  </script>
+</body>
+</html>

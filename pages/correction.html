@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>逆取引修正フォーム</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="75" cy="75" r="0.3" fill="rgba(255,255,255,0.03)"/><circle cx="50" cy="10" r="0.4" fill="rgba(255,255,255,0.04)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .floating-shapes {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .shape {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      animation: float 6s ease-in-out infinite;
+    }
+
+    .shape:nth-child(1) {
+      width: 80px;
+      height: 80px;
+      top: 10%;
+      left: 10%;
+      animation-delay: -1s;
+    }
+
+    .shape:nth-child(2) {
+      width: 60px;
+      height: 60px;
+      top: 20%;
+      right: 20%;
+      animation-delay: -2s;
+    }
+
+    .shape:nth-child(3) {
+      width: 40px;
+      height: 40px;
+      bottom: 30%;
+      left: 30%;
+      animation-delay: -3s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(180deg); }
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+      max-width: 500px;
+      width: 100%;
+      position: relative;
+      z-index: 2;
+      transform: translateY(20px);
+      opacity: 0;
+      animation: slideIn 0.8s ease-out forwards;
+    }
+
+    @keyframes slideIn {
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .header-section {
+      text-align: center;
+      margin-bottom: 30px;
+      position: relative;
+    }
+
+    .back-btn {
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: transform 0.2s ease;
+    }
+
+    .back-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    h2 {
+      color: #2d3748;
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #d69e2e, #b7791f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: #4a5568;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+
+    .original-data-section {
+      background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+      border: 2px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .original-data-header {
+      color: #2d3748;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .original-data-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .original-data-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .original-data-label {
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    .original-data-value {
+      color: #2d3748;
+      font-family: 'Courier New', monospace;
+    }
+
+    .form-group {
+      margin-bottom: 25px;
+      position: relative;
+    }
+
+    /* 🔥 名前入力フィールド強調スタイル */
+    .form-group.name-highlight {
+      position: relative;
+      padding: 8px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, 
+        rgba(214, 158, 46, 0.1) 0%, 
+        rgba(214, 158, 46, 0.05) 50%, 
+        rgba(214, 158, 46, 0.1) 100%);
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      animation: nameFieldPulse 3s ease-in-out infinite;
+    }
+
+    .form-group.name-highlight::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      background: linear-gradient(45deg, 
+        #d69e2e, #b7791f, #d69e2e, #b7791f);
+      background-size: 300% 300%;
+      border-radius: 20px;
+      z-index: -1;
+      animation: gradientShift 2s ease-in-out infinite;
+      opacity: 0.6;
+    }
+
+    .form-group.name-highlight::after {
+      content: '👈 ここに名前を入力してください';
+      position: absolute;
+      top: 50%;
+      right: -200px;
+      transform: translateY(-50%);
+      background: linear-gradient(135deg, #d69e2e, #b7791f);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 4px 15px rgba(214, 158, 46, 0.3);
+      animation: bouncePointer 2s ease-in-out infinite;
+      z-index: 10;
+    }
+
+    @keyframes nameFieldPulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(214, 158, 46, 0.4);
+      }
+      50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 0 10px rgba(214, 158, 46, 0.1);
+      }
+    }
+
+    @keyframes gradientShift {
+      0%, 100% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+    }
+
+    @keyframes bouncePointer {
+      0%, 100% {
+        transform: translateY(-50%) translateX(0px);
+        opacity: 0.8;
+      }
+      50% {
+        transform: translateY(-50%) translateX(-10px);
+        opacity: 1;
+      }
+    }
+
+    /* 名前入力完了時のアニメーション */
+    .form-group.name-completed {
+      animation: nameFieldComplete 0.6s ease-out;
+      background: linear-gradient(135deg, 
+        rgba(104, 211, 145, 0.1) 0%, 
+        rgba(104, 211, 145, 0.05) 100%);
+    }
+
+    .form-group.name-completed::before {
+      background: linear-gradient(45deg, #68d391, #4fd1c7);
+      animation: none;
+    }
+
+    .form-group.name-completed::after {
+      content: '✅ 入力完了！';
+      background: linear-gradient(135deg, #68d391, #4fd1c7);
+      animation: fadeInCheck 0.6s ease-out;
+    }
+
+    @keyframes nameFieldComplete {
+      0% {
+        transform: scale(1.02);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes fadeInCheck {
+      0% {
+        opacity: 0;
+        transform: translateY(-50%) translateX(-20px) scale(0.8);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0px) scale(1);
+      }
+    }
+
+    /* モバイル対応 */
+    @media (max-width: 768px) {
+      .form-group.name-highlight::after {
+        right: -180px;
+        font-size: 11px;
+        padding: 6px 10px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .form-group.name-highlight::after {
+        position: relative;
+        right: auto;
+        top: auto;
+        transform: none;
+        margin-top: 10px;
+        display: block;
+        text-align: center;
+      }
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* 名前ラベルの特別スタイル */
+    .name-highlight label {
+      color: #d69e2e;
+      font-weight: 700;
+      animation: labelGlow 2s ease-in-out infinite;
+    }
+
+    @keyframes labelGlow {
+      0%, 100% {
+        text-shadow: 0 0 5px rgba(214, 158, 46, 0.3);
+      }
+      50% {
+        text-shadow: 0 0 15px rgba(214, 158, 46, 0.6);
+      }
+    }
+
+    input, select {
+      width: 100%;
+      padding: 16px 20px;
+      font-size: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.8);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: inherit;
+    }
+
+    /* 名前入力フィールドの特別スタイル */
+    .name-highlight input {
+      border-color: #d69e2e;
+      background: rgba(255, 255, 255, 0.95);
+      font-weight: 600;
+      color: #2d3748;
+      animation: inputGlow 3s ease-in-out infinite;
+    }
+
+    .name-highlight input::placeholder {
+      color: #d69e2e;
+      opacity: 0.7;
+      font-weight: 500;
+    }
+
+    @keyframes inputGlow {
+      0%, 100% {
+        box-shadow: 0 0 10px rgba(214, 158, 46, 0.2);
+      }
+      50% {
+        box-shadow: 0 0 20px rgba(214, 158, 46, 0.4);
+      }
+    }
+
+    /* 無効化された入力フィールドのスタイル */
+    input:disabled, select:disabled {
+      background: #e9e9e9;
+      color: #888;
+      cursor: not-allowed;
+      border-color: #dcdcdc;
+      transform: none;
+      box-shadow: none;
+    }
+    input:disabled:hover, select:disabled:hover {
+        border-color: #dcdcdc;
+        transform: none;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #d69e2e;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 3px rgba(214, 158, 46, 0.1);
+      transform: translateY(-2px);
+    }
+
+    input:hover, select:hover {
+      border-color: #cbd5e0;
+      transform: translateY(-1px);
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .category-option {
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.8);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    /* 無効化されたカテゴリーオプションのスタイル */
+    .category-option.disabled {
+        background: #e9e9e9;
+        color: #888;
+        cursor: not-allowed;
+        border-color: #dcdcdc;
+        transform: none;
+    }
+    .category-option.disabled:hover {
+        border-color: #dcdcdc;
+        transform: none;
+        background: #e9e9e9;
+    }
+
+    .category-option:hover {
+      border-color: #d69e2e;
+      background: rgba(214, 158, 46, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .category-option.selected {
+      border-color: #d69e2e;
+      background: linear-gradient(135deg, #d69e2e, #b7791f);
+      color: white;
+    }
+
+    /* 選択された無効カテゴリーのスタイル */
+    .category-option.selected.disabled {
+        background: linear-gradient(135deg, #b7791f, #a67f3f);
+        color: white;
+        border-color: #d69e2e;
+    }
+
+    .amount-input {
+      position: relative;
+    }
+
+    .amount-input::before {
+      content: '¥';
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #4a5568;
+      font-weight: 600;
+      font-size: 1.2rem;
+      z-index: 1;
+    }
+
+    .amount-input input {
+      padding-left: 40px;
+    }
+
+    .correction-notice {
+      background: linear-gradient(135deg, #fff5cd 0%, #ffeaa7 100%);
+      border: 2px solid #d69e2e;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 25px 0;
+      text-align: center;
+    }
+
+    .correction-notice-header {
+      color: #b7791f;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .correction-notice-text {
+      color: #8a6914;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .status-display {
+      margin: 20px 0;
+      padding: 20px;
+      border-radius: 16px;
+      background: rgba(214, 158, 46, 0.05);
+      border: 2px solid rgba(214, 158, 46, 0.1);
+      display: none;
+      text-align: center;
+    }
+
+    .status-display.show {
+      display: block;
+      animation: statusSlideIn 0.4s ease-out;
+    }
+
+    @keyframes statusSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .status-step {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 12px 0;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0.3;
+      transition: all 0.4s ease;
+      color: #b7791f;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .status-step.active {
+      opacity: 1;
+      color: #b7791f;
+      transform: scale(1.05);
+    }
+
+    .status-step.completed {
+      opacity: 1;
+      color: #38a169;
+    }
+
+    .status-step.error {
+      opacity: 1;
+      color: #e53e3e;
+    }
+
+    .status-icon {
+      margin-right: 8px;
+      font-size: 16px;
+    }
+
+    .mini-loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(214, 158, 46, 0.2);
+      border-top: 2px solid #d69e2e;
+      border-radius: 50%;
+      animation: miniSpin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes miniSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 18px 24px;
+      background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(214, 158, 46, 0.4);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .submit-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .submit-btn:hover::before {
+      left: 100%;
+    }
+
+    .cancel-btn {
+      background: linear-gradient(135deg, #8a8a8a 0%, #6a6a6a 100%);
+    }
+
+    .cancel-btn:hover:not(:disabled) {
+      box-shadow: 0 10px 25px rgba(138, 138, 138, 0.4);
+    }
+
+    .success-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #68d391, #4fd1c7);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(104, 211, 145, 0.3);
+      transform: translateX(400px);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      font-weight: 600;
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .success-message.show {
+      transform: translateX(0);
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .error-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #f56565, #e53e3e);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(245, 101, 101, 0.3);
+      transform: translateX(400px);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      font-weight: 600;
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .error-message.show {
+      transform: translateX(0);
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .loading {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .submit-btn.loading .loading {
+      display: inline-block;
+    }
+
+    .submit-btn.loading::before {
+      display: none;
+    }
+
+    /* エラー表示用のスタイル */
+    .error-notice {
+      background: linear-gradient(135deg, #ffe8e8 0%, #ffcccb 100%);
+      border: 2px solid #ff6b6b;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 25px 0;
+      text-align: center;
+      display: none;
+    }
+
+    .error-notice.show {
+      display: block;
+    }
+
+    .error-notice-header {
+      color: #c92a2a;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .error-notice-text {
+      color: #c92a2a;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    /* デバッグ情報用のスタイル */
+    .debug-section {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      max-width: 300px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+    }
+
+    .debug-toggle {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: #333;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      z-index: 1001;
+    }
+
+    .debug-toggle:hover {
+      background: #555;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 30px 20px;
+        margin: 10px;
+        border-radius: 16px;
+      }
+
+      h2 {
+        font-size: 1.8rem;
+      }
+
+      .category-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .original-data-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .success-message, .error-message {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+        left: 20px;
+        transform: translateY(100px);
+      }
+
+      .success-message.show, .error-message.show {
+        transform: translateY(0);
+      }
+    }
+  </style>
+
+  <style>
+    /* --- Minimal, modern overrides --- */
+    body { background: #f7f7fb; color: #111827; }
+    .floating-shapes { display: none !important; }
+
+    .container {
+      background: #ffffff !important;
+      border-radius: 16px !important;
+      padding: 28px !important;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.06) !important;
+      max-width: 560px !important;
+      transform: none !important;
+      opacity: 1 !important;
+      animation: none !important;
+    }
+
+    .header-section { margin-bottom: 20px !important; }
+    h2 { color: #111827 !important; font-size: 1.6rem !important; margin-bottom: 8px !important; }
+    .subtitle { color: #6b7280 !important; font-weight: 400 !important; margin-bottom: 16px !important; }
+
+    /* Hide original data and informational boxes for simpler layout */
+    .original-data-section { display: none !important; }
+    .correction-notice { display: none !important; }
+
+    /* Confirmation list styles */
+    .confirm-section { margin-bottom: 12px; }
+    .confirm-list { list-style: none; padding: 0; margin: 0; }
+    .confirm-list li { display: grid; grid-template-columns: 120px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; }
+    .confirm-list li:last-child { border-bottom: none; }
+    .confirm-key { color: #6b7280; }
+    .confirm-value { color: #111827; font-weight: 600; }
+
+    /* Hide all fields below name */
+    #correctionForm .form-group:not(#name-form-group) { display: none !important; }
+    .form-group.force-visible { display: block !important; }
+
+    .manual-input-notice {
+      display: none;
+      margin: 12px 0 20px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid #fbbf24;
+      background: #fef3c7;
+      color: #92400e;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .manual-input-notice.complete {
+      border-color: #10b981;
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    .manual-input-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    select.requires-input,
+    input.requires-input {
+      border-color: #f97316 !important;
+      box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15) !important;
+    }
+
+    .form-group.requires-input-group {
+      border: 1px dashed #f97316;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .category-option.manual-enabled {
+      cursor: pointer !important;
+      opacity: 1 !important;
+    }
+
+    .category-option.manual-needs-input {
+      border-color: #f97316 !important;
+      background: rgba(249, 115, 22, 0.12) !important;
+      color: #b45309 !important;
+    }
+
+    /* Modal popup for status */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 3000; }
+    .modal-overlay.show { display: flex; }
+    .modal-card { background: #fff; width: 92%; max-width: 420px; border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,0.25); padding: 18px; }
+    .modal-title { font-size: 1rem; font-weight: 700; color: #111827; margin-bottom: 10px; }
+    .progress { width: 100%; height: 8px; background: #e5e7eb; border-radius: 9999px; overflow: hidden; margin: 8px 0 6px; }
+    .progress-bar { height: 100%; background: #2563eb; transition: width 0.2s linear; }
+    .progress-text { font-size: 12px; color: #6b7280; margin-bottom: 8px; text-align: right; }
+
+    /* Inputs - reduce noise */
+    label { color: #374151 !important; letter-spacing: 0 !important; text-transform: none !important; }
+    input, select { border: 1px solid #e5e7eb !important; border-radius: 10px !important; padding: 12px 14px !important; background: #fff !important; }
+    input:focus, select:focus { border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important; transform: none !important; }
+
+    /* Remove flashy name highlight animations */
+    .form-group.name-highlight { padding: 0 !important; background: transparent !important; border: none !important; animation: none !important; }
+    .form-group.name-highlight::before, .form-group.name-highlight::after { content: none !important; display: none !important; }
+    .name-highlight label { color: #374151 !important; font-weight: 600 !important; animation: none !important; }
+    .name-highlight input { border-color: #e5e7eb !important; animation: none !important; color: #111827 !important; }
+
+    /* Category chips */
+    .category-option { border: 1px solid #e5e7eb !important; background: #fff !important; }
+    .category-option:hover { border-color: #2563eb !important; background: rgba(37,99,235,0.06) !important; transform: none !important; }
+    .category-option.selected { border-color: #2563eb !important; background: #2563eb !important; color: #fff !important; }
+
+    /* Amount prefix spacing */
+    .amount-input::before { left: 12px !important; font-size: 1rem !important; color: #6b7280 !important; }
+
+    /* Status display - subtle */
+    .status-display { background: #f3f4f6 !important; border: 1px solid #e5e7eb !important; padding: 16px !important; border-radius: 12px !important; }
+    .status-step { color: #374151 !important; opacity: 0.5 !important; transform: none !important; }
+    .status-step.active { color: #111827 !important; opacity: 1 !important; }
+
+    /* Buttons */
+    .submit-btn { background: #111827 !important; border-radius: 10px !important; padding: 14px 18px !important; font-size: 1rem !important; }
+    .submit-btn:hover { background: #0b1220 !important; transform: none !important; box-shadow: none !important; }
+    .submit-btn::before { display: none !important; }
+    .cancel-btn { background: #e5e7eb !important; color: #111827 !important; }
+    .cancel-btn:hover { background: #d1d5db !important; }
+
+    /* Toasts */
+    .success-message { background: #10b981 !important; padding: 12px 16px !important; border-radius: 10px !important; }
+    .error-message { background: #ef4444 !important; padding: 12px 16px !important; border-radius: 10px !important; }
+
+    /* Hide debug UI */
+    .debug-toggle, .debug-section { display: none !important; }
+
+    /* Input with button styles */
+    .input-with-button {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .input-with-button input {
+      flex: 1;
+    }
+    .select-btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      white-space: nowrap;
+    }
+    .select-btn:hover {
+      background: #1d4ed8;
+    }
+
+    /* Selection modal styles */
+    #selectModal .modal-card {
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .search-container {
+      margin-bottom: 12px;
+    }
+    .search-container input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .select-list {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 300px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .select-item {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .select-item:hover {
+      background: #f9fafb;
+    }
+    .select-item:last-child {
+      border-bottom: none;
+    }
+  </style>
+
+<link rel="icon" href="../assets/icons/favicon-v2.ico" type="image/x-icon">
+<link rel="apple-touch-icon" sizes="180x180" href="../assets/icons/icon-180x180-v2.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../assets/icons/icon-192x192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="../assets/icons/icon-512x512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/icon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="../assets/icons/icon-16x16.png">
+<!-- <link rel="manifest" href="../assets/site-v2.webmanifest"> -->
+  
+</head>
+<body>
+  
+
+  <div class="container">
+    <div class="header-section">
+      <h2>修正最終確認</h2>
+      <p class="subtitle">以下の取引を修正します。内容を確認してください。</p>
+    </div>
+
+    <div class="error-notice" id="error-notice">
+      <div class="error-notice-header">⚠️ データ読み込みエラー</div>
+      <div class="error-notice-text" id="error-notice-text">
+        修正対象のデータが見つかりません。<br>
+        データ一覧ページから再度選択してください。
+      </div>
+    </div>
+
+    <div class="confirm-section" id="confirm-section">
+      <ul class="confirm-list" id="confirm-list"></ul>
+    </div>
+
+    <div class="manual-input-notice" id="manual-input-notice">
+      <div class="manual-input-title">⚠️ 追加入力が必要です</div>
+      <div id="manual-input-text"></div>
+    </div>
+
+    <form id="correctionForm">
+      <div class="form-group name-highlight" id="name-form-group">
+        <label for="name">📋 名前</label>
+        <div class="input-with-button">
+          <input type="text" id="name" placeholder="入力者名を入力" autocomplete="off">
+          <button type="button" id="name-select-btn" class="select-btn">選択</button>
+        </div>
+        <datalist id="nameList"></datalist>
+      </div>
+
+      <div class="form-group">
+        <label for="date">📅 日付</label>
+        <input type="date" id="date" disabled>
+      </div>
+
+      <div class="form-group">
+        <label for="lender">📤 貸主</label>
+        <select id="lender" disabled>
+          <option value="">選択してください</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="borrower">📥 借主</label>
+        <select id="borrower" disabled>
+          <option value="">選択してください</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>🏷️ カテゴリー</label>
+        <div class="category-grid">
+          <div class="category-option disabled" data-value="食材">🍎 食材</div>
+          <div class="category-option disabled" data-value="飲料">🥤 飲料</div>
+          <div class="category-option disabled" data-value="その他">📦 その他</div>
+        </div>
+        <input type="hidden" id="category">
+      </div>
+
+      <div class="form-group">
+        <label for="item">📝 品目</label>
+        <input type="text" id="item" placeholder="品目を入力" disabled>
+      </div>
+
+      <div class="form-group">
+        <label for="quantity">📦 個/本/g</label>
+        <input type="text" id="quantity" placeholder="個/本/g" disabled>
+      </div>
+
+      <div class="form-group">
+        <label for="unitPrice">💰 単価</label>
+        <div class="amount-input">
+          <input type="text" id="unitPrice" placeholder="単価" disabled>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="amount">💵 金額</label>
+        <div class="amount-input">
+          <input type="text" id="amount" inputmode="numeric" placeholder="金額を入力" disabled>
+        </div>
+      </div>
+
+      
+
+      <div class="button-group">
+        <button type="submit" class="submit-btn">
+          <span class="loading"></span>
+          <span class="btn-text">✏️ 修正データを送信</span>
+        </button>
+        <button type="button" class="submit-btn cancel-btn" onclick="history.back()">
+          <span class="btn-text">❌ キャンセル</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="success-message" id="successMessage">
+    ✅ 修正データの送信が完了しました！
+  </div>
+
+  <div class="error-message" id="errorMessage">
+    ❌ 送信に失敗しました
+  </div>
+
+  <!-- Modal: Progress -->
+  <div class="modal-overlay" id="progressModal">
+    <div class="modal-card">
+      <div class="modal-title">送信中...</div>
+      <div class="progress" id="progress">
+        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+      </div>
+      <div class="progress-text" id="remaining-time">残り 約—秒</div>
+      <div class="status-display" id="status-display">
+        <div class="status-step" id="step-validation">
+          <span class="status-icon">📋</span>
+          <span>修正データを検証中...</span>
+        </div>
+        <div class="status-step" id="step-sending">
+          <span class="status-icon">📤</span>
+          <span>修正データをスプレッドシートに送信中...</span>
+        </div>
+        <div class="status-step" id="step-inserting">
+          <span class="status-icon">💾</span>
+          <span>修正データを挿入中...</span>
+        </div>
+        <div class="status-step" id="step-backup">
+          <span class="status-icon">🔄</span>
+          <span>バックアップを作成中...</span>
+        </div>
+        <div class="status-step" id="step-complete">
+          <span class="status-icon">✅</span>
+          <span>送信完了！</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Selection -->
+  <div class="modal-overlay" id="selectModal">
+    <div class="modal-card">
+      <div class="modal-title" id="selectTitle">選択</div>
+      <div class="search-container">
+        <input type="text" id="selectSearch" placeholder="検索..." autocomplete="off">
+      </div>
+      <div class="select-list" id="selectList"></div>
+    </div>
+  </div>
+
+  <script>
+    // 初期化処理（エラー制御とフォーム表示）
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('=== correction.html 初期化開始 ===');
+      
+      // データ読み込み状況を確認
+      const hasSessionData = sessionStorage.getItem('correctionData');
+      const hasLocalData = localStorage.getItem('correctionData');
+      const hasUrlData = new URLSearchParams(window.location.search).get('data');
+      
+      console.log('データ読み込み状況:', {
+        sessionStorage: hasSessionData ? '有り' : '無し',
+        localStorage: hasLocalData ? '有り' : '無し',
+        urlParams: hasUrlData ? '有り' : '無し'
+      });
+      
+      // エラー表示の制御
+      if (!hasSessionData && !hasLocalData && !hasUrlData) {
+        console.log('データが見つからないためエラー表示');
+        document.getElementById('error-notice').classList.add('show');
+        const formEl = document.getElementById('correctionForm');
+        if (formEl) formEl.style.display = 'none';
+        
+        // 自動的に戻るための処理
+        setTimeout(() => {
+          const backBtn = document.getElementById('back-btn');
+          console.log('自動リダイレクト実行');
+          if (backBtn && backBtn.href) {
+            window.location.href = backBtn.href;
+          } else if (document.referrer) {
+            history.back();
+          } else {
+            // フォールバックパス
+            const possiblePaths = ['marugo.html', '../marugo.html', 'data/marugo.html'];
+            window.location.href = possiblePaths[0];
+          }
+        }, 3000);
+      } else {
+        console.log('データが見つかったため通常の初期化を実行');
+        const errorEl = document.getElementById('error-notice');
+        if (errorEl) errorEl.style.display = 'none';
+        const formEl = document.getElementById('correctionForm');
+        if (formEl) formEl.style.display = 'block';
+        
+        // 🔥 名前入力アニメーション制御
+        setupNameInputAnimation();
+      }
+    });
+
+    // 🔥 名前入力アニメーション設定
+    function setupNameInputAnimation() {
+      const nameInput = document.getElementById('name');
+      const nameFormGroup = document.getElementById('name-form-group');
+      
+      if (!nameInput || !nameFormGroup) return;
+      
+      // 入力監視
+      nameInput.addEventListener('input', () => {
+        if (nameInput.value.trim().length > 0) {
+          // 入力がある場合は完了状態に
+          nameFormGroup.classList.remove('name-highlight');
+          nameFormGroup.classList.add('name-completed');
+          
+          // 3秒後にアニメーションをリセット
+          setTimeout(() => {
+            nameFormGroup.classList.remove('name-completed');
+          }, 3000);
+        } else {
+          // 入力が空の場合は強調状態に戻す
+          nameFormGroup.classList.remove('name-completed');
+          nameFormGroup.classList.add('name-highlight');
+        }
+      });
+      
+      // フォーカスイベントを削除（シンプルな状態に戻す）
+      
+      // ブラー時の処理
+      nameInput.addEventListener('blur', () => {
+        if (nameInput.value.trim().length === 0) {
+          nameFormGroup.classList.add('name-highlight');
+        }
+      });
+      
+      // 初期状態で強調アニメーションを開始
+      setTimeout(() => {
+        nameFormGroup.classList.add('name-highlight');
+      }, 1000);
+    }
+  </script>
+
+  <script src="../config.js"></script>
+  <script src="../js/unified-data-loader.js"></script>
+  <script src="../js/quota-alert-system.js"></script>
+  <script src="../js/usage-indicator.js"></script>
+  <script src="js/correction.js?v=20251126-1515"></script>
+</body>
+</html>

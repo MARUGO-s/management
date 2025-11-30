@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>原価管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+      max-width: 1200px;
+      width: 100%;
+      position: relative;
+      z-index: 2;
+    }
+
+    h2 {
+      color: #2d3748;
+      font-size: 2rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 30px;
+      background: linear-gradient(135deg, #4a5568, #2d3748);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .controls-section {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .search-section {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 16px 20px;
+      font-size: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.8);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: inherit;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #4a5568;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.1);
+    }
+
+    .btn {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(74, 85, 104, 0.4);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+    }
+
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+
+    .cost-table {
+      width: 100%;
+      min-width: 800px;
+      border-collapse: collapse;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .cost-table th,
+    .cost-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .cost-table th {
+      background: linear-gradient(135deg, #4a5568, #2d3748);
+      color: white;
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+
+    .cost-table th:hover {
+      background: linear-gradient(135deg, #2d3748, #1a202c);
+    }
+
+    .cost-table th.sortable::after {
+      content: '↕';
+      position: absolute;
+      right: 8px;
+      opacity: 0.5;
+    }
+
+    .cost-table th.sort-asc::after {
+      content: '↑';
+      opacity: 1;
+    }
+
+    .cost-table th.sort-desc::after {
+      content: '↓';
+      opacity: 1;
+    }
+
+    .cost-table tr:hover {
+      background: rgba(74, 85, 104, 0.05);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #4a5568;
+      font-size: 1.1rem;
+    }
+
+    .error {
+      text-align: center;
+      padding: 40px;
+      color: #e53e3e;
+      font-size: 1.1rem;
+    }
+
+    .back-to-top-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      display: inline-block;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #5a7c5a 0%, #4a6b4a 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(90, 124, 90, 0.3);
+    }
+
+    .back-to-top-btn:hover {
+      background: linear-gradient(135deg, #4a6b4a 0%, #3d5a3d 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(90, 124, 90, 0.4);
+    }
+
+    @media (max-width: 640px) {
+      .back-to-top-btn {
+        top: 15px;
+        left: 15px;
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+    }
+
+
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 30px 20px;
+        margin: 10px;
+        border-radius: 16px;
+      }
+
+      h2 {
+        font-size: 1.6rem;
+      }
+
+      .controls-section {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .search-section {
+        min-width: auto;
+      }
+
+      .table-container {
+        border-radius: 8px;
+      }
+      
+      .cost-table {
+        font-size: 12px;
+        min-width: 700px;
+      }
+
+      .cost-table th,
+      .cost-table td {
+        padding: 8px 12px;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>💰 原価管理</h2>
+    
+
+
+    <div class="controls-section">
+      <div class="search-section">
+        <input type="text" id="searchInput" class="search-input" placeholder="ワイン名・英表記・ヴィンテージで検索..." autocomplete="off">
+      </div>
+    </div>
+
+    <div id="loadingMessage" class="loading">
+      📊 原価データを読み込み中...
+    </div>
+
+    <div id="errorMessage" class="error" style="display: none;">
+      ❌ データの読み込みに失敗しました
+    </div>
+
+    <div class="table-container">
+      <table id="costTable" class="cost-table" style="display: none;">
+        <thead>
+          <tr>
+            <th class="sortable" data-sort="vintage">ヴィンテージ</th>
+            <th class="sortable" data-sort="wineName">ワイン名</th>
+            <th class="sortable" data-sort="englishName">英表記</th>
+            <th class="sortable" data-sort="sellingPrice">販売価格(税込)</th>
+            <th class="sortable" data-sort="costExTax">原価(税抜)</th>
+            <th class="sortable" data-sort="costInTax">原価(税込)</th>
+            <th class="sortable" data-sort="costRatio">原価率</th>
+          </tr>
+        </thead>
+        <tbody id="costTableBody">
+        </tbody>
+      </table>
+    </div>
+
+    <a href="../index.html" class="back-to-top-btn">🏠</a>
+  </div>
+
+  <script src="../config.js"></script>
+  <script src="../js/unified-data-loader.js"></script>
+  <script src="../js/quota-alert-system.js"></script>
+  <script src="../js/usage-indicator.js"></script>
+  <script src="../js/usage-indicator.js"></script>
+  <script>
+    // スプレッドシート設定
+    const SHEET_NAME = '原価リスト';
+
+    // DOM要素
+    const loadingMessage = document.getElementById('loadingMessage');
+    const errorMessage = document.getElementById('errorMessage');
+    const costTable = document.getElementById('costTable');
+    const costTableBody = document.getElementById('costTableBody');
+    const searchInput = document.getElementById('searchInput');
+
+
+    // 原価データを格納
+    let costData = [];
+    let filteredData = [];
+    let currentSort = { column: '', direction: '' };
+
+    // 初期化
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCostData();
+      setupSearch();
+      setupSorting();
+    });
+
+    // 原価データを読み込み
+    async function loadCostData() {
+      try {
+        loadingMessage.style.display = 'block';
+        errorMessage.style.display = 'none';
+        costTable.style.display = 'none';
+
+        const range = `${SHEET_NAME}!B:L`;
+        console.log('⚠️ 原価リスト取得: 別シートのため個別API呼び出し');
+        const data = await callSheetsAPI(range, 'GET');
+        const rows = data.values || [];
+
+        console.log('取得したデータ:', rows.slice(0, 3)); // デバッグ用
+
+        // ヘッダー行を除外してデータを処理
+        costData = rows.slice(1).map((row, arrayIndex) => {
+          const actualRowNumber = arrayIndex + 2; // 実際のスプレッドシートの行番号（ヘッダー行+1）
+          console.log(`行${actualRowNumber}:`, row); // デバッグ用
+          
+          const item = {
+            index: arrayIndex, // 配列内のインデックス
+            rowNumber: actualRowNumber, // 実際のスプレッドシートの行番号
+            vintage: row[0] || '',           // B列: ヴィンテージ
+            wineName: row[1] || '',          // C列: ワイン名
+            englishName: row[2] || '',       // D列: 英表記
+            sellingPrice: 0,                 // E列: 販売価格(税込)
+            costExTax: 0,                    // F列: 原価(税抜)
+            costInTax: 0,                    // G列: 原価(税込)
+            costRatio: 0                     // L列: 原価率
+          };
+
+          // 数値のパース処理を改善
+          if (row[3] && row[3].toString().trim() !== '') {
+            const rawSellingPrice = row[3].toString();
+            const sellingPrice = parseFloat(rawSellingPrice.replace(/[^\d.-]/g, ''));
+            item.sellingPrice = isNaN(sellingPrice) ? 0 : sellingPrice;
+            console.log(`販売価格パース: "${rawSellingPrice}" → ${item.sellingPrice}`);
+          }
+          
+          if (row[4] && row[4].toString().trim() !== '') {
+            const rawCostExTax = row[4].toString();
+            const costExTax = parseFloat(rawCostExTax.replace(/[^\d.-]/g, ''));
+            item.costExTax = isNaN(costExTax) ? 0 : costExTax;
+            console.log(`原価(税抜)パース: "${rawCostExTax}" → ${item.costExTax}`);
+          }
+          
+          if (row[5] && row[5].toString().trim() !== '') {
+            const rawCostInTax = row[5].toString();
+            const costInTax = parseFloat(rawCostInTax.replace(/[^\d.-]/g, ''));
+            item.costInTax = isNaN(costInTax) ? 0 : costInTax;
+            console.log(`原価(税込)パース: "${rawCostInTax}" → ${item.costInTax}`);
+          }
+          
+          if (row[10] && row[10].toString().trim() !== '') {
+            const rawCostRatio = row[10].toString();
+            const costRatio = parseFloat(rawCostRatio.replace(/[^\d.-]/g, ''));
+            item.costRatio = isNaN(costRatio) ? 0 : costRatio;
+            console.log(`原価率パース: "${rawCostRatio}" → ${item.costRatio}`);
+          }
+
+          console.log(`処理後 行${actualRowNumber}:`, {
+            vintage: item.vintage,
+            wineName: item.wineName,
+            englishName: item.englishName,
+            sellingPrice: item.sellingPrice,
+            costExTax: item.costExTax,
+            costInTax: item.costInTax,
+            costRatio: item.costRatio
+          }); // デバッグ用
+          return item;
+        }).filter(item => item.wineName.trim() !== '');
+
+        filteredData = [...costData];
+        displayCostData(filteredData);
+        loadingMessage.style.display = 'none';
+        costTable.style.display = 'table';
+
+      } catch (error) {
+        console.error('原価データ読み込みエラー:', error);
+        loadingMessage.style.display = 'none';
+        errorMessage.style.display = 'block';
+        errorMessage.textContent = `❌ データの読み込みに失敗しました: ${error.message}`;
+      }
+    }
+
+    // 原価データを表示
+    function displayCostData(data) {
+      costTableBody.innerHTML = '';
+
+      if (data.length === 0) {
+        costTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #718096;">データが見つかりません</td></tr>';
+        return;
+      }
+
+      data.forEach((item, displayIndex) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${escapeHtml(item.vintage)}</td>
+          <td>${escapeHtml(item.wineName)}</td>
+          <td>${escapeHtml(item.englishName)}</td>
+          <td>¥${item.sellingPrice.toLocaleString()}</td>
+          <td>¥${item.costExTax.toLocaleString()}</td>
+          <td>¥${item.costInTax.toLocaleString()}</td>
+          <td>${item.costRatio.toFixed(1)}%</td>
+        `;
+        costTableBody.appendChild(row);
+      });
+    }
+
+
+
+    // 検索機能を設定
+    function setupSearch() {
+      searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        
+        if (searchTerm === '') {
+          filteredData = [...costData];
+        } else {
+          filteredData = costData.filter(item => 
+            item.wineName.toLowerCase().includes(searchTerm) ||
+            item.englishName.toLowerCase().includes(searchTerm) ||
+            item.vintage.toLowerCase().includes(searchTerm)
+          );
+        }
+        
+        applySorting();
+        displayCostData(filteredData);
+      });
+    }
+
+    // ソート機能を設定
+    function setupSorting() {
+      const sortableHeaders = document.querySelectorAll('.sortable');
+      sortableHeaders.forEach(header => {
+        header.addEventListener('click', () => {
+          const column = header.dataset.sort;
+          if (currentSort.column === column) {
+            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+          } else {
+            currentSort.column = column;
+            currentSort.direction = 'asc';
+          }
+          
+          // ソートアイコンを更新
+          sortableHeaders.forEach(h => {
+            h.classList.remove('sort-asc', 'sort-desc');
+          });
+          header.classList.add(`sort-${currentSort.direction}`);
+          
+          applySorting();
+          displayCostData(filteredData);
+        });
+      });
+    }
+
+    // ソートを適用
+    function applySorting() {
+      if (!currentSort.column) return;
+
+      filteredData.sort((a, b) => {
+        let aVal = a[currentSort.column];
+        let bVal = b[currentSort.column];
+
+        if (currentSort.column === 'sellingPrice' || currentSort.column === 'costExTax' || currentSort.column === 'costInTax' || currentSort.column === 'costRatio') {
+          aVal = parseFloat(aVal) || 0;
+          bVal = parseFloat(bVal) || 0;
+        } else {
+          aVal = String(aVal).toLowerCase();
+          bVal = String(bVal).toLowerCase();
+        }
+
+        if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return currentSort.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    // CSVエクスポート
+    function exportToCSV() {
+      const headers = ['ヴィンテージ', 'ワイン名', '英表記', '販売価格(税込)', '原価(税抜)', '原価(税込)', '原価率'];
+      const csvContent = [
+        headers.join(','),
+        ...costData.map(item => [
+          `"${item.vintage}"`,
+          `"${item.wineName}"`,
+          `"${item.englishName}"`,
+          item.sellingPrice,
+          item.costExTax,
+          item.costInTax,
+          item.costRatio
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      // タイムゾーン問題を回避：ローカル日付として処理
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
+      link.setAttribute('download', `ワイン原価リスト_${dateStr}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // データを更新
+    function refreshData() {
+      loadCostData();
+    }
+
+    // HTMLエスケープ
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
