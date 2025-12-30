@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スノーシェイブ - 完全レシピガイド</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', 'ヒラギノ角ゴ Pro', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1f4e78 0%, #4472c4 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        header p {
+            font-size: 18px;
+            opacity: 0.9;
+            font-style: italic;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            padding: 40px;
+        }
+
+        @media (max-width: 1024px) {
+            .content {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            font-size: 22px;
+            color: #4472c4;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 3px solid #4472c4;
+        }
+
+        .section-info {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: #4472c4;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight: bold;
+            border: 1px solid #ccc;
+        }
+
+        td {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+        }
+
+        tr:nth-child(even) {
+            background-color: #d9e8f5;
+        }
+
+        tr:hover {
+            background-color: #e8f1fb;
+        }
+
+        td:nth-child(2) {
+            text-align: center;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .amount {
+            color: #333;
+            font-weight: bold;
+        }
+
+        .cost-section {
+            background: #f0f5ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+
+        .cost-info {
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .total-cost {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 10px;
+        }
+
+        .plating {
+            background: linear-gradient(135deg, #f9f9f9 0%, #f0f0f0 100%);
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 20px;
+            border-left: 4px solid #4472c4;
+        }
+
+        .plating h3 {
+            color: #4472c4;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .layer {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 4px;
+        }
+
+        .layer-title {
+            font-weight: bold;
+            color: #4472c4;
+            margin-bottom: 5px;
+        }
+
+        .layer-items {
+            font-size: 13px;
+            margin-left: 15px;
+        }
+
+        .layer-item {
+            margin: 3px 0;
+            color: #333;
+        }
+
+        footer {
+            background: #f5f5f5;
+            padding: 20px 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+
+        .print-friendly {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .print-btn {
+            background: #4472c4;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .print-btn:hover {
+            background: #1f4e78;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .print-friendly {
+                display: none;
+            }
+            .container {
+                box-shadow: none;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>スノーシェイブ</h1>
+            <p>&nbsp;</p>
+        </header>
+
+        <div class="content">
+            <!-- LEFT COLUMN -->
+            <div>
+                <!-- Section 1 -->
+                <div class="section">
+                    <h2>1. スノーシェイブミルクベース</h2>
+                    <div class="section-info">1000g仕込み | <span class="amount">1人前：150g</span></div>
+                    <table>
+                        <tr>
+                            <th>材料</th>
+                            <th>使用量</th>
+                        </tr>
+                        <tr>
+                            <td>牛乳</td>
+                            <td class="amount">700g</td>
+                        </tr>
+                        <tr>
+                            <td>水</td>
+                            <td class="amount">200g</td>
+                        </tr>
+                        <tr>
+                            <td>グラニュー糖</td>
+                            <td class="amount">60g</td>
+                        </tr>
+                        <tr>
+                            <td>トレハロース</td>
+                            <td class="amount">30g</td>
+                        </tr>
+                        <tr>
+                            <td>トリモリン</td>
+                            <td class="amount">20g</td>
+                        </tr>
+                        <tr>
+                            <td>コンデンスミルク</td>
+                            <td class="amount">25g</td>
+                        </tr>
+                        <tr>
+                            <td>塩</td>
+                            <td class="amount">0.5g</td>
+                        </tr>
+                        <tr>
+                            <td>バニラ</td>
+                            <td class="amount">数滴</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Section 3 -->
+                <div class="section">
+                    <h2>3. ピスタチオエスプーマ</h2>
+                    <div class="section-info">700g仕込み | <span class="amount">1人前：15g（ガス1.38円）</span></div>
+                    <table>
+                        <tr>
+                            <th>材料</th>
+                            <th>使用量</th>
+                        </tr>
+                        <tr>
+                            <td>牛乳</td>
+                            <td class="amount">381g</td>
+                        </tr>
+                        <tr>
+                            <td>生クリーム</td>
+                            <td class="amount">44g</td>
+                        </tr>
+                        <tr>
+                            <td>水</td>
+                            <td class="amount">161g</td>
+                        </tr>
+                        <tr>
+                            <td>ピスタチオプラリネ</td>
+                            <td class="amount">59g</td>
+                        </tr>
+                        <tr>
+                            <td>グラニュー糖</td>
+                            <td class="amount">32g</td>
+                        </tr>
+                        <tr>
+                            <td>トリモリン</td>
+                            <td class="amount">15g</td>
+                        </tr>
+                        <tr>
+                            <td>塩</td>
+                            <td class="amount">0.44g</td>
+                        </tr>
+                        <tr>
+                            <td>エスプーマフォーム</td>
+                            <td class="amount">7.3g</td>
+                        </tr>
+                        <tr>
+                            <td>プチドリップ</td>
+                            <td class="amount">1.46g</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Section 5 -->
+                <div class="section">
+                    <h2>5. ミックスベリー（シロップ漬け）</h2>
+                    <div class="section-info"><span class="amount">1人前：50g</span></div>
+                    <table>
+                        <tr>
+                            <th>材料</th>
+                            <th>使用量</th>
+                        </tr>
+                        <tr>
+                            <td>IQFストロベリー</td>
+                            <td class="amount">25g</td>
+                        </tr>
+                        <tr>
+                            <td>完熟ミックスベリー</td>
+                            <td class="amount">25g</td>
+                        </tr>
+                        <tr>
+                            <td>ボーメ30°シロップ</td>
+                            <td class="amount">少量</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Section 7 -->
+                <div class="section">
+                    <h2>7. トッピング（フルーツ＋デコ）</h2>
+                    <table>
+                        <tr>
+                            <th>材料</th>
+                            <th>使用量</th>
+                        </tr>
+                        <tr>
+                            <td>ブルーベリー</td>
+                            <td class="amount">2個</td>
+                        </tr>
+                        <tr>
+                            <td>フランボワーズ</td>
+                            <td class="amount">2個</td>
+                        </tr>
+                        <tr>
+                            <td>いちご</td>
+                            <td class="amount">3/4個</td>
+                        </tr>
+                        <tr>
+                            <td>コポー</td>
+                            <td class="amount">4g</td>
+                        </tr>
+                        <tr>
+                            <td>クッキー</td>
+                            <td class="amount">2枚</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN -->
+            <div>
+                <!-- Section 2 -->
+                <div class="section">
+                    <h2>2. ピスタチオシロップ</h2>
+                    <div class="section-info">Baumé 30 | <span class="amount">1人前：8g</span></div>
+                    <table>
+                        <tr>
+                            <th>材料</th>
+                            <th>使用量</th>
+                        </tr>
+                        <tr>
+                            <td>ボーメ30°シロップ母液</td>
+                            <td class="amount">900g</td>
+                        </tr>
+                        <tr>
+                            <td>ピスタチオペースト</td>
+                            <td class="amount">80～100g</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Section 4 -->
+                <div class="section">
+                    <h2>4. ヨーグルトムースエスプーマ</h2>
+                    <div class="section-info">700g仕込み | <span class="amount">1人前：15g（ガス1.38円）</span></div>
+                    <table>
+                        <tr>
+                            <th>材料</th>
+                            <th>使用量</th>
+                        </tr>
+                        <tr>
+                            <td>ギリシャヨーグルト</td>
+                            <td class="amount">250g</td>
+                        </tr>
+                        <tr>
+                            <td>マスカルポーネ</td>
+                            <td class="amount">120g</td>
+                        </tr>
+                        <tr>
+                            <td>生クリーム</td>
+                            <td class="amount">202g</td>
+                        </tr>
+                        <tr>
+                            <td>牛乳</td>
+                            <td class="amount">70g</td>
+                        </tr>
+                        <tr>
+                            <td>グラニュー糖</td>
+                            <td class="amount">24g</td>
+                        </tr>
+                        <tr>
+                            <td>トレハロース</td>
+                            <td class="amount">12g</td>
+                        </tr>
+                        <tr>
+                            <td>トリモリン</td>
+                            <td class="amount">12g</td>
+                        </tr>
+                        <tr>
+                            <td>塩</td>
+                            <td class="amount">0.35g</td>
+                        </tr>
+                        <tr>
+                            <td>エスプーマフォーム</td>
+                            <td class="amount">7g</td>
+                        </tr>
+                        <tr>
+                            <td>プチドリップ</td>
+                            <td class="amount">2.5g</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Section 6 -->
+                <div class="section">
+                    <h2>6. フランボワーズクーリー</h2>
+                    <div class="section-info"><span class="amount">1人前：6g</span></div>
+                    <table>
+                        <tr>
+                            <th>材料</th>
+                            <th>使用量</th>
+                        </tr>
+                        <tr>
+                            <td>ボワロンフランボワーズクーリー</td>
+                            <td class="amount">6g</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Section 8 -->
+                <div class="section">
+                    <h2>8. 原価分析</h2>
+                    <table>
+                        <tr>
+                            <th>パーツ</th>
+                            <th>原価（税抜）</th>
+                        </tr>
+                        <tr>
+                            <td>スノーシェイブ150g</td>
+                            <td class="amount">38.3円</td>
+                        </tr>
+                        <tr>
+                            <td>ピスタチオシロップ8g</td>
+                            <td class="amount">5.7円</td>
+                        </tr>
+                        <tr>
+                            <td>ピスタチオエスプーマ15g（ガス込）</td>
+                            <td class="amount">12.6円</td>
+                        </tr>
+                        <tr>
+                            <td>ヨーグルトムース15g（ガス込）</td>
+                            <td class="amount">8.5円</td>
+                        </tr>
+                        <tr>
+                            <td>ミックスベリー50g</td>
+                            <td class="amount">79.0円</td>
+                        </tr>
+                        <tr>
+                            <td>フランボワーズクーリー6g</td>
+                            <td class="amount">20.6円</td>
+                        </tr>
+                        <tr>
+                            <td>コポー4g</td>
+                            <td class="amount">15.4円</td>
+                        </tr>
+                        <tr>
+                            <td>クッキー2枚</td>
+                            <td class="amount">30.0円</td>
+                        </tr>
+                        <tr>
+                            <td>フルーツ合計</td>
+                            <td class="amount">145.0円</td>
+                        </tr>
+                    </table>
+                    <div class="cost-section">
+                        <div class="cost-info"><strong>【総原価】</strong> 355.2円</div>
+                        <div class="cost-info"><strong>【原価率】</strong> 26.0%</div>
+                    </div>
+                </div>
+
+                <!-- Section 9 -->
+                <div class="section">
+                    <h2>9. 盛り付け構成（層構造）</h2>
+                    <div class="plating">
+                        <h3>◆ トップ層</h3>
+                        <div class="layer-items">
+                            <div class="layer-item">• ブルーベリー 2個</div>
+                            <div class="layer-item">• フランボワーズ 2個</div>
+                            <div class="layer-item">• いちご 3/4個</div>
+                            <div class="layer-item">• コポー 4g</div>
+                            <div class="layer-item">• ヨーグルトムース 15g</div>
+                            <div class="layer-item">• ピスタチオエスプーマ 15g</div>
+                        </div>
+
+                        
+
+                        <h3 style="margin-top: 12px;">◆ 中間層</h3>
+                        <div class="layer-items">
+                            <div class="layer-item">• ミックスベリー 50g</div>
+                            <div class="layer-item">• フランボワーズクーリー 6g</div>
+                            <div class="layer-item">• ピスタチオシロップ 8g</div>
+                        </div>
+
+                        <h3 style="margin-top: 12px;">&nbsp;</h3>
+                        <div class="layer-items">
+                            <div class="layer-item">&nbsp;</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+
+        <footer>
+            
+        </footer>
+    </div>
+</body>
+</html>
