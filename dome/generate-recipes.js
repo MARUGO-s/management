@@ -245,12 +245,150 @@ function generateRecipesPage(recipes) {
             padding: 15px 20px;
             margin-bottom: 30px;
             border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
         }
 
         .auto-generated p {
             color: #666;
             font-size: 13px;
             margin: 0;
+            flex: 1;
+        }
+
+        .update-btn {
+            background: linear-gradient(135deg, #4472c4 0%, #5a8ed6 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(68, 114, 196, 0.3);
+            white-space: nowrap;
+        }
+
+        .update-btn:hover {
+            background: linear-gradient(135deg, #1f4e78 0%, #4472c4 100%);
+            box-shadow: 0 4px 12px rgba(68, 114, 196, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .update-btn:active {
+            transform: translateY(0);
+        }
+
+        .update-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .update-status {
+            font-size: 12px;
+            color: #4472c4;
+            font-weight: bold;
+            display: none;
+        }
+
+        .update-status.show {
+            display: inline-block;
+        }
+
+        .upload-section {
+            background: #f0f9ff;
+            border-left: 4px solid #0ea5e9;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .upload-section h3 {
+            color: #0369a1;
+            font-size: 16px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .upload-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .file-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px dashed #94a3b8;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .file-input:hover {
+            border-color: #0ea5e9;
+            background: #f0f9ff;
+        }
+
+        .upload-submit-btn {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            border: none;
+            padding: 11px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+            white-space: nowrap;
+        }
+
+        .upload-submit-btn:hover {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .upload-submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .upload-submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .upload-status {
+            font-size: 13px;
+            margin-top: 10px;
+            font-weight: bold;
+            display: none;
+        }
+
+        .upload-status.show {
+            display: block;
+        }
+
+        .upload-info {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 8px;
         }
 
         footer {
@@ -283,8 +421,24 @@ function generateRecipesPage(recipes) {
             <p>月別レシピ一覧 - Monthly Recipe Collection</p>
         </header>
 
+        <div class="upload-section">
+            <h3>📤 新しいレシピをアップロード</h3>
+            <form class="upload-form" id="uploadForm" onsubmit="uploadFile(event)">
+                <div class="file-input-wrapper">
+                    <input type="file" id="recipeFile" name="recipeFile" accept=".html" class="file-input" required>
+                </div>
+                <button type="submit" class="upload-submit-btn" id="uploadBtn">📁 アップロード</button>
+            </form>
+            <div class="upload-status" id="uploadStatus"></div>
+            <div class="upload-info">
+                ※ ファイル名は YYYYMM.html 形式（例：202602.html）である必要があります
+            </div>
+        </div>
+
         <div class="auto-generated">
-            <p>⚡ このページは自動生成されています。新しいHTMLファイルを追加した後、<strong>node generate-recipes.js</strong> を実行してください。</p>
+            <p>⚡ このページは自動生成されています。新しいHTMLファイルを追加したら、右のボタンをクリックしてください。</p>
+            <span class="update-status" id="updateStatus"></span>
+            <button class="update-btn" id="updateBtn" onclick="updateRecipes()">🔄 レシピを更新</button>
         </div>
 
         <div class="recipe-grid">
@@ -309,6 +463,130 @@ ${recipeCards}
             最終更新: ${new Date().toLocaleString('ja-JP')}
         </footer>
     </div>
+
+    <script>
+        // ファイルアップロード処理
+        async function uploadFile(event) {
+            event.preventDefault();
+
+            const form = document.getElementById('uploadForm');
+            const fileInput = document.getElementById('recipeFile');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadStatus = document.getElementById('uploadStatus');
+
+            if (!fileInput.files[0]) {
+                uploadStatus.textContent = '❌ ファイルを選択してください';
+                uploadStatus.classList.add('show');
+                uploadStatus.style.color = '#ef4444';
+                return;
+            }
+
+            const file = fileInput.files[0];
+
+            // ファイル名検証（クライアント側）
+            const filename = file.name;
+            const isValidFormat = /^\d{6}\.html$/.test(filename);
+
+            if (!isValidFormat) {
+                uploadStatus.textContent = '❌ ファイル名はYYYYMM.html形式である必要があります（例：202602.html）';
+                uploadStatus.classList.add('show');
+                uploadStatus.style.color = '#ef4444';
+                return;
+            }
+
+            // ボタンを無効化
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '⏳ アップロード中...';
+            uploadStatus.textContent = '';
+            uploadStatus.classList.remove('show');
+
+            const formData = new FormData();
+            formData.append('recipeFile', file);
+
+            try {
+                const response = await fetch('http://localhost:3456/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    uploadStatus.textContent = '✅ ' + data.message;
+                    uploadStatus.classList.add('show');
+                    uploadStatus.style.color = '#22c55e';
+
+                    // フォームをリセット
+                    form.reset();
+
+                    // 2秒後にページをリロード
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || 'アップロードに失敗しました');
+                }
+            } catch (error) {
+                uploadStatus.textContent = '❌ エラー: ' + error.message;
+                uploadStatus.classList.add('show');
+                uploadStatus.style.color = '#ef4444';
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '📁 アップロード';
+
+                // サーバーが起動していない場合のメッセージ
+                if (error.message.includes('Failed to fetch')) {
+                    alert('サーバーが起動していません。\\n\\nターミナルで以下のコマンドを実行してください：\\nnpm run recipes');
+                }
+            }
+        }
+
+        // レシピ更新処理
+        async function updateRecipes() {
+            const btn = document.getElementById('updateBtn');
+            const status = document.getElementById('updateStatus');
+
+            // ボタンを無効化
+            btn.disabled = true;
+            btn.textContent = '⏳ 更新中...';
+            status.textContent = '';
+            status.classList.remove('show');
+
+            try {
+                const response = await fetch('http://localhost:3456/api/generate-recipes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    status.textContent = '✅ 更新完了！';
+                    status.classList.add('show');
+                    status.style.color = '#22c55e';
+
+                    // 2秒後にページをリロード
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || '更新に失敗しました');
+                }
+            } catch (error) {
+                status.textContent = '❌ エラー: ' + error.message;
+                status.classList.add('show');
+                status.style.color = '#ef4444';
+                btn.disabled = false;
+                btn.textContent = '🔄 レシピを更新';
+
+                // サーバーが起動していない場合のメッセージ
+                if (error.message.includes('Failed to fetch')) {
+                    alert('サーバーが起動していません。\\n\\nターミナルで以下のコマンドを実行してください：\\nnpm run recipes');
+                }
+            }
+        }
+    </script>
 </body>
 </html>`;
 

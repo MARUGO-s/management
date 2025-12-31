@@ -606,9 +606,11 @@
     .data-link-container {
       display: flex;
       justify-content: center;
+      align-items: center;
       gap: 12px;
       margin-top: 20px;
       flex-wrap: wrap;
+      position: relative;
     }
 
     .data-link-btn {
@@ -655,6 +657,28 @@
     .data-link-btn.ingredients-btn:hover {
       background: rgba(245, 158, 11, 0.2);
       color: rgba(245, 158, 11, 0.6);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .data-link-btn.hidden-btn {
+      position: absolute;
+      left: 0;
+      background: transparent;
+      color: transparent;
+      border: none;
+      padding: 16px 24px;
+      font-size: 0;
+      opacity: 0;
+      cursor: pointer;
+      transition: none;
+    }
+
+    .data-link-btn.hidden-btn:hover {
+      background: transparent;
+      color: transparent;
+      border: none;
+      opacity: 0;
       box-shadow: none;
       transform: none;
     }
@@ -848,6 +872,7 @@
       </div>
     </form>
     <div class="data-link-container">
+      <a href="dome/recipes.html" class="data-link-btn hidden-btn"></a>
       <a href="pages/marugo.html" class="data-link-btn">📊 データを見る</a>
       <!-- 要望によりボタン非表示
       <a href="pages/cost.html" class="data-link-btn cost-btn">飲</a>
