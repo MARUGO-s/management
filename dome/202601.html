@@ -46,41 +46,57 @@
             page-break-inside: avoid;
         }
         th {
-            background-color: #f0f0f0;
-            border: 1px solid #ddd;
-            padding: 12px;
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            color: white;
+            border: 1px solid #2d3748;
+            padding: 14px 12px;
             text-align: left;
-            font-weight: 600;
-            font-size: 13px;
-            color: #333;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 0.3px;
         }
         td {
-            border: 1px solid #ddd;
-            padding: 11px 12px;
-            font-size: 13px;
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            font-size: 14px;
             color: #555;
         }
+        /* 行ごとに色分け */
+        tbody tr:nth-child(odd) {
+            background-color: #ffffff;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f7fafc;
+        }
+        tbody tr:hover {
+            background-color: #edf2f7;
+            transition: background-color 0.2s ease;
+        }
         .ingredient {
-            background-color: #fafafa;
-            font-weight: 500;
-            color: #333;
+            font-weight: 600;
+            color: #2d3748;
         }
         .amount {
             text-align: right;
             font-family: 'Courier New', monospace;
-            font-weight: 500;
+            font-weight: 700;
+            color: #2c5282;
+            font-size: 15px;
         }
         .role {
             color: #666;
             font-size: 12px;
         }
         .total {
-            background-color: #f0f0f0;
-            font-weight: 600;
-            color: #333;
+            background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
+            font-weight: 700;
+            color: #1a202c;
+            border-top: 2px solid #4a5568 !important;
         }
         .total .amount {
-            font-weight: 700;
+            font-weight: 800;
+            color: #c53030;
+            font-size: 16px;
         }
         .characteristics {
             background-color: #fff8f0;
@@ -197,8 +213,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr style="background-color: #f5f5f5;">
-                        <td class="ingredient" style="font-weight: 600; background-color: #f0f0f0;">ベース</td>
+                    <tr style="background-color: #e6f7ff;">
+                        <td class="ingredient" style="font-weight: 700; background-color: #bae7ff; color: #003a8c;">ベース</td>
                         <td class="ingredient">ボーメ30シロップ</td>
                         <td class="amount">220</td>
                         <td>甘味・粘度・低温流動性の中核</td>
@@ -209,26 +225,26 @@
                         <td class="amount">140</td>
                         <td>乳感・水相</td>
                     </tr>
-                    <tr style="background-color: #fafafa;">
+                    <tr>
                         <td></td>
                         <td class="ingredient">水</td>
                         <td class="amount">40</td>
                         <td>自由水・軽さ調整</td>
                     </tr>
-                    <tr style="background-color: #f5f5f5;">
-                        <td class="ingredient" style="font-weight: 600; background-color: #f0f0f0;">チョコ要素</td>
+                    <tr style="background-color: #fff4e6;">
+                        <td class="ingredient" style="font-weight: 700; background-color: #ffd591; color: #874d00;">チョコ要素</td>
                         <td class="ingredient">クーベルチュール（60～66%）</td>
                         <td class="amount">45</td>
                         <td>カカオ香・コク（脂肪は抑制）</td>
                     </tr>
-                    <tr style="background-color: #fafafa;">
+                    <tr>
                         <td></td>
                         <td class="ingredient">無糖ココアパウダー</td>
                         <td class="amount">6</td>
                         <td>色補強・苦味・香り</td>
                     </tr>
-                    <tr style="background-color: #f5f5f5;">
-                        <td class="ingredient" style="font-weight: 600; background-color: #f0f0f0;">仕上げ</td>
+                    <tr style="background-color: #f6ffed;">
+                        <td class="ingredient" style="font-weight: 700; background-color: #b7eb8f; color: #389e0d;">仕上げ</td>
                         <td class="ingredient">生クリーム（35%）</td>
                         <td class="amount">20</td>
                         <td>口当たりの丸み（最小量）</td>
@@ -239,8 +255,8 @@
                         <td class="amount">0.45</td>
                         <td>甘味強調・輪郭</td>
                     </tr>
-                    <tr style="background-color: #f0f0f0;">
-                        <td class="total" style="font-weight: 600;">合計</td>
+                    <tr>
+                        <td class="total" style="font-weight: 700;">合計</td>
                         <td colspan="2" class="total amount">451.5 g</td>
                         <td class="total">検算済</td>
                     </tr>
