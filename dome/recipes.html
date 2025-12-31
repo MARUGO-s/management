@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>レシピ一覧 - かき氷レシピアーカイブ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', 'ヒラギノ角ゴ Pro', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1f4e78 0%, #4472c4 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        header p {
+            font-size: 18px;
+            opacity: 0.9;
+            font-style: italic;
+        }
+
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .recipe-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .recipe-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .recipe-card-header {
+            background: linear-gradient(135deg, #4472c4 0%, #5a8ed6 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .recipe-date {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .recipe-year {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .recipe-card-body {
+            padding: 25px;
+        }
+
+        .recipe-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .recipe-description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .recipe-link {
+            display: inline-block;
+            background: #4472c4;
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background 0.3s ease;
+        }
+
+        .recipe-link:hover {
+            background: #1f4e78;
+        }
+
+        .info-box {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-top: 40px;
+        }
+
+        .info-box h2 {
+            color: #4472c4;
+            font-size: 24px;
+            margin-bottom: 15px;
+            border-bottom: 3px solid #4472c4;
+            padding-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .auto-generated {
+            background: #fff8e1;
+            border-left: 4px solid #ffa000;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .auto-generated p {
+            color: #666;
+            font-size: 13px;
+            margin: 0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 12px;
+            margin-top: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .recipe-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 32px;
+            }
+
+            header p {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>かき氷レシピアーカイブ</h1>
+            <p>月別レシピ一覧 - Monthly Recipe Collection</p>
+        </header>
+
+        <div class="auto-generated">
+            <p>⚡ このページは自動生成されています。新しいHTMLファイルを追加した後、<strong>node generate-recipes.js</strong> を実行してください。</p>
+        </div>
+
+        <div class="recipe-grid">
+
+            <!-- 2026年1月 -->
+            <div class="recipe-card" onclick="location.href='202601.html'">
+                <div class="recipe-card-header">
+                    <div class="recipe-date">2026年1月</div>
+                    <div class="recipe-year">January 2026</div>
+                </div>
+                <div class="recipe-card-body">
+                    <div class="recipe-title">かき氷シロップ配合表</div>
+                    <div class="recipe-description">
+                        かき氷の詳細レシピと配合表
+                    </div>
+                    <a href="202601.html" class="recipe-link">レシピを見る →</a>
+                </div>
+            </div>
+
+            <!-- 2025年12月 -->
+            <div class="recipe-card" onclick="location.href='202512.html'">
+                <div class="recipe-card-header">
+                    <div class="recipe-date">2025年12月</div>
+                    <div class="recipe-year">December 2025</div>
+                </div>
+                <div class="recipe-card-body">
+                    <div class="recipe-title">スノーシェイブ - 完全レシピガイド</div>
+                    <div class="recipe-description">
+                        スノーシェイブミルクベース、ピスタチオエスプーマ、ミックスベリー（シロップ漬け）などの詳細レシピと原価計算
+                    </div>
+                    <a href="202512.html" class="recipe-link">レシピを見る →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h2>このアーカイブについて</h2>
+            <p>
+                このページは、月別に整理されたかき氷レシピのアーカイブです。各レシピには材料の配合、分量、原価計算などの詳細情報が含まれています。<br>
+                新しいレシピは月ごとに追加され、過去のレシピもいつでも参照することができます。<br><br>
+                各カードをクリックすると、その月のレシピページに移動します。<br><br>
+                <strong>新しいレシピの追加方法：</strong><br>
+                1. domeフォルダに YYYYMM.html 形式でファイルを追加（例：202602.html）<br>
+                2. ターミナルで <code>node dome/generate-recipes.js</code> を実行<br>
+                3. 自動的にこのページが更新されます
+            </p>
+        </div>
+
+        <footer>
+            © 2025-2026 かき氷レシピアーカイブ - All Rights Reserved<br>
+            最終更新: 2025/12/31 15:21:37
+        </footer>
+    </div>
+</body>
+</html>
