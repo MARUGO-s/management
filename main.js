@@ -1,6 +1,6 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxxrH8ZtjpadlxvdnbFFOvyc4kCsANrZt-aOu5HZ2RhlbSgDwFsJzq7AfMGW58w3HTW/exec"; // Google Apps ScriptのURL (小数点対応版)
 const shops = [ // 店舗名のリスト
-  "本部", "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
+  "本部", "MARUGO‑S", "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
   "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
   "マルゴ新橋", "MARUGO YOTSUYA", "371BAR", "三三五五",
   "BAR PELOTA", "Claudia2", "BISTRO CAVACAVA", "eric'S",
