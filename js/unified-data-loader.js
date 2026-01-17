@@ -5,7 +5,7 @@ class UnifiedDataLoader {
         this.cacheExpiry = 5 * 60 * 1000; // 5分間キャッシュ
         this.isLoading = false;
         this.loadPromise = null;
-        
+
         console.log('📦 統合データローダーを初期化しました');
     }
 
@@ -40,19 +40,19 @@ class UnifiedDataLoader {
     // 実際のデータ読み込み処理
     async performDataLoad() {
         console.log('🌐 統合データ読み込みを開始...');
-        
+
         try {
             // 1回のAPI呼び出しで貸借表の全データを取得
             const mainSheetData = await callSheetsAPI('貸借表!A:K', 'GET');
-            
+
             console.log('📊 貸借表データ取得完了:', mainSheetData.values?.length || 0, '行');
-            
+
             // 取得したデータから各種リストを抽出
             const result = this.processMainSheetData(mainSheetData.values || []);
-            
+
             console.log('✅ データ処理完了');
             return result;
-            
+
         } catch (error) {
             console.error('❌ 統合データ読み込みエラー:', error);
             throw error;
@@ -96,7 +96,7 @@ class UnifiedDataLoader {
         rows.forEach(row => {
             const name = (row[1] || '').toString().trim(); // B列
             const dateStr = row[0] || ''; // A列
-            
+
             if (name) {
                 nameSet.add(name);
                 const ms = this.parseDateMs(dateStr);
@@ -124,11 +124,11 @@ class UnifiedDataLoader {
             const quantity = this.parseNumber(row[6]); // G列
             const unitPrice = this.parseNumber(row[7]); // H列
             const amount = this.parseNumber(row[8]); // I列
-            
+
             if (item) {
                 const key = this.normalizeKey(item);
                 const ms = this.parseDateMs(dateStr);
-                
+
                 if (!itemMap.has(key) || itemMap.get(key).ms < ms) {
                     itemMap.set(key, {
                         item,
@@ -155,7 +155,7 @@ class UnifiedDataLoader {
         rows.forEach(row => {
             const lender = (row[2] || '').toString().trim(); // C列
             const borrower = (row[3] || '').toString().trim(); // D列
-            
+
             if (lender) stores.add(lender);
             if (borrower) stores.add(borrower);
         });
@@ -208,10 +208,10 @@ class UnifiedDataLoader {
     getDateRange(rows) {
         const dates = rows.map(row => this.parseDateMs(row[0])).filter(ms => ms > 0);
         if (dates.length === 0) return null;
-        
+
         const minDate = new Date(Math.min(...dates));
         const maxDate = new Date(Math.max(...dates));
-        
+
         return {
             from: minDate.toLocaleDateString('ja-JP'),
             to: maxDate.toLocaleDateString('ja-JP')
@@ -221,8 +221,53 @@ class UnifiedDataLoader {
     // ユーティリティ関数
     parseDateMs(dateStr) {
         if (!dateStr) return 0;
-        const date = new Date(dateStr);
-        return isNaN(date.getTime()) ? 0 : date.getTime();
+
+        try {
+            // Already perfect format
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                return new Date(dateStr).getTime();
+            }
+
+            // Common Japanese formats & Dot notation
+            // 2026年1月1日, 2026/1/1, 2026-1-1, 2026.1.1
+            const ymdMatch = dateStr.match(/(\d{4})[年\/\-\.](\d{1,2})[月\/\-\.](\d{1,2})[日]?/);
+            if (ymdMatch) {
+                const [, year, month, day] = ymdMatch;
+                return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`).getTime();
+            }
+
+            // 2-digit year format (e.g. 26/01/01 -> 2026-01-01)
+            // Assumes 20xx for any 2-digit year
+            const shortYearMatch = dateStr.match(/^(\d{2})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
+            if (shortYearMatch) {
+                const [, year, month, day] = shortYearMatch;
+                return new Date(`20${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`).getTime();
+            }
+
+            // Reiwa format (e.g. R8.1.1 -> 2026-01-01)
+            // R1 = 2019, R8 = 2026
+            const reiwaMatch = dateStr.match(/^R(\d{1,2})[\.\/年](\d{1,2})[\.\/月]?(\d{1,2})[日]?/i);
+            if (reiwaMatch) {
+                const [, rYear, month, day] = reiwaMatch;
+                const year = 2018 + parseInt(rYear);
+                return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`).getTime();
+            }
+
+            // Fallback to standard Date parser
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+                const year = date.getFullYear();
+                // 2-digit year adjustment (if 26 -> 1926, make it 2026)
+                if (year < 2000) {
+                    date.setFullYear(year + 100);
+                }
+                return date.getTime();
+            }
+
+            return 0;
+        } catch (error) {
+            return 0;
+        }
     }
 
     parseNumber(value) {
@@ -239,7 +284,7 @@ class UnifiedDataLoader {
     isDataCached() {
         const cached = this.cache.get('allData');
         if (!cached) return false;
-        
+
         const age = Date.now() - cached.timestamp;
         return age < this.cacheExpiry;
     }
@@ -315,16 +360,16 @@ class UnifiedDataLoader {
 window.unifiedDataLoader = new UnifiedDataLoader();
 
 // 既存の関数を統合データローダーを使用するように置き換え
-window.optimizedPopulateNameDatalist = async function(forceRefresh = false) {
+window.optimizedPopulateNameDatalist = async function (forceRefresh = false) {
     try {
         console.log('📋 最適化された名前リスト読み込み開始');
         const names = await window.unifiedDataLoader.getNames(forceRefresh);
-        
+
         // 既存のrenderNameList関数を使用
         if (typeof renderNameList === 'function') {
             renderNameList(names);
         }
-        
+
         return names;
     } catch (error) {
         console.error('名前リスト読み込みエラー:', error);
@@ -332,16 +377,16 @@ window.optimizedPopulateNameDatalist = async function(forceRefresh = false) {
     }
 };
 
-window.optimizedPopulateItemDatalist = async function(forceRefresh = false) {
+window.optimizedPopulateItemDatalist = async function (forceRefresh = false) {
     try {
         console.log('📋 最適化された品目リスト読み込み開始');
         const items = await window.unifiedDataLoader.getItems(forceRefresh);
-        
+
         // 既存のrenderItemList関数を使用
         if (typeof renderItemList === 'function') {
             renderItemList(items);
         }
-        
+
         return items;
     } catch (error) {
         console.error('品目リスト読み込みエラー:', error);

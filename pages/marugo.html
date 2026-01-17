@@ -1269,20 +1269,16 @@
                             }
 
                             // 2. 日付フィルター（より厳密な判定）
-                            const rowDate = row.date ? new Date(row.date) : null;
+                            const rowDateStr = this.extractDateFromDateTime(row.date);
 
-                            // 開始日が指定されていて、行に日付がないか、日付が開始日より前の場合は除外
-                            if (startDate && (!rowDate || rowDate < new Date(startDate))) {
+                            // 開始日が指定されていて、日付が不明または開始日より前の場合は除外
+                            if (startDate && (!rowDateStr || rowDateStr < startDate)) {
                                 return false;
                             }
 
-                            // 終了日が指定されていて、行に日付がないか、日付が終了日より後の場合は除外
-                            if (endDate) {
-                                const endOfDay = new Date(endDate);
-                                endOfDay.setHours(23, 59, 59, 999); // 終了日の終わりまでを範囲に含める
-                                if (!rowDate || rowDate > endOfDay) {
-                                    return false;
-                                }
+                            // 終了日が指定されていて、日付が不明または終了日より後の場合は除外
+                            if (endDate && (!rowDateStr || rowDateStr > endDate)) {
+                                return false;
                             }
 
                             // 3. 店舗名による絞り込み
@@ -1331,17 +1327,17 @@
 
                         // 指定期間内のデータをフィルタリング
                         let results = this.data.filter(row => {
-                            // 日付フィルター
-                            const rowDate = row.date ? new Date(row.date) : null;
-                            if (startDate && (!rowDate || rowDate < new Date(startDate))) {
+                            // 日付フィルター（より厳密な判定）
+                            const rowDateStr = this.extractDateFromDateTime(row.date);
+
+                            // 開始日が指定されていて、日付が不明または開始日より前の場合は除外
+                            if (startDate && (!rowDateStr || rowDateStr < startDate)) {
                                 return false;
                             }
-                            if (endDate) {
-                                const endOfDay = new Date(endDate);
-                                endOfDay.setHours(23, 59, 59, 999);
-                                if (!rowDate || rowDate > endOfDay) {
-                                    return false;
-                                }
+
+                            // 終了日が指定されていて、日付が不明または終了日より後の場合は除外
+                            if (endDate && (!rowDateStr || rowDateStr > endDate)) {
+                                return false;
                             }
 
                             return true;
@@ -1442,7 +1438,22 @@
                     this.log('検索実行中...', 'loading');
 
                     this.searchResults = this.data.filter(row => {
-                        const dateMatch = row.date >= startDate && row.date <= endDate;
+                        // 日付の正規化比較
+                        const rowDateStr = this.extractDateFromDateTime(row.date);
+                        // 日付が取得できない場合（空文字など）、フィルタリング対象外とするか、
+                        // 期間指定がない場合はデータを含めるなどポリシーによるが、
+                        // ここでは「期間指定があるのに日付が不明」なものは除外する安全策をとる
+
+                        let dateMatch = true;
+                        if (startDate || endDate) {
+                            if (!rowDateStr) {
+                                dateMatch = false;
+                            } else {
+                                if (startDate && rowDateStr < startDate) dateMatch = false;
+                                if (endDate && rowDateStr > endDate) dateMatch = false;
+                            }
+                        }
+
                         // 店舗名が選択されている場合のみ店舗で絞り込み
                         const storeMatch = storeName ? (row.lender === storeName || row.borrower === storeName) : true;
                         return dateMatch && storeMatch;
@@ -1908,9 +1919,25 @@
                     // 店舗ごとに集計
                     const storeData = {};
                     this.searchResults.forEach(row => {
+                        let lender = row.lender;
+                        let borrower = row.borrower;
+                        let category = row.category;
+
+                        // M-martデータの場合の正規化（2026年データ対応）
+                        // 本来「貸主：本部」「借主：店舗」であるべきものが逆になっている場合を補正
+                        if (category && category.match(/^m-mart/i)) {
+                            // 借主が「本部」の場合、実質的に店舗への貸出（貸主が本部、借主が店舗）として扱う
+                            if (borrower && borrower.toUpperCase() === '本部') {
+                                // 役割を反転
+                                const temp = lender;
+                                lender = borrower;
+                                borrower = temp;
+                            }
+                        }
+
                         // 貸主としての取引
-                        if (row.lender) {
-                            const storeName = row.lender;
+                        if (lender) {
+                            const storeName = lender;
                             if (!storeData[storeName]) {
                                 storeData[storeName] = {
                                     storeName: storeName,
@@ -1928,19 +1955,19 @@
                             storeData[storeName].lentItems.push({
                                 date: row.date,
                                 item: row.item,
-                                category: row.category,
+                                category: category,
                                 quantity: row.quantity,
                                 unitPrice: row.unitPrice,
                                 amount: row.amount,
-                                borrower: row.borrower,
+                                borrower: borrower,
                                 name: row.name,
                                 correction: correctionValue
                             });
                         }
 
                         // 借主としての取引
-                        if (row.borrower) {
-                            const storeName = row.borrower;
+                        if (borrower) {
+                            const storeName = borrower;
                             if (!storeData[storeName]) {
                                 storeData[storeName] = {
                                     storeName: storeName,
@@ -1958,11 +1985,11 @@
                             storeData[storeName].borrowedItems.push({
                                 date: row.date,
                                 item: row.item,
-                                category: row.category,
+                                category: category,
                                 quantity: row.quantity,
                                 unitPrice: row.unitPrice,
                                 amount: row.amount,
-                                lender: row.lender,
+                                lender: lender,
                                 name: row.name,
                                 correction: correctionValue
                             });
@@ -2950,9 +2977,21 @@
                         } else {
                             // 店舗別検索時: 従来の表示
                             const storeName = document.getElementById('store-name').value;
-                            const isLender = row.lender === storeName;
+
+                            // M-martデータかつ貸主・借主が逆転している場合の正規化
+                            let effectiveLender = row.lender;
+                            let effectiveBorrower = row.borrower;
+
+                            if (row.category && row.category.match(/^m-mart/i)) {
+                                if (row.borrower && row.borrower.toUpperCase() === '本部') {
+                                    effectiveLender = row.borrower;
+                                    effectiveBorrower = row.lender;
+                                }
+                            }
+
+                            const isLender = effectiveLender === storeName;
                             const transactionType = isLender ? '貸出' : '借入';
-                            const counterpart = isLender ? row.borrower : row.lender;
+                            const counterpart = isLender ? effectiveBorrower : effectiveLender;
                             const amountClass = isLender ? 'positive' : 'negative';
 
                             return `
@@ -3742,9 +3781,22 @@
                         // 店舗ごとに集計
                         const storeData = {};
                         exportData.forEach(row => {
+                            let lender = row.lender;
+                            let borrower = row.borrower;
+                            let category = row.category;
+
+                            // M-martデータの場合の正規化（2026年データ対応）
+                            if (category && category.match(/^m-mart/i)) {
+                                if (borrower && borrower.toUpperCase() === '本部') {
+                                    const temp = lender;
+                                    lender = borrower;
+                                    borrower = temp;
+                                }
+                            }
+
                             // 貸主としての取引
-                            if (row.lender) {
-                                const storeName = row.lender;
+                            if (lender) {
+                                const storeName = lender;
                                 if (!storeData[storeName]) {
                                     storeData[storeName] = {
                                         店舗名: storeName,
@@ -3759,8 +3811,8 @@
                             }
 
                             // 借主としての取引
-                            if (row.borrower) {
-                                const storeName = row.borrower;
+                            if (borrower) {
+                                const storeName = borrower;
                                 if (!storeData[storeName]) {
                                     storeData[storeName] = {
                                         店舗名: storeName,
@@ -3804,7 +3856,19 @@
                         // 店舗ごとに集計（カードと現金を分ける）
                         const storeData = {};
                         exportData.forEach(row => {
-                            const storeName = row.borrower;
+                            let lender = row.lender ? row.lender.toUpperCase() : '';
+                            let borrower = row.borrower ? row.borrower.toUpperCase() : '';
+
+                            // 2026年データ対応：M-mart分析では本部が絡む方を特定して、相手方を店舗とする
+                            let storeName = '';
+                            if (lender === '本部') {
+                                storeName = row.borrower;
+                            } else if (borrower === '本部') {
+                                storeName = row.lender;
+                            } else {
+                                storeName = row.borrower; // フォールバック
+                            }
+
                             const paymentMethod = row.category.includes('カード') ? 'card' : row.category.includes('現金') ? 'cash' : 'other';
 
                             if (!storeData[storeName]) {
