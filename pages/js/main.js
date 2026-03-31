@@ -8,7 +8,7 @@ const shops = [ // 店舗名のリスト
   "X&C", "トラットリア ブリッコラ"
 ];
 
-console.log('pages/js/main.js version 2025011604 loaded');
+console.log('pages/js/main.js v1.2.0 build 2026040110 loaded');
 
 // M-mart支払い方法選択ポップアップを表示
 function showPaymentMethodModal(option, categoryOptions, catHidden, rowEl) {

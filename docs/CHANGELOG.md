@@ -1,6 +1,29 @@
-# 変更履歴 (2025-09-20 更新)
+# 変更履歴
 
-## 追加・更新内容
+## [1.2.0] — 2026-04-01
+
+### 修正
+
+- **`main.js`（ルート）**: 重複定義していた `populateShops` を削除し、`Identifier 'populateShops' has already been declared` による構文エラーを解消。
+- **データ不一致レポート**: `showRegisteredDataConfirmation` 内で、`compareSentAndRegisteredData` の戻り値に `registeredData` / `mismatchCount` / `mismatchDetails` を付与。Supabase・管理画面に送る `registeredDataCount` が常に 0 になる誤表示を解消（`main.js`, `js/main.js`, `pages/js/main.js`）。
+- **GAS サンプル**（`docs/gas_scripts/gas_code_complete.gs`, `gas_code_complete_updated.gs`）: `SPREADSHEET_ID` を本番 ID の文字列リテラルで明示。`SpreadsheetApp.getActiveSpreadsheet().getId()` に依存しない。食材・原価シートは `openById(SPREADSHEET_ID)` に統一。
+
+### ドキュメント・運用
+
+- **`docs/SPREADSHEET_REGISTRY.md`**: 本番スプレッドシート ID・URL・GAS 同期・ID 変更時チェックリストを記載。
+- **`.gitignore`**: `config.js` を除外（Supabase anon key 等の混入防止）。新規クローン時は `docs/reference/config.example.js` を元にローカルで `config.js` を作成。
+
+### Git
+
+- リポジトリ `https://github.com/MARUGO-s/management` の `main` に上記を反映。
+
+### バージョン表記
+
+- アプリ **1.2.0**（ビルド ID `2026040110`）。`index.html` の `main.js` クエリ、`main.js` / `js/main.js` / `pages/js/main.js` のコンソールログを更新。
+
+---
+
+## 追加・更新内容（2025-09-20 時点）
 
 - **店舗別貸借り合計のサマリーカード表示の改善**
   - 店舗別貸借り合計表示時に、店舗別残高のサマリーカードを非表示に変更。
