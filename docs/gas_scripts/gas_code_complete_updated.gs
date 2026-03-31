@@ -1,7 +1,7 @@
 /**
  * スプレッドシートのIDとシート名。
  */
-const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
+const SPREADSHEET_ID = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY';
 const TARGET_SHEET_NAME = "貸借表"; // データを操作するシート名
 
 /**
@@ -397,7 +397,7 @@ function cleanupBackups() {
  */
 function handleIngredientsUpload(uploadData) {
   try {
-    const sheet = SpreadsheetApp.openById('1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY').getSheetByName('食材コスト');
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('食材コスト');
 
     if (!sheet) {
       throw new Error('食材コストシートが見つかりません');
@@ -473,7 +473,7 @@ function handleIngredientsUpload(uploadData) {
  */
 function handleCostUpload(uploadData) {
   try {
-    const sheet = SpreadsheetApp.openById('1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY').getSheetByName('原価リスト');
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('原価リスト');
 
     if (!sheet) {
       throw new Error('原価リストシートが見つかりません');

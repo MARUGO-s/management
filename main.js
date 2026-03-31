@@ -65,24 +65,6 @@ function parseDateMs(s) {
   return isNaN(ms) ? 0 : ms;
 }
 
-// 店舗データで貸主・借主のオプションを設定
-function populateShops() {
-  const lenderSelect = document.getElementById("lender");
-  const borrowerSelect = document.getElementById("borrower");
-
-  shops.forEach(shop => {
-    const option1 = document.createElement("option");
-    option1.value = shop;
-    option1.textContent = shop;
-    lenderSelect.appendChild(option1);
-
-    const option2 = document.createElement("option");
-    option2.value = shop;
-    option2.textContent = shop;
-    borrowerSelect.appendChild(option2);
-  });
-}
-
 // B列（名前）を取得して datalist に反映（統合データローダー使用）
 async function populateNameDatalist(forceRefresh = false) {
   try {
@@ -1197,7 +1179,13 @@ async function showRegisteredDataConfirmation(allPayloads) {
     const pick = recent.length > 0 ? recent.slice(0, allPayloads.length) : parsed.slice(0, allPayloads.length);
     
     // 送信データと登録データの比較（高速化）
-    const dataComparison = compareSentAndRegisteredData(allPayloads, pick);
+    const compareResult = compareSentAndRegisteredData(allPayloads, pick);
+    // reportDataMismatch は registeredData / mismatchCount を参照するため付与（compareResult には無い）
+    const dataComparison = Object.assign({}, compareResult, {
+      registeredData: pick,
+      mismatchCount: compareResult.mismatches.length,
+      mismatchDetails: compareResult.mismatches
+    });
 
     // 確認モーダルを生成（高速化）
     const overlay = document.createElement('div');

@@ -1283,7 +1283,12 @@ async function showRegisteredDataConfirmation(allPayloads) {
     const pick = recent.length > 0 ? recent.slice(0, allPayloads.length) : parsed.slice(0, allPayloads.length);
     
     // 送信データと登録データの比較（高速化）
-    const dataComparison = compareSentAndRegisteredData(allPayloads, pick);
+    const compareResult = compareSentAndRegisteredData(allPayloads, pick);
+    const dataComparison = Object.assign({}, compareResult, {
+      registeredData: pick,
+      mismatchCount: compareResult.mismatches.length,
+      mismatchDetails: compareResult.mismatches
+    });
 
     // 確認モーダルを生成（高速化）
     const overlay = document.createElement('div');
