@@ -75,6 +75,12 @@ function doPost(e) {
  * 修正データを特定の行の直前に挿入する関数
  */
 function processCorrectionData(data) {
+  // 同時実行（複数端末・ダブルクリック等）による行挿入の競合を防ぐためスクリプトロックで直列化する
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    Logger.log("⛔ ロック取得タイムアウト（修正データ）");
+    return createJsonResponse({ status: 'ERROR', message: '他の処理が実行中のため登録できませんでした。数秒後に再度お試しください。' }, 503);
+  }
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(TARGET_SHEET_NAME);
@@ -157,11 +163,14 @@ function processCorrectionData(data) {
     sendBorrowerEmail_(data, true);
 
     Logger.log(`✅ 修正データ挿入完了。行: ${targetRowIndex}`);
+    SpreadsheetApp.flush(); // ロック解放前に書き込みを確定させる
     return createJsonResponse({ status: 'SUCCESS', message: '修正データが正常に挿入されました。' });
 
   } catch (error) {
     Logger.log("❌ 修正データ挿入エラー: " + error.toString());
     return createJsonResponse({ status: 'ERROR', message: "修正データ挿入エラー: " + error.message }, 500);
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -169,6 +178,12 @@ function processCorrectionData(data) {
  * 通常データをシートの先頭に挿入する関数
  */
 function processNormalData(data) {
+  // 同時実行（複数端末・ダブルクリック等）による行挿入の競合を防ぐためスクリプトロックで直列化する
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    Logger.log("⛔ ロック取得タイムアウト（通常データ）");
+    return createJsonResponse({ status: 'ERROR', message: '他の処理が実行中のため登録できませんでした。数秒後に再度お試しください。' }, 503);
+  }
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(TARGET_SHEET_NAME);
@@ -184,11 +199,14 @@ function processNormalData(data) {
     sendBorrowerEmail_(data, data.isCorrection === true);
 
     Logger.log("✅ データ挿入処理完了");
+    SpreadsheetApp.flush(); // ロック解放前に書き込みを確定させる
     return createJsonResponse({ status: 'SUCCESS', message: 'データが正常に挿入されました。' });
 
   } catch (error) {
     Logger.log("❌ データ挿入エラー: " + error.toString());
     return createJsonResponse({ status: 'ERROR', message: "データ挿入エラー: " + error.message }, 500);
+  } finally {
+    lock.releaseLock();
   }
 }
 
