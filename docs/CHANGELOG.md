@@ -1,5 +1,42 @@
 # 変更履歴
 
+## ホットフィックス — 2026-06-03（送信経路の根本修正・GAS 同時実行ガード）
+
+### 修正（クライアント: `main.js` / `js/main.js` / `pages/js/main.js` の3ファイル同一適用）
+
+- **送信経路の `no-cors` を廃止**: 新関数 `postToGas()` で GAS のレスポンス（JSON）を読み取り、書き込み成否を確認するように変更。`Content-Type: text/plain;charset=utf-8` で CORS プリフライトを回避（GAS は `e.postData.contents` で生ボディを受け取るため改修不要）。送信失敗時は `submitData` が以降の送信を中断してエラー表示する。
+- **データ不一致レポートの誤検知（False Positive）を根本停止**: 送信成否は GAS 応答で確定するため、読み戻しの曖昧比較による自動の不一致アラートを停止（`hasMismatch`/`mismatchCount`/`mismatchDetails` を中立化）。登録データの表示は参考情報として継続し、NG ボタンは手動の問題報告のみとする。
+- **JST 日時解析を追加**: 新関数 `parseJstDateTimeMs()` で入力日時（J列）をブラウザのタイムゾーンに依存せず JST 固定でパース。
+- **`normalizeValue` の見直し**: 日付は `new Date()` を使わず文字列処理で `YYYY/MM/DD` に統一（TZ・2桁年の誤変換と非日付文字列の破壊を防止）。数値はカンマ・¥・空白のみ除去し小数点を保持（`"12.5"→"125"` の誤変換を防止）。
+- **読み取り範囲・待機の拡張**: 確認画面の読み戻しを `貸借表!A2:K{件数+20}` に拡張し、件数に応じてクッション時間を延長。
+- **`calculateAmountForRow`**: 単価を `parseInt`→`parseFloat` に変更し小数単価に対応。
+- 関連コミット: `b01a740`, `4eac8a9`。
+
+### GAS（同時実行ガード）
+
+- **`processNormalData` / `processCorrectionData` の行挿入を `LockService` で直列化**: `getScriptLock()` → `tryLock(30000)`（取得失敗時は ERROR 応答）→ 挿入処理 → `SpreadsheetApp.flush()` で確定 → `finally` で `releaseLock()`。複数端末・ダブルクリックによる `insertRowBefore`/`setValues` の競合（空行発生の原因）をサーバ側で防止。
+- `docs/gas_scripts/gas_code_complete.gs`・`gas_code_complete_updated.gs` に反映（コミット `9c0d97a`）。本番スクリプト（`コード.js`）にも同内容を適用。
+
+### デプロイ
+
+- 本番 GAS Web アプリのデプロイ（`AKfycbxxrH8ZtjpadlxvdnbFFOvyc4kCsANrZt-aOu5HZ2RhlbSgDwFsJzq7AfMGW58w3HTW` = クライアント `GAS_URL` の `/exec`）を **@69 → @70** に更新（`clasp redeploy`）。デプロイ ID・URL は不変のためクライアント改修は不要。
+- ロールバック手順: `clasp redeploy AKfycbxxrH8ZtjpadlxvdnbFFOvyc4kCsANrZt-aOu5HZ2RhlbSgDwFsJzq7AfMGW58w3HTW -V 69`。
+
+### Git
+
+- リポジトリ `https://github.com/MARUGO-s/management` の `main` に `b01a740` / `4eac8a9` / `9c0d97a` を反映。
+
+### バージョン表記
+
+- 本ホットフィックスでは `index.html` の `main.js?v=` クエリおよびコンソールのビルド表記は **据え置き**（アプリ `1.2.0` / ビルド ID `2026040110`）。キャッシュバスト用のバージョン更新が必要な場合は別途対応する。
+
+### 運用メモ
+
+- 過去の同時実行レースで生じた**空行**がスプレッドシートに残っている場合は、行ごと手動削除する。
+- 動作確認はテスト送信ではなく実運用の送信で行う（テスト送信は本番表に実データ1行を挿入し、`sendBorrowerEmail_` が実メールを送信するため）。
+
+---
+
 ## [1.2.0] — 2026-04-01
 
 ### 修正
