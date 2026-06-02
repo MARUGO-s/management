@@ -65,6 +65,17 @@ function parseDateMs(s) {
   return isNaN(ms) ? 0 : ms;
 }
 
+// GASが書き込む入力日時(J列)は "YYYY/MM/DD HH:mm:ss"(JST)。ブラウザのタイムゾーンに依存せず確実にパース。
+function parseJstDateTimeMs(s) {
+  if (!s) return NaN;
+  const m = String(s).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) { const t = new Date(s).getTime(); return isNaN(t) ? NaN : t; }
+  const [, y, mo, d, h, mi, se] = m;
+  const iso = `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}T${h.padStart(2, '0')}:${mi}:${se || '00'}+09:00`;
+  const t = new Date(iso).getTime();
+  return isNaN(t) ? NaN : t;
+}
+
 // 店舗データで貸主・借主のオプションを設定
 function populateShops() {
   const lenderSelect = document.getElementById("lender");
@@ -467,7 +478,7 @@ function calculateAmountForRow(rowEl) {
   const unitPriceInput = rowEl.querySelector('.unit-price');
   const amountInput = rowEl.querySelector('.amount');
   const quantity = parseFloat(convertToHalfWidthNumber(quantityInput.value)) || 0;
-  const unitPrice = parseInt(convertToHalfWidthNumber(unitPriceInput.value), 10) || 0;
+  const unitPrice = parseFloat(convertToHalfWidthNumber(unitPriceInput.value)) || 0;
   const totalAmount = quantity * unitPrice;
   amountInput.value = totalAmount.toLocaleString('ja-JP');
 }
@@ -1158,8 +1169,15 @@ async function searchReverseTransaction() {
 // 送信完了後: 実際にスプレッドシートに登録された最新データを取得して確認表示
 async function showRegisteredDataConfirmation(allPayloads) {
   try {
-    // より狭い範囲を読み取って高速化（送信直後のデータのみ）
-    const readRange = '貸借表!A2:K10'; // 上位10行のみに制限
+    // GASの書き込み完了を待つクッション（送信件数が多いほど長めに待つ／上限8秒）
+    const cushionMs = Math.min(1500 + allPayloads.length * 200, 8000);
+    console.log(`⏳ 確認前クッション待機: ${cushionMs}ms (送信${allPayloads.length}件)`);
+    await delay(cushionMs);
+
+    // 新規データはGAS側で先頭(2行目)にinsertRowBeforeで挿入される。
+    // 送信件数＋余裕分だけ先頭から読めば、最新バッチを確実に捕捉できる。
+    const readRows = allPayloads.length + 20;
+    const readRange = `貸借表!A2:K${1 + readRows}`;
     const result = await callSheetsAPI(readRange, 'GET');
     const rows = (result.values || []);
 
@@ -1186,14 +1204,14 @@ async function showRegisteredDataConfirmation(allPayloads) {
     const recent = parsed.filter(r => {
       // 入力日時(J列)は GAS 側で日本時間の文字列。Dateに変換して3分以内かつ氏名/日付が一致するものを優先
       let t = NaN;
-      try { t = new Date(r.inputDate).getTime(); } catch (_) { t = NaN; }
+      try { t = parseJstDateTimeMs(r.inputDate); } catch (_) { t = NaN; }
       const withinWindow = !isNaN(t) && (nowMs - t) <= timeWindowMs && (nowMs - t) >= 0;
       const sameName = refName ? (r.name === refName) : true;
       const sameDate = refDate ? (r.date?.toString().slice(0, 10) === refDate) : true;
       return withinWindow && sameName && sameDate;
     });
 
-    // もし絞り込みが0件なら、先頭から送信件数分だけ拾う（保険）
+    // 新規データは先頭に挿入されるため、先頭から送信件数分を抽出（フォールバックも先頭基準）
     const pick = recent.length > 0 ? recent.slice(0, allPayloads.length) : parsed.slice(0, allPayloads.length);
     
     // 送信データと登録データの比較（高速化）
@@ -1550,31 +1568,17 @@ function normalizeValue(value) {
   
   let normalized = value.toString().trim();
   
-  // 日付の正規化（より柔軟な処理）
-  if (normalized.includes('-') || normalized.includes('/')) {
-    // 日付形式を統一（YYYY/MM/DD形式に）
-    try {
-      const date = new Date(normalized);
-      if (!isNaN(date.getTime())) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        normalized = `${year}/${month}/${day}`;
-      }
-    } catch (e) {
-      // 日付パースに失敗した場合は元の値を保持
-    }
+  // 日付の正規化: 「YYYY/MM/DD」または「YYYY-MM-DD」形式のみを対象にし、
+  // new Date() を使わず文字列処理で統一（タイムゾーン/2桁年の誤変換と非日付文字列の破壊を防ぐ）
+  const dateMatch = normalized.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  if (dateMatch) {
+    const [, y, mo, d] = dateMatch;
+    normalized = `${y}/${mo.padStart(2, '0')}/${d.padStart(2, '0')}`;
   }
-  
-  // 数値の正規化（より柔軟な処理）
-  if (/^[\d,.\s]+$/.test(normalized)) {
-    // カンマ、ピリオド、空白を除去
-    normalized = normalized.replace(/[,.\s]/g, '');
-  }
-  
-  // 金額の正規化（¥記号やカンマを除去）
-  if (normalized.includes('¥') || normalized.includes(',')) {
-    normalized = normalized.replace(/[¥,\s]/g, '');
+
+  // 数値の正規化: カンマ・¥・空白のみ除去し、小数点は保持する（"12.5"→"125" の誤変換を防ぐ）
+  if (/^[\d,.\s¥]+$/.test(normalized)) {
+    normalized = normalized.replace(/[,¥\s]/g, '');
   }
   
   // 店舗名の正規化（大文字小文字を統一）
