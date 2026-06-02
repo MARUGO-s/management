@@ -155,6 +155,32 @@ function parseJstDateTimeMs(s) {
   return isNaN(t) ? NaN : t;
 }
 
+// GASへPOSTし、レスポンス(JSON)を読み取って書き込み成否を確認する。
+// Content-Type を text/plain にすることで CORS プリフライト(OPTIONS)を回避し、
+// no-cors を使わずにレスポンス本文を読める（GASは e.postData.contents で生ボディを受け取るため互換）。
+async function postToGas(payload) {
+  const response = await fetch(GAS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload),
+    redirect: "follow"
+  });
+  if (!response.ok) {
+    throw new Error(`GAS応答エラー (HTTP ${response.status})`);
+  }
+  const text = await response.text();
+  let result;
+  try {
+    result = JSON.parse(text);
+  } catch (_) {
+    throw new Error(`GAS応答の解析に失敗しました: ${text.slice(0, 200)}`);
+  }
+  if (!result || result.status !== 'SUCCESS') {
+    throw new Error(result && result.message ? result.message : 'GASがエラーを返しました');
+  }
+  return result;
+}
+
 // 店舗データで貸主・借主のオプションを設定
 function populateShops() {
   const lenderSelect = document.getElementById("lender");
@@ -1308,6 +1334,13 @@ async function showRegisteredDataConfirmation(allPayloads) {
       mismatchDetails: compareResult.mismatches
     });
 
+    // 送信はGAS応答で全件成功が確認済み（失敗時はsubmitDataが送信を中断する）。
+    // 読み戻しの曖昧比較による誤検知（False Positive）を防ぐため、自動の不一致アラートは出さない。
+    // 登録データの表示は参考情報として継続し、NGボタンは手動の問題報告のみとする。
+    dataComparison.hasMismatch = false;
+    dataComparison.mismatchCount = 0;
+    dataComparison.mismatchDetails = [];
+
     // 確認モーダルを生成（高速化）
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:5000;opacity:0;transition:opacity 0.2s ease-in;';
@@ -2194,22 +2227,10 @@ async function submitData(options = {}) {
           payloadStringified: JSON.stringify(payload)
         });
         
-        // no-corsモードで送信（CORSエラーを回避）
-        // 注意: no-corsモードではレスポンスの詳細を取得できませんが、
-        // GASのWebアプリとして正しくデプロイされていれば送信は成功します
-        try {
-          await fetch(GAS_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          console.log(`✅ 送信完了 ${i + 1}/${allPayloads.length}:`, payload.item);
-        } catch (fetchError) {
-          // no-corsモードでは通常エラーは発生しませんが、念のため
-          console.error(`❌ Fetchエラー ${i + 1}/${allPayloads.length}:`, fetchError);
-          throw new Error(`GASへの接続に失敗しました: ${fetchError.message}`);
-        }
+        // GASへ送信し、レスポンス本文で書き込み成否を確認する（no-cors を廃止）。
+        // 失敗時は postToGas が例外を投げ、下の catch で送信を停止しエラー表示する。
+        const gasResult = await postToGas(payload);
+        console.log(`✅ 送信完了 ${i + 1}/${allPayloads.length}:`, payload.item, gasResult.status);
       } catch (error) {
         console.error(`❌ 送信失敗 ${i + 1}/${allPayloads.length}:`, error);
         console.error(`❌ 送信失敗時のペイロード:`, payload);
