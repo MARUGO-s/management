@@ -5,7 +5,7 @@ const shops = [ // 店舗名のリスト
   "マルゴ新橋", "マルゴS", "MARUGO YOTSUYA", "371BAR", "三三五五",
   "BAR PELOTA", "Claudia2", "BISTRO CAVACAVA", "eric'S",
   "MITAN", "焼肉マルゴ", "SOBA‑JU", "Bar Violet",
-  "X&C", "トラットリア ブリッコラ"
+  "X&C", "トラットリア ブリッコラ", "ブルネロ"
 ];
 
 console.log('pages/js/main.js v1.2.0 build 2026040110 loaded');

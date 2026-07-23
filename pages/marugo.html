@@ -1179,8 +1179,18 @@
                         storeSelect.removeChild(storeSelect.lastChild);
                     }
 
-                    // 店舗をソートして追加
-                    const sortedStores = Array.from(this.stores).sort();
+                    // 既知の店舗（取引データが無くても常に表示する店舗）
+                    const KNOWN_STORES = [
+                        "本部", "MARUGO‑S", "MARUGO‑D", "MARUGO‑OTTO", "元祖どないや新宿三丁目", "鮨こるり",
+                        "MARUGO", "MARUGO2", "MARUGO GRANDE", "MARUGO MARUNOUCHI",
+                        "マルゴ新橋", "MARUGO YOTSUYA", "371BAR", "三三五五",
+                        "BAR PELOTA", "Claudia2", "BISTRO CAVACAVA", "eric'S",
+                        "MITAN", "焼肉マルゴ", "SOBA‑JU", "Bar Violet",
+                        "X&C", "トラットリア ブリッコラ", "ブルネロ"
+                    ];
+
+                    // 店舗をソートして追加（既知店舗 ∪ データから検出した店舗）
+                    const sortedStores = Array.from(new Set([...KNOWN_STORES, ...this.stores])).sort();
                     sortedStores.forEach(store => {
                         const option = document.createElement('option');
                         option.value = store;
