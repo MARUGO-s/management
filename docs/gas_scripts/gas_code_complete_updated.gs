@@ -104,9 +104,11 @@ function receiptSuccess_(data, duplicate, notifications) {
 function receiptColumnsAvailable_(sheet) {
   const width = Math.min(2, sheet.getMaxColumns() - 11);
   if (width <= 0) return true;
+  // 見出し設定済みなら全行を読まない（毎回の事前確認GETを軽くする）。
+  const header = sheet.getRange(1, 12, 1, width).getValues()[0];
+  if (header[0] === '__receipt_id_v1' && header[1] === '__receipt_hash_v1') return true;
   const range = sheet.getRange(1, 12, Math.max(sheet.getLastRow(), 1), width);
   const values = range.getValues();
-  if (values[0][0] === '__receipt_id_v1' && values[0][1] === '__receipt_hash_v1') return true;
   return !values.some(row => row.some(value => value !== '')) &&
     !range.getFormulas().some(row => row.some(value => value !== ''));
 }

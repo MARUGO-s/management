@@ -152,6 +152,26 @@ test('lost response keeps pending ID and retry registers exactly once',async()=>
   assert.equal(s.rows.length,2);
 });
 
+test('unreadable relay response (404 HTML) is re-read with the same receipt and registers once',async()=>{
+  const b=browser(), s=server('docs/gas_scripts/gas_code_complete.gs');
+  b.window.setTimeout=resolve=>resolve();
+  const [data]=b.api.prepare('gas',[payload('A')]);
+  const html={ok:false,json:async()=>{throw new SyntaxError('The string did not match the expected pattern.');}};
+  let gets=0,posts=0;
+  b.window.fetch=async(_,options)=>{
+    if(!options?.method)return ++gets===1?html:{ok:true,json:async()=>({idempotencyVersion:1})};
+    const result=s.post(JSON.parse(options.body));
+    return ++posts===1?html:{ok:true,json:async()=>result};
+  };
+  await b.api.ensureServer('gas');
+  const result=await b.api.send('gas',data);
+  assert.equal(result.duplicate,true);
+  assert.equal(s.rows.length,2);
+  assert.deepEqual([gets,posts],[2,2]);
+  b.window.fetch=async()=>html;
+  await assert.rejects(()=>b.api.ensureServer('gas'),/expected pattern/);
+});
+
 test('duplicate lines have distinct durable IDs; missing storage or server protocol stops sending',async()=>{
   const b=browser(), p=payload('A');const first=b.api.prepare('gas',[p,p]);
   assert.notEqual(first[0].receiptId,first[1].receiptId);
@@ -263,6 +283,6 @@ test('entry pages load durable receipt helper before their submission client',()
   for(const [file,client]of [['index.html','pages/js/main.js'],['pages/correction.html','js/correction.js']]) {
     const html=fs.readFileSync(path.join(root,file),'utf8');
     assert(html.indexOf('submission-receipts.js')<html.indexOf(client));
-    assert(html.includes(client+'?v=2026092901'));
+    assert(html.includes(client+'?v=2026093001'));
   }
 });
