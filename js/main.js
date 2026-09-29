@@ -1791,8 +1791,15 @@ async function submitData(options = {}) {
       if (!window.LoanReceipts) throw new Error('画面を再読み込みしてから送信してください。');
       return await window.LoanReceipts.withLock(GAS_URL, () => submitData({ ...options, receiptLocked: true }));
     } catch (error) {
-      document.getElementById('errorModalBody').textContent = error.message;
-      document.getElementById('errorModal').classList.add('show');
+      const errorModal = document.getElementById('errorModal');
+      const errorModalBody = document.getElementById('errorModalBody');
+      if (window.LoanReceipts) {
+        window.LoanReceipts.presentFailure(errorModal, errorModalBody,
+          window.LoanReceipts.describeFailure(error, 0, 1, true), () => submitData({ ...options, receiptLocked: false }));
+      } else {
+        errorModalBody.textContent = error.message;
+      }
+      errorModal.classList.add('show');
       return;
     }
   }
@@ -2264,7 +2271,8 @@ async function submitData(options = {}) {
     const errorModalCloseBtn = document.getElementById('errorModalCloseBtn');
     if (errorModal && errorModalBody) {
       const failure = window.LoanReceipts.describeFailure(error, error.registeredCount || 0, error.totalCount || 1, true);
-      window.LoanReceipts.presentFailure(errorModal, errorModalBody, failure, () => submitData(options));
+      window.LoanReceipts.presentFailure(errorModal, errorModalBody, failure,
+        () => submitData({ ...options, receiptLocked: false }));
       errorModal.classList.add('show');
       // フォーカス制御を削除（シンプルな状態に戻す）
       if (errorModalCloseBtn) {

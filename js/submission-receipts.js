@@ -164,6 +164,7 @@
   // エラーモーダル（.modal-title / 本文 / .modal-actions）に表示する。onRetry は未確認時のボタン。
   function presentFailure(modal, body, info, onRetry) {
     const title = modal.querySelector?.('.modal-title');
+    if (title && modal.dataset.defaultTitle === undefined) modal.dataset.defaultTitle = title.textContent;
     if (title) title.textContent = (info.tone === 'warning' ? '⚠️ ' : '') + info.title;
     body.textContent = info.body;
     if (info.detail && root.document) {
@@ -183,9 +184,16 @@
       retry.textContent = '結果を確認する';
       actions.insertBefore(retry, actions.firstChild);
     }
+    // 閉じたら既定の見出しに戻す。モーダルは入力エラーなど他の表示にも使われるため。
+    const restore = () => {
+      if (title && modal.dataset.defaultTitle !== undefined) title.textContent = modal.dataset.defaultTitle;
+      delete modal.dataset.tone;
+      if (retry) retry.style.display = 'none';
+    };
+    modal.querySelector?.('#errorModalCloseBtn')?.addEventListener('click', restore, { once: true });
     if (retry) {
       retry.style.display = info.tone === 'warning' && onRetry ? '' : 'none';
-      retry.onclick = () => { modal.classList.remove('show'); onRetry(); };
+      retry.onclick = () => { modal.classList.remove('show'); restore(); onRetry(); };
     }
   }
   root.LoanReceipts = { ensureServer, prepare, send, withLock, describeFailure, presentFailure };

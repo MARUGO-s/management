@@ -310,6 +310,21 @@ for(const file of ['main.js','js/main.js','pages/js/main.js']) {
   });
 }
 
+for(const file of ['main.js','js/main.js','pages/js/main.js']) {
+  test(file+' another tab sending is shown as not sent, and retry goes through the lock again',async()=>{
+    const locks=new Set(['loan-submit:gas']);
+    const b=browser(new Map(),locks),ui=formContext(b);
+    const source=fs.readFileSync(path.join(root,file),'utf8');
+    vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
+    let posts=0;
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1})};};
+    await b.context.submitData();
+    assert.equal(ui.get('errorModal').dataset.tone,'error');
+    assert.match(ui.get('errorModalBody').textContent,/別のタブで送信中/);
+    assert.equal(posts,0);
+  });
+}
+
 for(const file of ['js/correction.js','pages/js/correction.js']) {
   test(file+' actual correction retry uses same receipt after its original row shifts',async()=>{
     const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
@@ -337,6 +352,6 @@ test('entry pages load durable receipt helper before their submission client',()
   for(const [file,client]of [['index.html','pages/js/main.js'],['pages/correction.html','js/correction.js']]) {
     const html=fs.readFileSync(path.join(root,file),'utf8');
     assert(html.indexOf('submission-receipts.js')<html.indexOf(client));
-    assert(html.includes(client+'?v=2026093002'));
+    assert(html.includes(client+'?v=2026093003'));
   }
 });
