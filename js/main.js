@@ -2158,19 +2158,9 @@ async function submitData(options = {}) {
           throw error; // 送信を停止
         }
         
-        // エラーをユーザーに表示
-        const errorModal = document.getElementById('errorModal');
-        const errorModalBody = document.getElementById('errorModalBody');
-        if (errorModal && errorModalBody) {
-          errorModalBody.innerHTML = `
-            <strong>❌ 送信エラー</strong><br><br>
-            ${error.message || '不明なエラーが発生しました'}<br><br>
-            URL: ${GAS_URL}<br><br>
-            <small style="color: #666;">ブラウザのコンソール（F12）で詳細を確認してください。</small>
-          `;
-          errorModal.classList.add('show');
-        }
-        
+        // 何件目まで登録済みかを外側のエラー表示に渡す（表示は外側で一度だけ行う）。
+        error.registeredCount = registrationResults.length;
+        error.totalCount = allPayloads.length;
         throw error; // 送信を停止
       }
     }
@@ -2189,12 +2179,14 @@ async function submitData(options = {}) {
     const backupFailed = registrationResults.some(result => result.notifications?.backup === 'failed');
     const emailFailed = registrationResults.some(result => result.notifications?.email === 'failed');
     const onlyReceipts = registrationResults.every(result => result.duplicate);
+    const notificationsResumed = registrationResults.some(result =>
+      result.duplicate && result.notifications?.email === 'completed');
     completeStep('step-backup', backupFailed ? '⚠️ 登録済み・バックアップ要確認（再送不要）' :
-      onlyReceipts ? '✅ 登録済みの受付IDを確認（バックアップ再実行なし）' : '✅ バックアップ処理完了');
+      onlyReceipts && !notificationsResumed ? '✅ 登録済みの受付IDを確認（バックアップ再実行なし）' : '✅ バックアップ処理完了');
     await showStep('step-email', '📧 借主へメール通知中...');
     await delay(800); // 待機時間を短縮
     completeStep('step-email', emailFailed ? '⚠️ 登録済み・メール通知要確認（再送不要）' :
-      onlyReceipts ? '✅ メール再送なし' : '✅ 借主へのメール送信完了');
+      onlyReceipts && !notificationsResumed ? '✅ メール再送なし' : '✅ 借主へのメール送信完了');
     
     // 送信内容をチェック中ステップを追加
     await showStep('step-checking', '🔍 送信内容をチェック中...');
@@ -2236,7 +2228,9 @@ async function submitData(options = {}) {
           const message = document.getElementById('successMessage');
           message.textContent = backupFailed || emailFailed ?
             '⚠️ データは登録済みです。バックアップ・メール通知を管理者に確認してください（再送不要）。' :
-            onlyReceipts ? '✅ 登録済みの内容を確認しました。行は追加していません。' :
+            onlyReceipts ? (notificationsResumed ?
+              '✅ 登録済みの内容を確認しました。行は追加していません。未送信だったメール通知を送りました。' :
+              '✅ 登録済みの内容を確認しました。行は追加していません。') :
             correctionOnly ? '✅ 修正データの送信が完了しました！' : '✅ 送信完了しました！';
           message.classList.add('show');
           setTimeout(() => { message.classList.remove('show'); }, 800);
@@ -2269,7 +2263,8 @@ async function submitData(options = {}) {
     const errorModalBody = document.getElementById('errorModalBody');
     const errorModalCloseBtn = document.getElementById('errorModalCloseBtn');
     if (errorModal && errorModalBody) {
-      errorModalBody.textContent = `登録結果を確認できませんでした。\n${error.message || ''}\n入力内容を変えずに再送すると、登録済みの行は二重登録せず結果を確認します。`;
+      const failure = window.LoanReceipts.describeFailure(error, error.registeredCount || 0, error.totalCount || 1, true);
+      window.LoanReceipts.presentFailure(errorModal, errorModalBody, failure, () => submitData(options));
       errorModal.classList.add('show');
       // フォーカス制御を削除（シンプルな状態に戻す）
       if (errorModalCloseBtn) {

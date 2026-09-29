@@ -816,7 +816,9 @@ async function submitCorrectionData(receiptLocked = false) {
       const notificationFailed = Object.values(responseData.notifications || {}).includes('failed');
       const successMessage = notificationFailed ?
         '⚠️ データは登録済みです。バックアップ・メール通知を管理者に確認してください（再送不要）。' :
-        responseData.duplicate ? '✅ 登録済みの修正内容を確認しました。行は追加していません。' :
+        responseData.duplicate ? (responseData.notifications?.email === 'completed' ?
+          '✅ 登録済みの修正内容を確認しました。行は追加していません。未送信だったメール通知を送りました。' :
+          '✅ 登録済みの修正内容を確認しました。行は追加していません。') :
         '✅ 修正データの送信が完了しました。';
 
       // 成功メッセージ表示
@@ -882,7 +884,10 @@ async function submitCorrectionData(receiptLocked = false) {
     
     // エラーメッセージ表示
     const errorMessage = document.getElementById('errorMessage');
-    errorMessage.textContent = `❌ 登録結果を確認できませんでした: ${error.message}。内容を変えずに再送すると、二重登録せず結果を確認します。`;
+    const failure = window.LoanReceipts.describeFailure(error);
+    errorMessage.textContent = `${failure.tone === 'warning' ? '⚠️' : '❌'} ${failure.title}。${failure.body.replace(/\n/g, '')}`;
+    // 結果未確認は失敗ではないため、赤ではなく注意色で表示する。
+    errorMessage.style.background = failure.tone === 'warning' ? '#d97706' : '';
     errorMessage.classList.add('show');
     
     setTimeout(() => {

@@ -69,7 +69,7 @@ function doPost(e) {
 
   } catch (error) {
     Logger.log("❌ doPost エラー: " + error.toString());
-    return createJsonResponse({ status: 'ERROR', message: "サーバーエラー: " + error.message }, 500);
+    return createJsonResponse({ status: 'ERROR', written: false, message: "サーバーエラー: " + error.message }, 500);
   }
 }
 
@@ -144,20 +144,94 @@ function finishReceiptNotifications_(data, isCorrection) {
   return result;
 }
 
+// 書き込み後の失敗は登録失敗ではない。受付IDの行が残っていれば成功として通知まで完了させる。
+// 戻り値: 成功応答 / false（行がないことを確認）/ null（確認できない）。
+function recoverWrittenReceipt_(data, isCorrection, lock, error) {
+  let match;
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(TARGET_SHEET_NAME);
+    if (!sheet) return null;
+    if (sheet.getLastRow() < 2) return false;
+    match = sheet.getRange(2, 12, sheet.getLastRow() - 1, 1)
+      .createTextFinder(data.receiptId).matchEntireCell(true).findNext();
+  } catch (lookupError) {
+    Logger.log('⚠️ 登録有無を確認できません: ' + lookupError.message);
+    return null;
+  }
+  if (!match) return false;
+  Logger.log('⚠️ 登録後の処理で例外（登録は完了）: ' + error.message);
+  if (lock.hasLock()) lock.releaseLock();
+  return createJsonResponse(receiptSuccess_(data, false, completeNotifications_(data, isCorrection)));
+}
+
+function writeFailure_(data, isCorrection, lock, error, label) {
+  Logger.log('❌ ' + label + ': ' + error.toString());
+  const recovered = recoverWrittenReceipt_(data, isCorrection, lock, error);
+  if (recovered) return recovered;
+  if (recovered === false) clearPendingNotifications_(data);
+  // written:false は「行がないことを確認済み」。確認できない場合は画面側で未確認として扱う。
+  return createJsonResponse({ status: 'ERROR', written: recovered === false ? false : 'unknown',
+    message: label + ': ' + error.message }, 500);
+}
+
+// 通知前に処理が中断した登録を、同じ受付IDの再送時に補う。
+const NOTIFY_PENDING_PREFIX = 'notify_pending_';
+const NOTIFY_STALE_MS = 6 * 60 * 1000; // GASの最大実行時間。進行中の処理と二重に通知しない。
+
+function markPendingNotifications_(data) {
+  try {
+    PropertiesService.getScriptProperties().setProperty(NOTIFY_PENDING_PREFIX + data.receiptId, String(Date.now()));
+  } catch (error) {
+    Logger.log('⚠️ 通知待ちを記録できません: ' + error.message);
+  }
+}
+
+function clearPendingNotifications_(data) {
+  try {
+    PropertiesService.getScriptProperties().deleteProperty(NOTIFY_PENDING_PREFIX + data.receiptId);
+  } catch (error) {
+    Logger.log('⚠️ 通知待ちを解除できません: ' + error.message);
+  }
+}
+
+function completeNotifications_(data, isCorrection) {
+  const notifications = finishReceiptNotifications_(data, isCorrection);
+  clearPendingNotifications_(data);
+  return notifications;
+}
+
+// ロック内で呼ぶ。中断した通知だけを確保してから、ロック外で送る。
+function duplicateResponse_(data, receipt, isCorrection, lock) {
+  let pendingSince = 0;
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    const key = NOTIFY_PENDING_PREFIX + data.receiptId;
+    pendingSince = Number(properties.getProperty(key) || 0);
+    if (!pendingSince || Date.now() - pendingSince < NOTIFY_STALE_MS) return createJsonResponse(receipt);
+    properties.setProperty(key, String(Date.now()));
+  } catch (error) {
+    Logger.log('⚠️ 通知待ちを確認できません: ' + error.message);
+    return createJsonResponse(receipt);
+  }
+  if (lock.hasLock()) lock.releaseLock();
+  return createJsonResponse(receiptSuccess_(data, true, completeNotifications_(data, isCorrection)));
+}
+
 function processCorrectionData(data) {
   // 同時実行（複数端末・ダブルクリック等）による行挿入の競合を防ぐためスクリプトロックで直列化する
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
     Logger.log("⛔ ロック取得タイムアウト（修正データ）");
-    return createJsonResponse({ status: 'ERROR', message: '他の処理が実行中のため登録できませんでした。数秒後に再度お試しください。' }, 503);
+    return createJsonResponse({ status: 'ERROR', written: false, message: '他の処理が実行中のため登録できませんでした。数秒後に再度お試しください。' }, 503);
   }
+  let writing = false;
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(TARGET_SHEET_NAME);
     if (!sheet) throw new Error(`「${TARGET_SHEET_NAME}」シートが見つかりません。`);
 
     const receipt = findReceipt_(sheet, data);
-    if (receipt) return createJsonResponse(receipt);
+    if (receipt) return duplicateResponse_(data, receipt, true, lock);
     const correctionMark = data.correctionMark || "✏️修正";
     const rowData = createRowDataArray(data, correctionMark).concat([data.receiptId, receiptHash_(data)]);
     
@@ -226,6 +300,8 @@ function processCorrectionData(data) {
     Logger.log(`📝 修正データを行 ${targetRowIndex} の直前に挿入します。`);
     
     // 指定行の直前に新しい行を挿入
+    markPendingNotifications_(data);
+    writing = true; // ここから先の失敗は行の有無を確認してから応答する。
     sheet.insertRowBefore(targetRowIndex);
     
     // 新しく挿入された行にデータを書き込み
@@ -247,12 +323,15 @@ function processCorrectionData(data) {
 
     SpreadsheetApp.flush(); // 取引と受付IDを同一行で確定する。
     if (lock.hasLock()) lock.releaseLock();
-    const notifications = finishReceiptNotifications_(data, true);
+    const notifications = completeNotifications_(data, true);
     return createJsonResponse(receiptSuccess_(data, false, notifications));
 
   } catch (error) {
-    Logger.log("❌ 修正データ挿入エラー: " + error.toString());
-    return createJsonResponse({ status: 'ERROR', message: "修正データ挿入エラー: " + error.message }, 500);
+    if (!writing) {
+      Logger.log("❌ 修正データ挿入エラー: " + error.toString());
+      return createJsonResponse({ status: 'ERROR', written: false, message: "修正データ挿入エラー: " + error.message }, 500);
+    }
+    return writeFailure_(data, true, lock, error, "修正データ挿入エラー");
   } finally {
     if (lock.hasLock()) lock.releaseLock();
   }
@@ -266,18 +345,21 @@ function processNormalData(data) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) {
     Logger.log("⛔ ロック取得タイムアウト（通常データ）");
-    return createJsonResponse({ status: 'ERROR', message: '他の処理が実行中のため登録できませんでした。数秒後に再度お試しください。' }, 503);
+    return createJsonResponse({ status: 'ERROR', written: false, message: '他の処理が実行中のため登録できませんでした。数秒後に再度お試しください。' }, 503);
   }
+  let writing = false;
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(TARGET_SHEET_NAME);
     if (!sheet) throw new Error(`「${TARGET_SHEET_NAME}」シートが見つかりません。`);
 
     const receipt = findReceipt_(sheet, data);
-    if (receipt) return createJsonResponse(receipt);
+    if (receipt) return duplicateResponse_(data, receipt, data.isCorrection === true, lock);
     const correctionMark = data.isCorrection ? (data.correctionMark || "✏️修正") : "";
     const rowData = createRowDataArray(data, correctionMark).concat([data.receiptId, receiptHash_(data)]);
 
+    markPendingNotifications_(data);
+    writing = true; // ここから先の失敗は行の有無を確認してから応答する。
     sheet.insertRowBefore(2);
     sheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
     SpreadsheetApp.flush(); // 取引と受付IDを同一行で先に確定する。
@@ -297,12 +379,15 @@ function processNormalData(data) {
 
     SpreadsheetApp.flush(); // 取引と受付IDを同一行で確定する。
     if (lock.hasLock()) lock.releaseLock();
-    const notifications = finishReceiptNotifications_(data, data.isCorrection === true);
+    const notifications = completeNotifications_(data, data.isCorrection === true);
     return createJsonResponse(receiptSuccess_(data, false, notifications));
 
   } catch (error) {
-    Logger.log("❌ データ挿入エラー: " + error.toString());
-    return createJsonResponse({ status: 'ERROR', message: "データ挿入エラー: " + error.message }, 500);
+    if (!writing) {
+      Logger.log("❌ データ挿入エラー: " + error.toString());
+      return createJsonResponse({ status: 'ERROR', written: false, message: "データ挿入エラー: " + error.message }, 500);
+    }
+    return writeFailure_(data, data.isCorrection === true, lock, error, "データ挿入エラー");
   } finally {
     if (lock.hasLock()) lock.releaseLock();
   }

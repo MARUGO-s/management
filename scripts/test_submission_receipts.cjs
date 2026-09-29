@@ -13,6 +13,7 @@ function server(file) {
   const rows = [Array(13).fill('')];
   let locked = false, busy = false, failFlush = false;
   let backups = 0, emails = 0, notificationFailure = false;
+  const properties = new Map();
   const sheet = {
     getMaxColumns: () => 13, getLastColumn: () => 13,
     getLastRow: () => rows.length, hideColumns() {},
@@ -38,6 +39,8 @@ function server(file) {
     SpreadsheetApp:{openById:()=>({getSheetByName:()=>sheet}),flush(){
       if (failFlush) {failFlush=false;throw new Error('応答消失');}
     }},
+    PropertiesService:{getScriptProperties:()=>({getProperty:k=>properties.get(k)??null,
+      setProperty(k,v){properties.set(k,v);},deleteProperty(k){properties.delete(k);}})},
     LockService:{getScriptLock:()=>({tryLock(){if (busy) return false;assert(!locked);locked=true;return true;},
       releaseLock(){locked=false;},hasLock:()=>locked})},
     ContentService:{MimeType:{JSON:'json'},createTextOutput:s=>({setMimeType:()=>JSON.parse(s)})},
@@ -46,7 +49,7 @@ function server(file) {
   vm.runInContext(fs.readFileSync(path.resolve(root,file),'utf8'),context);
   context.createBackup=()=>{backups++;if(notificationFailure)throw new Error('backup');};
   context.sendBorrowerEmail_=()=>{emails++;if(notificationFailure)throw new Error('email');};
-  return { rows, context, stats:()=>({backups,emails,locked}),
+  return { rows, context, properties, stats:()=>({backups,emails,locked}),
     busy(value){busy=value;}, failFlush(){failFlush=true;}, failNotifications(){notificationFailure=true;},
     post:data=>context.doPost({postData:{contents:JSON.stringify(data)}}) };
 }
@@ -76,9 +79,13 @@ for (const file of ['docs/gas_scripts/gas_code_complete.gs','docs/gas_scripts/ga
   test(file+' correction retry and lost response after write',()=>{
     const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
     s.failFlush();
-    assert.equal(s.post(data).status,'ERROR');
+    const afterWrite=s.post(data);
+    assert.equal(afterWrite.status,'SUCCESS');
+    assert.equal(afterWrite.duplicate,false);
+    assert.deepEqual(s.stats(),{backups:1,emails:1,locked:false});
     assert.equal(s.post(data).duplicate,true);
     assert.equal(s.rows.length,2);
+    assert.equal(s.properties.size,0);
     const correction={...data,receiptId:uuid(),isCorrection:true,originalRowIndex:2};
     assert.equal(s.post(correction).status,'SUCCESS');
     assert.equal(s.post(correction).duplicate,true);
@@ -86,6 +93,36 @@ for (const file of ['docs/gas_scripts/gas_code_complete.gs','docs/gas_scripts/ga
     assert.equal(s.rows[1][10],'✏️修正');
     // Insertions move rows; the original receipt still resolves by ID.
     assert.equal(s.post(data).duplicate,true);
+  });
+  test(file+' errors say whether the row was written',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const conflict=s.post({...data,amount:'200'});
+    assert.equal(conflict.status,'ERROR');assert.equal(conflict.written,false);
+    assert.equal(s.post(payload('legacy')).written,false);
+    s.busy(true);
+    assert.equal(s.post({...data,receiptId:uuid()}).written,false);
+    s.busy(false);
+    s.context.SpreadsheetApp.openById=()=>{throw new Error('Sheets unavailable');};
+    assert.equal(s.post({...data,receiptId:uuid()}).written,false);
+    assert.equal(s.rows.length,2);
+  });
+  test(file+' interrupted notifications are completed once on a later resend',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    assert.equal(s.properties.size,0);
+    const key='notify_pending_'+data.receiptId;
+    s.properties.set(key,String(Date.now()));
+    assert.equal(s.post(data).notifications.email,'skipped');
+    assert.deepEqual(s.stats(),{backups:1,emails:1,locked:false});
+    s.properties.set(key,String(Date.now()-7*60*1000));
+    const resumed=s.post(data);
+    assert.equal(resumed.duplicate,true);
+    assert.deepEqual(resumed.notifications,{backup:'completed',email:'completed'});
+    assert.deepEqual(s.stats(),{backups:2,emails:2,locked:false});
+    assert.equal(s.post(data).notifications.email,'skipped');
+    assert.equal(s.properties.size,0);
+    assert.equal(s.rows.length,2);
   });
   test(file+' occupied metadata columns fail without overwriting',()=>{
     const s=server(file);s.rows[0][11]='existing';
@@ -105,7 +142,7 @@ function browser(storage = new Map(), locks = new Set()) {
     navigator:{locks:{async request(key, options, callback) {
       if(locks.has(key))return callback(null);
       locks.add(key);try{return await callback({});}finally{locks.delete(key);}
-    }}},fetch:async()=>({ok:true,json:async()=>({idempotencyVersion:1})})};
+    }}},fetch:async()=>({ok:true,json:async()=>({idempotencyVersion:1})}),setTimeout:resolve=>resolve()};
   const context=vm.createContext({window,console});
   vm.runInContext(fs.readFileSync(path.join(root,'js/submission-receipts.js'),'utf8'),context);
   return {api:window.LoanReceipts, window, context, storage, approve(){approve=true;}, writes:()=>writes};
@@ -154,7 +191,6 @@ test('lost response keeps pending ID and retry registers exactly once',async()=>
 
 test('unreadable relay response (404 HTML) is re-read with the same receipt and registers once',async()=>{
   const b=browser(), s=server('docs/gas_scripts/gas_code_complete.gs');
-  b.window.setTimeout=resolve=>resolve();
   const [data]=b.api.prepare('gas',[payload('A')]);
   const html={ok:false,json:async()=>{throw new SyntaxError('The string did not match the expected pattern.');}};
   let gets=0,posts=0;
@@ -169,7 +205,8 @@ test('unreadable relay response (404 HTML) is re-read with the same receipt and 
   assert.equal(s.rows.length,2);
   assert.deepEqual([gets,posts],[2,2]);
   b.window.fetch=async()=>html;
-  await assert.rejects(()=>b.api.ensureServer('gas'),/expected pattern/);
+  await assert.rejects(()=>b.api.ensureServer('gas'),error=>
+    error.receiptOutcome==='notSent' && /expected pattern/.test(error.detail));
 });
 
 test('duplicate lines have distinct durable IDs; missing storage or server protocol stops sending',async()=>{
@@ -240,20 +277,36 @@ for(const file of ['main.js','js/main.js','pages/js/main.js']) {
     const source=fs.readFileSync(path.join(root,file),'utf8');
     vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
     b.context.postToGas=data=>b.api.send('gas',data);
-    const requests=[];let fail=true;
+    const requests=[];let fail=3;
     b.window.fetch=async(_,options)=>{
       if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1})};
       const data=JSON.parse(options.body);requests.push(data.receiptId);
       const result=s.post(data);
-      if(fail && data.item==='B'){fail=false;throw new Error('response lost');}
+      if(fail>0 && data.item==='B'){fail--;throw new Error('response lost');}
       return {ok:true,json:async()=>result};
     };
     await b.context.submitData();
     assert.equal(s.rows.length,3);assert.equal(ui.button.disabled,false);
-    assert.match(ui.get('errorModalBody').textContent,/二重登録/);
+    assert.equal(ui.get('errorModal').dataset.tone,'warning');
+    assert.match(ui.get('errorModalBody').textContent,/2件中1件は登録済み.*二重登録はされません/s);
     await b.context.submitData();
     assert.equal(s.rows.length,3);
-    assert.deepEqual(requests.slice(2),requests.slice(0,2));
+    assert.equal(new Set(requests).size,2);
+  });
+}
+
+for(const file of ['main.js','js/main.js','pages/js/main.js']) {
+  test(file+' confirmed server rejection is shown as not registered',async()=>{
+    const b=browser(),ui=formContext(b);
+    const source=fs.readFileSync(path.join(root,file),'utf8');
+    vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
+    b.context.postToGas=data=>b.api.send('gas',data);
+    b.window.fetch=async(_,options)=>options?.method?
+      {ok:true,json:async()=>({status:'ERROR',written:false,message:'他の処理が実行中'})}:
+      {ok:true,json:async()=>({idempotencyVersion:1})};
+    await b.context.submitData();
+    assert.equal(ui.get('errorModal').dataset.tone,'error');
+    assert.match(ui.get('errorModalBody').textContent,/登録されていません/);
   });
 }
 
@@ -263,18 +316,19 @@ for(const file of ['js/correction.js','pages/js/correction.js']) {
     s.rows.push(Array(13).fill(''));
     const source=fs.readFileSync(path.join(root,file),'utf8');
     vm.runInContext(source.slice(source.indexOf('async function submitCorrectionData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitCorrectionData('))),b.context);
-    const requests=[];let fail=true;
+    const requests=[];let fail=3;
     b.window.fetch=async(_,options)=>{
       if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1})};
       const data=JSON.parse(options.body);requests.push(data.receiptId);const result=s.post(data);
-      if(fail){fail=false;throw new Error('response lost');}
+      if(fail>0){fail--;throw new Error('response lost');}
       return {ok:true,json:async()=>result};
     };
     await b.context.submitCorrectionData();
     assert.equal(s.rows.length,3);assert.equal(ui.button.disabled,false);
+    assert.match(ui.get('errorMessage').textContent,/^⚠️ 登録を確認できていません.*もう一度送信/);
     b.context.originalData.originalRowIndex=3;
     await b.context.submitCorrectionData();
-    assert.equal(s.rows.length,3);assert.equal(requests[0],requests[1]);
+    assert.equal(s.rows.length,3);assert.equal(new Set(requests).size,1);
     assert.match(ui.get('successMessage').textContent,/行は追加していません/);
   });
 }
@@ -283,6 +337,6 @@ test('entry pages load durable receipt helper before their submission client',()
   for(const [file,client]of [['index.html','pages/js/main.js'],['pages/correction.html','js/correction.js']]) {
     const html=fs.readFileSync(path.join(root,file),'utf8');
     assert(html.indexOf('submission-receipts.js')<html.indexOf(client));
-    assert(html.includes(client+'?v=2026093001'));
+    assert(html.includes(client+'?v=2026093002'));
   }
 });

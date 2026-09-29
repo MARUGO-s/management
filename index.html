@@ -721,6 +721,10 @@
     .modal-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(17,24,39,0.35); z-index: 4500; backdrop-filter: blur(3px); }
     .modal-overlay.show { display: flex; }
     .modal-card { width: 92%; max-width: 440px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); padding: 16px; }
+    /* 送信結果: 未登録は赤、結果未確認（登録済みの可能性あり）は注意色 */
+    #errorModal[data-tone="error"] .modal-card { border-top: 4px solid #ef4444; }
+    #errorModal[data-tone="warning"] .modal-card { border-top: 4px solid #f59e0b; }
+    #errorModal .modal-body { white-space: pre-line; }
     .modal-title { font-weight: 700; color:#374151; margin-bottom: 6px; font-size: 16px; }
     .modal-body { color:#4b5563; font-size: 14px; line-height: 1.6; }
     .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top: 12px; }
@@ -964,8 +968,8 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="js/submission-receipts.js?v=2026093001"></script>
-  <script src="pages/js/main.js?v=2026093001"></script>
+  <script src="js/submission-receipts.js?v=2026093002"></script>
+  <script src="pages/js/main.js?v=2026093002"></script>
   <script src="js/simple-auth.js"></script>
   <script src="js/quota-alert-system.js"></script>
   <script src="js/usage-indicator.js"></script>
