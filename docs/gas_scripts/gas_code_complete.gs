@@ -232,8 +232,13 @@ function processCorrectionData(data) {
     // 数量列（G列=7列目）をプレーンテキストフォーマットに設定して小数点以下を保持
     const quantityCell = sheet.getRange(targetRowIndex, 7); // G列
     const quantityValue = String(rowData[6] || ''); // 確実に文字列に変換
-    quantityCell.setNumberFormat('@'); // プレーンテキスト形式で小数点以下を完全に保持
-    quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
+    try {
+      quantityCell.setNumberFormat('@'); // プレーンテキスト形式で小数点以下を完全に保持
+      quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
+    } catch (formatError) {
+      // テーブルの型付き列は書式変更を拒否する。行はsetValuesで確定済みのため登録は継続する。
+      Logger.log(`⚠️ 数量セルの書式設定をスキップ: ${formatError.message}`);
+    }
     Logger.log(`🔢 数量セル（行${targetRowIndex}）をテキスト形式に設定: "${quantityValue}"`);
 
     SpreadsheetApp.flush(); // 取引と受付IDを同一行で確定する。
@@ -275,8 +280,13 @@ function processNormalData(data) {
     // 数量列（G列=7列目）をプレーンテキストフォーマットに設定して小数点以下を保持
     const quantityCell = sheet.getRange(2, 7); // G列
     const quantityValue = String(rowData[6] || ''); // 確実に文字列に変換
-    quantityCell.setNumberFormat('@'); // プレーンテキスト形式で小数点以下を完全に保持
-    quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
+    try {
+      quantityCell.setNumberFormat('@'); // プレーンテキスト形式で小数点以下を完全に保持
+      quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
+    } catch (formatError) {
+      // テーブルの型付き列は書式変更を拒否する。行はsetValuesで確定済みのため登録は継続する。
+      Logger.log(`⚠️ 数量セルの書式設定をスキップ: ${formatError.message}`);
+    }
     Logger.log(`🔢 数量セル（行2）をテキスト形式に設定: "${quantityValue}"`);
 
     SpreadsheetApp.flush(); // 取引と受付IDを同一行で確定する。

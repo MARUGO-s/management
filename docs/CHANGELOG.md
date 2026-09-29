@@ -1,5 +1,11 @@
 # 変更履歴
 
+## 2026-09-30 — 数量セルの書式設定エラーを修正（本番GASバージョン72）
+
+- 貸借表G列がテーブルの型付き列の場合、`setNumberFormat('@')` が「型付きの列でセルの数値形式を設定することはできません」で失敗し、行は保存済みなのに画面にエラーを返し、バックアップ・メール通知も止まっていた。
+- 通常・修正登録の数量セル書式設定を try/catch で囲み、失敗時はログのみ残して登録を継続するよう変更。
+- 本番GASを既存デプロイのまま71→72へ更新し、GETで `idempotencyVersion: 1, receiptColumnsReady: true` を確認。ロールバック: `clasp redeploy AKfycbxxrH8ZtjpadlxvdnbFFOvyc4kCsANrZt-aOu5HZ2RhlbSgDwFsJzq7AfMGW58w3HTW -V 71`。
+
 ## 2026-09-29 — 二重登録防止（本番GASバージョン71対応）
 
 - 通常・修正登録に永続受付IDを追加。同じ内容での再送・途中成功したバッチの再送・画面再読み込み後の再送を、同じ受付IDで処理する。
