@@ -594,22 +594,18 @@ async function testGASConnection() {
   addDebugLog('=== GAS接続テスト開始 ===');
   
   try {
-    // テスト用のシンプルなデータを送信
+    // 接続確認はGETのみ。貸借表へのテスト行・メールを作らない。
     const testData = {
       test: true,
       timestamp: new Date().toISOString(),
       message: "テスト送信 from correction.html"
     };
     
-    addDebugLog('テストデータ送信中', testData);
+    addDebugLog('読み取り専用の接続確認', testData);
     
-    // 通常のfetchでテスト（CORSエラーが発生する可能性があるが、それで正常）
+    // 登録用POSTに接続テストを流さない。
     const response = await fetch(GAS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(testData)
+      method: 'GET', cache: 'no-store', redirect: 'follow'
     });
     
     addDebugLog('GASレスポンス情報', {
@@ -629,10 +625,10 @@ async function testGASConnection() {
         const responseJson = JSON.parse(responseText);
         addDebugLog('GASレスポンスJSON', responseJson);
         
-        if (responseJson.status === 'SUCCESS') {
+        if (responseJson.status === 'SUCCESS' && responseJson.idempotencyVersion === 1) {
           alert('✅ GAS接続テスト成功！\n\n' + 
                 'レスポンス: ' + responseJson.message + '\n' +
-                'タイムスタンプ: ' + responseJson.timestamp);
+                '二重登録防止: 有効（受付ID方式）');
         } else {
           alert('⚠️ GAS接続はできたが処理エラー\n\n' + 
                 'エラー: ' + responseJson.message + '\n' +
@@ -660,8 +656,17 @@ async function testGASConnection() {
   }
 }
 
-// 修正データを送信（CORS対応強化版）
-async function submitCorrectionData() {
+// 修正データを送信（永続受付IDで再送を安全に確認）
+async function submitCorrectionData(receiptLocked = false) {
+  if (!receiptLocked) {
+    try {
+      if (!window.LoanReceipts) throw new Error('画面を再読み込みしてから送信してください。');
+      return await window.LoanReceipts.withLock(GAS_URL, () => submitCorrectionData(true));
+    } catch (error) {
+      showCustomAlertDialog(error.message);
+      return;
+    }
+  }
   const submitBtn = document.querySelector('.submit-btn:not(.cancel-btn):not([onclick])');
   const btnText = submitBtn.querySelector('.btn-text');
   const originalText = btnText.textContent;
@@ -728,7 +733,7 @@ async function submitCorrectionData() {
       type: typeof quantityConverted
     });
 
-    const data = {
+    let data = {
       date: document.getElementById("date").value?.trim(),
       name: document.getElementById("name").value?.trim(),
       lender: document.getElementById("lender").value?.trim(),
@@ -742,7 +747,8 @@ async function submitCorrectionData() {
       correctionOnly: true, // 🔥 修正専用送信として明確に指定
       correctionMark: "✏️修正",
       sendType: "CORRECTION",
-      originalRowIndex: originalData.originalRowIndex // 🔥 追加: 元のデータの行番号を送信
+      originalRowIndex: originalData.originalRowIndex,
+      originalCreatedAt: originalData.inputDate || originalData.originalCreatedAt || ''
     };
 
     addDebugLog('送信データ準備完了', data);
@@ -786,103 +792,9 @@ async function submitCorrectionData() {
       data: data
     });
 
-    // 🔥 改良されたCORS対応送信
-    let sendSuccess = false;
-    let responseData = null;
-    let sendError = null;
-
-    // 方法1: 通常のfetchを試行（CORS完全対応）
-    try {
-      addDebugLog('通常fetchを試行中...');
-      
-      const response = await fetch(GAS_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(data)
-      });
-
-      addDebugLog('通常fetch成功', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        type: response.type,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
-      if (response.ok) {
-        try {
-          const responseText = await response.text();
-          addDebugLog('レスポンステキスト取得成功', responseText);
-          
-          if (responseText.trim()) {
-            responseData = JSON.parse(responseText);
-            addDebugLog('JSON解析成功', responseData);
-            
-            if (responseData.status === 'SUCCESS') {
-              sendSuccess = true;
-              addDebugLog('✅ 送信成功確認');
-            } else {
-              sendError = responseData.message || '不明なエラー';
-              addDebugLog('❌ サーバーエラー', responseData);
-            }
-          } else {
-            // 空のレスポンスでもステータスが200なら成功とみなす
-            sendSuccess = true;
-            addDebugLog('✅ 空のレスポンスだが200なので成功');
-          }
-        } catch (parseError) {
-          addDebugLog('レスポンス解析エラー', parseError);
-          // ステータスが200なら解析エラーでも成功とみなす
-          if (response.status === 200) {
-            sendSuccess = true;
-            addDebugLog('✅ 解析エラーだが200なので成功とみなす');
-          }
-        }
-      } else {
-        sendError = `HTTPエラー: ${response.status} ${response.statusText}`;
-        addDebugLog('❌ HTTPエラー', { status: response.status, statusText: response.statusText });
-      }
-
-    } catch (fetchError) {
-      addDebugLog('通常fetchエラー', fetchError);
-      
-      // 方法2: no-corsモードでフォールバック送信
-      try {
-        addDebugLog('no-corsモードでフォールバック送信...');
-        
-        const corsResponse = await fetch(GAS_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(data)
-        });
-
-        addDebugLog('no-cors送信完了', {
-          status: corsResponse.status,
-          statusText: corsResponse.statusText,
-          ok: corsResponse.ok,
-          type: corsResponse.type
-        });
-
-        // no-corsでは詳細レスポンスが分からないが、送信は完了している
-        sendSuccess = true;
-        responseData = {
-          status: 'SUCCESS',
-          message: '送信完了（no-corsモード）',
-          note: 'レスポンス詳細は確認できませんが、データは送信されました'
-        };
-        addDebugLog('✅ no-cors送信完了（詳細不明だが送信済み）');
-
-      } catch (corsError) {
-        addDebugLog('❌ no-cors送信もエラー', corsError);
-        sendError = `送信エラー: ${corsError.message}`;
-      }
-    }
+    await window.LoanReceipts.ensureServer(GAS_URL);
+    [data] = window.LoanReceipts.prepare(GAS_URL, [data]);
+    const responseData = await window.LoanReceipts.send(GAS_URL, data);
 
     // ステップ3: データ挿入
     showProgressStep('step-inserting');
@@ -897,11 +809,15 @@ async function submitCorrectionData() {
     await delay(500);
 
     // 🔥 結果判定と表示
-    if (sendSuccess) {
+    {
       addDebugLog('✅ 全体処理成功', responseData);
       
       // シンプルな成功メッセージ
-      const successMessage = '✅ 修正データの送信が完了しました。';
+      const notificationFailed = Object.values(responseData.notifications || {}).includes('failed');
+      const successMessage = notificationFailed ?
+        '⚠️ データは登録済みです。バックアップ・メール通知を管理者に確認してください（再送不要）。' :
+        responseData.duplicate ? '✅ 登録済みの修正内容を確認しました。行は追加していません。' :
+        '✅ 修正データの送信が完了しました。';
 
       // 成功メッセージ表示
       const successMsg = document.getElementById('successMessage');
@@ -949,9 +865,6 @@ async function submitCorrectionData() {
         }
       }, 3000);
 
-    } else {
-      // 送信失敗
-      throw new Error(sendError || '送信に失敗しました');
     }
 
   } catch (error) {
@@ -969,7 +882,7 @@ async function submitCorrectionData() {
     
     // エラーメッセージ表示
     const errorMessage = document.getElementById('errorMessage');
-    errorMessage.textContent = `❌ 送信エラー: ${error.message}`;
+    errorMessage.textContent = `❌ 登録結果を確認できませんでした: ${error.message}。内容を変えずに再送すると、二重登録せず結果を確認します。`;
     errorMessage.classList.add('show');
     
     setTimeout(() => {
