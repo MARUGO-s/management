@@ -159,26 +159,7 @@ function parseJstDateTimeMs(s) {
 // Content-Type を text/plain にすることで CORS プリフライト(OPTIONS)を回避し、
 // no-cors を使わずにレスポンス本文を読める（GASは e.postData.contents で生ボディを受け取るため互換）。
 async function postToGas(payload) {
-  const response = await fetch(GAS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload),
-    redirect: "follow"
-  });
-  if (!response.ok) {
-    throw new Error(`GAS応答エラー (HTTP ${response.status})`);
-  }
-  const text = await response.text();
-  let result;
-  try {
-    result = JSON.parse(text);
-  } catch (_) {
-    throw new Error(`GAS応答の解析に失敗しました: ${text.slice(0, 200)}`);
-  }
-  if (!result || result.status !== 'SUCCESS') {
-    throw new Error(result && result.message ? result.message : 'GASがエラーを返しました');
-  }
-  return result;
+  return window.LoanReceipts.send(GAS_URL, payload);
 }
 
 // 店舗データで貸主・借主のオプションを設定
@@ -1891,6 +1872,16 @@ async function handleCorrectionFromSearch(type = 'found') {
 }
 
 async function submitData(options = {}) {
+  if (!options.receiptLocked) {
+    try {
+      if (!window.LoanReceipts) throw new Error('画面を再読み込みしてから送信してください。');
+      return await window.LoanReceipts.withLock(GAS_URL, () => submitData({ ...options, receiptLocked: true }));
+    } catch (error) {
+      document.getElementById('errorModalBody').textContent = error.message;
+      document.getElementById('errorModal').classList.add('show');
+      return;
+    }
+  }
   // 🔒 重複実行防止（より厳格なチェック）
   if (submitData._isRunning) {
     console.warn('⚠️ submitData already running, skipping duplicate call');
@@ -1983,7 +1974,7 @@ async function submitData(options = {}) {
     
     console.log('🔍 全グループ定義:', { totalGroups: groupDefs.length });
 
-    const allPayloads = [];
+    let allPayloads = [];
     pendingErrorQueue = [];
     let groupIndex = 0;
     for (const gd of groupDefs) {
@@ -2067,6 +2058,7 @@ async function submitData(options = {}) {
           unitPrice: en.unitPrice,
           amount: en.amount,
           isCorrection: isCorrection,
+          correctionMark: isCorrection ? (correctionMark || '✏️修正') : '',
         };
         
         // デバッグ: Payload作成時の数量を確認
@@ -2183,6 +2175,10 @@ async function submitData(options = {}) {
       return;
     }
 
+    await window.LoanReceipts.ensureServer(GAS_URL);
+    allPayloads = window.LoanReceipts.prepare(GAS_URL, allPayloads);
+    const registrationResults = [];
+
     // ここから送信UI表示（回転アニメ前にバリデーション済み）
     submitBtn.disabled = true;
     submitBtn.classList.add('loading');
@@ -2230,6 +2226,7 @@ async function submitData(options = {}) {
         // GASへ送信し、レスポンス本文で書き込み成否を確認する（no-cors を廃止）。
         // 失敗時は postToGas が例外を投げ、下の catch で送信を停止しエラー表示する。
         const gasResult = await postToGas(payload);
+        registrationResults.push(gasResult);
         console.log(`✅ 送信完了 ${i + 1}/${allPayloads.length}:`, payload.item, gasResult.status);
       } catch (error) {
         console.error(`❌ 送信失敗 ${i + 1}/${allPayloads.length}:`, error);
@@ -2276,10 +2273,15 @@ async function submitData(options = {}) {
     completeStep('step-inserting', `✅ ${correctionOnly ? '修正データ' : ''}挿入完了`);
     await showStep('step-backup', '🔄 バックアップを作成中...');
     await delay(600); // 待機時間を短縮
-    completeStep('step-backup', '✅ バックアップ作成完了');
+    const backupFailed = registrationResults.some(result => result.notifications?.backup === 'failed');
+    const emailFailed = registrationResults.some(result => result.notifications?.email === 'failed');
+    const onlyReceipts = registrationResults.every(result => result.duplicate);
+    completeStep('step-backup', backupFailed ? '⚠️ 登録済み・バックアップ要確認（再送不要）' :
+      onlyReceipts ? '✅ 登録済みの受付IDを確認（バックアップ再実行なし）' : '✅ バックアップ処理完了');
     await showStep('step-email', '📧 借主へメール通知中...');
     await delay(800); // 待機時間を短縮
-    completeStep('step-email', '✅ 借主へのメール送信完了');
+    completeStep('step-email', emailFailed ? '⚠️ 登録済み・メール通知要確認（再送不要）' :
+      onlyReceipts ? '✅ メール再送なし' : '✅ 借主へのメール送信完了');
     
     // 送信内容をチェック中ステップを追加
     await showStep('step-checking', '🔍 送信内容をチェック中...');
@@ -2319,7 +2321,10 @@ async function submitData(options = {}) {
           console.log('🎉 submitData完了');
           
           const message = document.getElementById('successMessage');
-          message.textContent = correctionOnly ? '✅ 修正データの送信が完了しました！' : '✅ 送信完了しました！';
+          message.textContent = backupFailed || emailFailed ?
+            '⚠️ データは登録済みです。バックアップ・メール通知を管理者に確認してください（再送不要）。' :
+            onlyReceipts ? '✅ 登録済みの内容を確認しました。行は追加していません。' :
+            correctionOnly ? '✅ 修正データの送信が完了しました！' : '✅ 送信完了しました！';
           message.classList.add('show');
           setTimeout(() => { message.classList.remove('show'); }, 800);
         }, 300); // フェードアウト完了後に処理
@@ -2351,7 +2356,7 @@ async function submitData(options = {}) {
     const errorModalBody = document.getElementById('errorModalBody');
     const errorModalCloseBtn = document.getElementById('errorModalCloseBtn');
     if (errorModal && errorModalBody) {
-      errorModalBody.textContent = `入力ミスがあります。内容をご確認ください。`;
+      errorModalBody.textContent = `登録結果を確認できませんでした。\n${error.message || ''}\n入力内容を変えずに再送すると、登録済みの行は二重登録せず結果を確認します。`;
       errorModal.classList.add('show');
       // フォーカス制御を削除（シンプルな状態に戻す）
       if (errorModalCloseBtn) {
@@ -2416,7 +2421,7 @@ function initializeElements() {
   document.getElementById('date').value = `${year}-${month}-${day}`;
 
   // 🔓 submitDataフラグをリセット（ページ読み込み時）
-  if (typeof submitData === 'function') {
+  if (typeof submitData === 'function' && !submitData._isRunning) {
     submitData._isRunning = false;
   }
 

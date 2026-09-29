@@ -1,0 +1,28 @@
+name: Submission receipts
+
+on:
+  pull_request:
+  push:
+    branches: [main, fix/prevent-duplicate-submissions]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  receipts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test scripts/test_submission_receipts.cjs
+      - run: |
+          node --check js/submission-receipts.js
+          node --check main.js
+          node --check js/main.js
+          node --check pages/js/main.js
+          node --check js/correction.js
+          node --check pages/js/correction.js
+          git diff --check

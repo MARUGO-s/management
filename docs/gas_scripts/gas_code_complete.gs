@@ -50,6 +50,8 @@ function doPost(e) {
     }
     // ★ 追加ここまで
 
+    validateReceipt_(data);
+
     // 修正データか通常データかを振り分け
     if (data.isCorrection === true && (
         (typeof data.originalRowIndex === 'number' && data.originalRowIndex >= 2) ||
@@ -72,8 +74,74 @@ function doPost(e) {
 }
 
 /**
- * 修正データを特定の行の直前に挿入する関数
+ * Durable receipt metadata lives in L/M of the SAME row as A:K.
+ * A separate receipt ledger would leave a crash window between the two writes.
  */
+function validateReceipt_(data) {
+  if (data.receiptVersion !== 1 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.receiptId || '')) {
+    throw new Error('二重登録防止のため、画面を再読み込みしてから送信してください。');
+  }
+}
+
+function receiptHash_(data) {
+  const fields = ['date', 'name', 'lender', 'borrower', 'category', 'item', 'quantity', 'unitPrice', 'amount'];
+  const canonical = JSON.stringify([
+    ...fields.map(field => String(data[field] == null ? '' : data[field])),
+    data.isCorrection === true,
+    data.isCorrection ? (data.correctionMark || '✏️修正') : '',
+    data.originalCreatedAt || data.originalRowId || data.originalRowIndex || ''
+  ]);
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, canonical)
+    .map(value => ('0' + ((value + 256) % 256).toString(16)).slice(-2)).join('');
+}
+
+function receiptSuccess_(data, duplicate, notifications) {
+  return { status: 'SUCCESS', idempotencyVersion: 1, receiptId: data.receiptId,
+    duplicate: duplicate, notifications: notifications || { backup: 'skipped', email: 'skipped' },
+    message: duplicate ? '登録済みの結果を確認しました。' : '正常に登録しました。' };
+}
+
+function receiptColumnsAvailable_(sheet) {
+  const width = Math.min(2, sheet.getMaxColumns() - 11);
+  if (width <= 0) return true;
+  const range = sheet.getRange(1, 12, Math.max(sheet.getLastRow(), 1), width);
+  const values = range.getValues();
+  if (values[0][0] === '__receipt_id_v1' && values[0][1] === '__receipt_hash_v1') return true;
+  return !values.some(row => row.some(value => value !== '')) &&
+    !range.getFormulas().some(row => row.some(value => value !== ''));
+}
+
+function findReceipt_(sheet, data) {
+  validateReceipt_(data);
+  const headers = ['__receipt_id_v1', '__receipt_hash_v1'];
+  if (sheet.getMaxColumns() < 13) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), 13 - sheet.getMaxColumns());
+  }
+  const current = sheet.getRange(1, 12, 1, 2).getValues()[0];
+  if (current[0] !== headers[0] || current[1] !== headers[1]) {
+    if (!receiptColumnsAvailable_(sheet)) throw new Error('受付ID用のL・M列に既存データがあります。管理者にご連絡ください。');
+    sheet.getRange(1, 12, 1, 2).setValues([headers]);
+    sheet.hideColumns(12, 2);
+  }
+  if (sheet.getLastRow() < 2) return null;
+  const match = sheet.getRange(2, 12, sheet.getLastRow() - 1, 1)
+    .createTextFinder(data.receiptId).matchEntireCell(true).findNext();
+  if (!match) return null;
+  const hash = sheet.getRange(match.getRow(), 13, 1, 1).getValues()[0][0];
+  if (hash !== receiptHash_(data)) throw new Error('同じ受付IDで内容が変更されています。登録を停止しました。');
+  return receiptSuccess_(data, true);
+}
+
+function finishReceiptNotifications_(data, isCorrection) {
+  const result = { backup: 'completed', email: 'completed' };
+  // Failures after a durable registration must not masquerade as a failed write.
+  try { result.backup = createBackup(isCorrection ? 'correction' : 'normal') || 'completed'; }
+  catch (error) { result.backup = 'failed'; Logger.log('バックアップエラー: ' + error.message); }
+  try { result.email = sendBorrowerEmail_(data, isCorrection) || 'completed'; }
+  catch (error) { result.email = 'failed'; Logger.log('メール通知エラー: ' + error.message); }
+  return result;
+}
+
 function processCorrectionData(data) {
   // 同時実行（複数端末・ダブルクリック等）による行挿入の競合を防ぐためスクリプトロックで直列化する
   const lock = LockService.getScriptLock();
@@ -86,8 +154,10 @@ function processCorrectionData(data) {
     const sheet = ss.getSheetByName(TARGET_SHEET_NAME);
     if (!sheet) throw new Error(`「${TARGET_SHEET_NAME}」シートが見つかりません。`);
 
+    const receipt = findReceipt_(sheet, data);
+    if (receipt) return createJsonResponse(receipt);
     const correctionMark = data.correctionMark || "✏️修正";
-    const rowData = createRowDataArray(data, correctionMark);
+    const rowData = createRowDataArray(data, correctionMark).concat([data.receiptId, receiptHash_(data)]);
     
     let targetRowIndex = null;
     
@@ -166,18 +236,16 @@ function processCorrectionData(data) {
     quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
     Logger.log(`🔢 数量セル（行${targetRowIndex}）をテキスト形式に設定: "${quantityValue}"`);
 
-    createBackup("correction");
-    sendBorrowerEmail_(data, true);
-
-    Logger.log(`✅ 修正データ挿入完了。行: ${targetRowIndex}`);
-    SpreadsheetApp.flush(); // ロック解放前に書き込みを確定させる
-    return createJsonResponse({ status: 'SUCCESS', message: '修正データが正常に挿入されました。' });
+    SpreadsheetApp.flush(); // 取引と受付IDを同一行で確定する。
+    if (lock.hasLock()) lock.releaseLock();
+    const notifications = finishReceiptNotifications_(data, true);
+    return createJsonResponse(receiptSuccess_(data, false, notifications));
 
   } catch (error) {
     Logger.log("❌ 修正データ挿入エラー: " + error.toString());
     return createJsonResponse({ status: 'ERROR', message: "修正データ挿入エラー: " + error.message }, 500);
   } finally {
-    lock.releaseLock();
+    if (lock.hasLock()) lock.releaseLock();
   }
 }
 
@@ -196,8 +264,10 @@ function processNormalData(data) {
     const sheet = ss.getSheetByName(TARGET_SHEET_NAME);
     if (!sheet) throw new Error(`「${TARGET_SHEET_NAME}」シートが見つかりません。`);
 
+    const receipt = findReceipt_(sheet, data);
+    if (receipt) return createJsonResponse(receipt);
     const correctionMark = data.isCorrection ? (data.correctionMark || "✏️修正") : "";
-    const rowData = createRowDataArray(data, correctionMark);
+    const rowData = createRowDataArray(data, correctionMark).concat([data.receiptId, receiptHash_(data)]);
 
     sheet.insertRowBefore(2);
     sheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
@@ -209,18 +279,16 @@ function processNormalData(data) {
     quantityCell.setValue(quantityValue); // 文字列として明示的に再設定
     Logger.log(`🔢 数量セル（行2）をテキスト形式に設定: "${quantityValue}"`);
 
-    createBackup(data.isCorrection ? "correction" : "normal");
-    sendBorrowerEmail_(data, data.isCorrection === true);
-
-    Logger.log("✅ データ挿入処理完了");
-    SpreadsheetApp.flush(); // ロック解放前に書き込みを確定させる
-    return createJsonResponse({ status: 'SUCCESS', message: 'データが正常に挿入されました。' });
+    SpreadsheetApp.flush(); // 取引と受付IDを同一行で確定する。
+    if (lock.hasLock()) lock.releaseLock();
+    const notifications = finishReceiptNotifications_(data, data.isCorrection === true);
+    return createJsonResponse(receiptSuccess_(data, false, notifications));
 
   } catch (error) {
     Logger.log("❌ データ挿入エラー: " + error.toString());
     return createJsonResponse({ status: 'ERROR', message: "データ挿入エラー: " + error.message }, 500);
   } finally {
-    lock.releaseLock();
+    if (lock.hasLock()) lock.releaseLock();
   }
 }
 
@@ -279,15 +347,17 @@ function createRowDataArray(data, correctionMark) {
 function sendBorrowerEmail_(data, isCorrection) {
   try {
     let email = getEmailByBorrowerName_(data.borrower);
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'skipped';
     const unitPriceDisp = (parseFloat(data.unitPrice || 0)).toLocaleString('ja-JP');
     const amountDisp = (parseFloat(data.amount || 0)).toLocaleString('ja-JP');
     const subject = '【貸借管理】新しい取引が登録されました';
     const bodyText = `${data.borrower} 様\n\n以下の内容で登録されました：\n\n日付: ${data.date}\n品目: ${data.item}\n個/本: ${data.quantity}\n単価: ${unitPriceDisp} 円\n金額: ${amountDisp} 円\n貸主: ${data.lender}\nカテゴリー: ${data.category}\n${isCorrection ? '備考: ✏️修正\n' : ''}\n--\n貸借管理システム`;
     MailApp.sendEmail({ to: email, subject, body: bodyText });
     Logger.log('📧 借主へメール送信済み: ' + email);
+    return 'completed';
   } catch (err) {
     Logger.log('❌ メール送信エラー: ' + err.toString());
+    return 'failed';
   }
 }
 
@@ -312,7 +382,15 @@ function createJsonResponse(data) {
 }
 
 function doGet() {
-  return createJsonResponse({ status: 'SUCCESS', message: "GAS動作確認OK (GET)"});
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(TARGET_SHEET_NAME);
+    const ready = !!sheet && receiptColumnsAvailable_(sheet);
+    return createJsonResponse({ status: 'SUCCESS', message: 'GAS動作確認OK (GET)',
+      idempotencyVersion: 1, receiptColumnsReady: ready });
+  } catch (error) {
+    return createJsonResponse({ status: 'ERROR', message: error.message, idempotencyVersion: 1,
+      receiptColumnsReady: false });
+  }
 }
 
 
@@ -380,9 +458,11 @@ function createBackup(backupType) {
       timestamp: new Date().getTime()
     }));
     Logger.log(`バックアップを作成しました: ${backupName}`);
+    return 'completed';
 
   } catch (error) {
     Logger.log(`バックアップ作成エラー: ${error.message}`);
+    return 'failed';
   }
 }
 
@@ -647,4 +727,3 @@ function updateCategoryValidation() {
     return 'エラー: ' + error.toString();
   }
 }
-
