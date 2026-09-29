@@ -1,5 +1,12 @@
 # 変更履歴
 
+## 2026-09-30 — 送信エラーの追加修正（本番GASバージョン76・画面 2026093001）
+
+- v72の try/catch では不十分だった。GASはシート操作を遅延実行するため、書式設定の失敗は後続の `SpreadsheetApp.flush()` で発生していた。行の書き込み直後にflushで確定し、書式設定は自身のflushまで含めて try/catch する（v75で解消を確認、v76で一時診断を除去）。
+- GASの応答中継（script.googleusercontent.com の echo）が時折404のHTMLを返し、Safariで「The string did not match the expected pattern」となって送信が止まっていた。応答が読めない場合のみ、同じリクエスト（POSTは同じ受付ID）を最大3回まで読み直す（`js/submission-receipts.js`）。通信断やサーバーのJSONエラーは再送しない。
+- 事前確認GETは受付列の見出しが設定済みなら全行を読まずに返すよう軽量化。
+- ロールバック: `clasp redeploy AKfycbxxrH8ZtjpadlxvdnbFFOvyc4kCsANrZt-aOu5HZ2RhlbSgDwFsJzq7AfMGW58w3HTW -V 71`（画面は一つ前のコミットへ）。
+
 ## 2026-09-30 — 数量セルの書式設定エラーを修正（本番GASバージョン72）
 
 - 貸借表G列がテーブルの型付き列の場合、`setNumberFormat('@')` が「型付きの列でセルの数値形式を設定することはできません」で失敗し、行は保存済みなのに画面にエラーを返し、バックアップ・メール通知も止まっていた。
