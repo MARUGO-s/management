@@ -19,6 +19,28 @@ const BACKUP_RETENTION = {
 /**
  * WebアプリのPOSTリクエストを処理するメイン関数
  */
+// ログインで発行されたトークンを Supabase で確認する（有効なものは10分キャッシュ）。
+// anon キーは公開前提の値（画面の config.js と同じ）。
+const SUPABASE_URL = 'https://mzismgyctulktrihcwfg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aXNtZ3ljdHVsa3RyaWhjd2ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxMTI0MTEsImV4cCI6MjA3MzY4ODQxMX0.ZgXkgPnz408eN1uMVG5dmOxpcV1zQgBfh7Qgekh0nAg';
+
+function verifySession_(token) {
+  if (!token || typeof token !== 'string') return false;
+  const cache = CacheService.getScriptCache();
+  const key = 'session_' + Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token)).slice(0, 43);
+  if (cache.get(key) === 'ok') return true;
+  const response = UrlFetchApp.fetch(SUPABASE_URL + '/functions/v1/password-manager', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
+    payload: JSON.stringify({ action: 'check-token', token: token })
+  });
+  if (response.getResponseCode() !== 200) throw new Error('ログインの確認に失敗しました。');
+  const valid = JSON.parse(response.getContentText()).valid === true;
+  if (valid) cache.put(key, 'ok', 600);
+  return valid;
+}
+
 function doPost(e) {
   if (!e || !e.postData || !e.postData.contents) {
     const errorMessage = "ERROR: リクエストボディが空、または無効です。";
@@ -28,6 +50,13 @@ function doPost(e) {
 
   try {
     const data = JSON.parse(e.postData.contents);
+    // トークンはログや行データに残さない。
+    const sessionToken = data.sessionToken;
+    delete data.sessionToken;
+    if (!verifySession_(sessionToken)) {
+      return createJsonResponse({ status: 'ERROR', written: false, code: 'SESSION_REQUIRED',
+        message: 'ログインの有効期限が切れました。ログインし直してから送信してください。' }, 401);
+    }
     Logger.log("✅ 受信データ: " + JSON.stringify(data));
 
     // CSVアップロード処理

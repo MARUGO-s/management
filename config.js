@@ -8,6 +8,38 @@ const SUPABASE_CONFIG = {
   spreadsheetId: '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'
 }
 
+// ログインで発行されたトークン。シートの読み取りと登録で必須（8時間有効）。
+window.LoanSession = {
+  STORAGE_KEY: 'loanSession',
+  get() {
+    try {
+      const session = JSON.parse(sessionStorage.getItem(this.STORAGE_KEY) || 'null');
+      return session && session.token && session.expiresAt > Date.now() ? session : null;
+    } catch (_) {
+      return null;
+    }
+  },
+  set(token, expiresAt) {
+    sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify({ token, expiresAt }));
+  },
+  clear() {
+    sessionStorage.removeItem(this.STORAGE_KEY);
+    sessionStorage.removeItem('simpleAuth');
+  },
+  // ログイン画面がある画面はそのまま（画面側で表示済み）、ない画面はトップのログインへ移動する。
+  requireLogin() {
+    if (document.getElementById('password-screen')) return;
+    const configScript = document.querySelector('script[src*="config.js"]');
+    location.href = new URL('index.html', configScript ? configScript.src : location.href).href;
+  }
+};
+
+function sessionRequiredError() {
+  const error = new Error('ログインが必要です。ログインし直してください。');
+  error.code = 'SESSION_REQUIRED';
+  return error;
+}
+
 // Google Sheets API呼び出し関数（セキュア版 + 使用量監視 + 遮断機能）
 async function callSheetsAPI(range, method = 'GET', values = null) {
   // 呼び出し元を特定するためのスタックトレース
@@ -19,6 +51,12 @@ async function callSheetsAPI(range, method = 'GET', values = null) {
     console.log(`🔍 API呼び出し: ${method} ${range}`);
   }
   
+  const session = window.LoanSession.get();
+  if (!session) {
+    window.LoanSession.requireLogin();
+    throw sessionRequiredError();
+  }
+
   try {
     // API使用量制限チェック（2,500回超過で遮断）
     const isBlocked = await checkAPILimit();
@@ -33,7 +71,8 @@ async function callSheetsAPI(range, method = 'GET', values = null) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+        'x-loan-session': session.token
       },
       body: JSON.stringify({
         spreadsheetId: SUPABASE_CONFIG.spreadsheetId,
@@ -43,6 +82,13 @@ async function callSheetsAPI(range, method = 'GET', values = null) {
       })
     })
 
+    if (response.status === 401) {
+      // 期限切れ・無効なトークン。ログインし直してもらう。
+      window.LoanSession.clear();
+      if (document.getElementById('password-screen')) location.reload();
+      else window.LoanSession.requireLogin();
+      throw sessionRequiredError();
+    }
     if (!response.ok) {
       const errorText = await response.text()
       throw new Error(`API Error: ${response.status} - ${errorText}`)

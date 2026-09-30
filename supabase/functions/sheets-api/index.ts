@@ -1,111 +1,109 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { verifySessionToken } from '../_shared/session.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-loan-session',
+}
+
+// 読み取りを許可するスプレッドシートとシート。借主メールのある「マスタ」などは含めない。
+const ALLOWED_SPREADSHEET_ID = '1Z1i7p1s5GeXdfhMoSrcu-JzJL_yima7FNHCoJ7Fz4iY'
+const ALLOWED_SHEETS = new Set(['貸借表', '原価リスト', '食材コスト'])
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status,
+  })
+}
+
+function sheetOf(range: string): string {
+  const name = range.includes('!') ? range.slice(0, range.lastIndexOf('!')) : range
+  return name.replace(/^'(.*)'$/, '$1').replace(/''/g, "'")
+}
+
+function base64url(bytes: Uint8Array | string): string {
+  const raw = typeof bytes === 'string' ? bytes : String.fromCharCode(...bytes)
+  return btoa(raw).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+// サービスアカウント（GOOGLE_SERVICE_ACCOUNT_JSON）の読み取り専用アクセストークン。非公開シートを読める。
+let cachedAccess: { token: string, expiresAt: number } | null = null
+
+async function serviceAccountToken(json: string): Promise<string> {
+  if (cachedAccess && cachedAccess.expiresAt > Date.now() + 60_000) return cachedAccess.token
+  const account = JSON.parse(json)
+  const now = Math.floor(Date.now() / 1000)
+  const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
+  const claims = base64url(JSON.stringify({
+    iss: account.client_email,
+    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+  }))
+  const pem = account.private_key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '')
+  const key = await crypto.subtle.importKey('pkcs8', Uint8Array.from(atob(pem), c => c.charCodeAt(0)),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
+  const signature = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key,
+    new TextEncoder().encode(`${header}.${claims}`)))
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: `${header}.${claims}.${base64url(signature)}`,
+    }),
+  })
+  if (!response.ok) throw new Error(`service account token error: ${response.status}`)
+  const result = await response.json()
+  cachedAccess = { token: result.access_token, expiresAt: Date.now() + result.expires_in * 1000 }
+  return cachedAccess.token
 }
 
 serve(async (req) => {
-  // CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    console.log('🔧 Sheets API function called')
-
-    // 環境変数の確認
-    const googleApiKey = Deno.env.get('GOOGLE_API_KEY')
-
-    console.log('🔧 Environment variables check:')
-    console.log('🔧 GOOGLE_API_KEY exists:', !!googleApiKey)
-
-    if (!googleApiKey) {
-      throw new Error('GOOGLE_API_KEY environment variable is not set')
+    // ログインで発行したトークンがなければ読ませない。
+    // 移行期間（SHEETS_REQUIRE_SESSION 未設定）だけ、トークンなしの旧画面を許可する。
+    const sessionHeader = req.headers.get('x-loan-session')
+    const session = await verifySessionToken(sessionHeader)
+    const requireSession = Deno.env.get('SHEETS_REQUIRE_SESSION') === 'true'
+    if (!session && (requireSession || sessionHeader)) {
+      return json({ ok: false, code: 'SESSION_REQUIRED', error: 'ログインが必要です。' }, 401)
     }
 
-    const body = await req.json()
-    console.log('🔧 Request body keys:', Object.keys(body))
-
-    const { spreadsheetId, range, method = 'GET', values } = body
-
-    if (!spreadsheetId || !range) {
-      throw new Error('spreadsheetId and range are required')
+    const { spreadsheetId, range, method = 'GET' } = await req.json()
+    if (spreadsheetId !== ALLOWED_SPREADSHEET_ID || typeof range !== 'string' || !ALLOWED_SHEETS.has(sheetOf(range))) {
+      return json({ ok: false, error: 'この範囲は読み取りできません。' }, 403)
+    }
+    // 書き込みはGAS経由のみ。ここは読み取り専用。
+    if (method !== 'GET') {
+      return json({ ok: false, error: '読み取り専用です。' }, 405)
     }
 
-    console.log('🔍 Sheets API request:', { spreadsheetId, range, method })
-
-    let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`
-    let fetchOptions: any = {
-      headers: {
-        'Content-Type': 'application/json',
-      }
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${ALLOWED_SPREADSHEET_ID}/values/${encodeURIComponent(range)}`
+    const serviceAccount = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
+    let response: Response
+    if (serviceAccount) {
+      response = await fetch(url, { headers: { Authorization: `Bearer ${await serviceAccountToken(serviceAccount)}` } })
+    } else {
+      // サービスアカウント登録前の移行期間のみ。APIキーはシートが公開されている間しか読めない。
+      const googleApiKey = Deno.env.get('GOOGLE_API_KEY')
+      if (!googleApiKey) throw new Error('Google credentials are not configured')
+      response = await fetch(`${url}?key=${googleApiKey}`)
     }
-
-    if (method === 'GET') {
-      // GET request - データ取得
-      url += `?key=${googleApiKey}`
-    } else if (method === 'POST' || method === 'PUT') {
-      // POST/PUT request - データ更新
-      url += `?key=${googleApiKey}`
-      fetchOptions.method = method
-      if (values) {
-        fetchOptions.body = JSON.stringify({
-          values: values,
-          majorDimension: 'ROWS'
-        })
-      }
-    } else if (method === 'APPEND') {
-      // APPEND request - データ追加
-      url += `?key=${googleApiKey}&valueInputOption=RAW&insertDataOption=INSERT_ROWS`
-      fetchOptions.method = 'POST'
-      if (values) {
-        fetchOptions.body = JSON.stringify({
-          values: values,
-          majorDimension: 'ROWS'
-        })
-      }
-    }
-
-    console.log('🔧 Making Google Sheets API request:', url.replace(googleApiKey, '[REDACTED]'))
-
-    const response = await fetch(url, fetchOptions)
 
     if (!response.ok) {
-      const errorData = await response.text()
-      throw new Error(`Google Sheets API error: ${response.status} - ${errorData}`)
+      console.error('Google Sheets API error:', response.status, await response.text())
+      return json({ ok: false, error: `Google Sheets API error: ${response.status}` }, 502)
     }
-
-    const result = await response.json()
-    console.log('🔧 Google Sheets API response received')
-
-    return new Response(
-      JSON.stringify(result),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
-
+    return json(await response.json())
   } catch (error) {
-    console.error('❌ Error:', error)
-    console.error('❌ Error stack:', error.stack)
-    console.error('❌ Error message:', error.message)
-
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: error.message,
-        stack: error.stack,
-        details: {
-          name: error.name,
-          message: error.message
-        }
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
-    )
+    console.error('sheets-api error:', error)
+    return json({ ok: false, error: 'シートの読み取りに失敗しました。' }, 500)
   }
 })

@@ -13,7 +13,8 @@ function server(file) {
   const rows = [Array(13).fill('')];
   let locked = false, busy = false, failFlush = false;
   let backups = 0, emails = 0, notificationFailure = false;
-  const properties = new Map();
+  const properties = new Map(), sessionCache = new Map();
+  let sessionChecks = 0;
   const sheet = {
     getMaxColumns: () => 13, getLastColumn: () => 13,
     getLastRow: () => rows.length, hideColumns() {},
@@ -44,14 +45,20 @@ function server(file) {
     LockService:{getScriptLock:()=>({tryLock(){if (busy) return false;assert(!locked);locked=true;return true;},
       releaseLock(){locked=false;},hasLock:()=>locked})},
     ContentService:{MimeType:{JSON:'json'},createTextOutput:s=>({setMimeType:()=>JSON.parse(s)})},
-    Utilities:{DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,s)=>Array.from(crypto.createHash('sha256').update(s).digest())}
+    Utilities:{DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,s)=>Array.from(crypto.createHash('sha256').update(s).digest()),
+      base64EncodeWebSafe:bytes=>Buffer.from(bytes.map(b=>(b+256)%256)).toString('base64url')},
+    CacheService:{getScriptCache:()=>({get:k=>sessionCache.get(k)??null,put(k,v){sessionCache.set(k,v);}})},
+    UrlFetchApp:{fetch(_,options){sessionChecks++;const token=JSON.parse(options.payload).token;
+      return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({success:true,valid:token==='valid-token'})};}}
   });
   vm.runInContext(fs.readFileSync(path.resolve(root,file),'utf8'),context);
   context.createBackup=()=>{backups++;if(notificationFailure)throw new Error('backup');};
   context.sendBorrowerEmail_=()=>{emails++;if(notificationFailure)throw new Error('email');};
   return { rows, context, properties, stats:()=>({backups,emails,locked}),
     busy(value){busy=value;}, failFlush(){failFlush=true;}, failNotifications(){notificationFailure=true;},
-    post:data=>context.doPost({postData:{contents:JSON.stringify(data)}}) };
+    sessionChecks:()=>sessionChecks,
+    // 画面からの送信と同じく、既定で有効なログイントークンを添える。
+    post:data=>context.doPost({postData:{contents:JSON.stringify('sessionToken' in data ? data : {...data,sessionToken:'valid-token'})}}) };
 }
 
 for (const file of ['docs/gas_scripts/gas_code_complete.gs','docs/gas_scripts/gas_code_complete_updated.gs',
@@ -124,6 +131,18 @@ for (const file of ['docs/gas_scripts/gas_code_complete.gs','docs/gas_scripts/ga
     assert.equal(s.properties.size,0);
     assert.equal(s.rows.length,2);
   });
+  test(file+' registration requires a valid login token',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    for(const sessionToken of ['', 'forged-token']) {
+      const denied=s.post({...data,sessionToken});
+      assert.equal(denied.code,'SESSION_REQUIRED');assert.equal(denied.written,false);
+    }
+    assert.equal(s.rows.length,1);
+    assert.equal(s.post(data).status,'SUCCESS');
+    assert.equal(s.post(data).duplicate,true);
+    assert.equal(s.sessionChecks(),2); // 空は問い合わせず、有効なトークンの確認はキャッシュされる
+    assert(!s.rows[1].includes('valid-token'));
+  });
   test(file+' formula-like input is stored as text',()=>{
     const s=server(file);
     const data={...payload('=IMPORTXML("https://example.com","//a")'),name:'+81',receiptId:uuid(),receiptVersion:1};
@@ -148,6 +167,7 @@ function browser(storage = new Map(), locks = new Set()) {
     getItem:k=>storage.get(k) ?? null, setItem(k,v){storage.set(k,v);writes++;}
   };
   const window={localStorage,crypto:{randomUUID:uuid},confirm:()=>approve,
+    LoanSession:{get:()=>({token:'valid-token'}),clear(){}},
     navigator:{locks:{async request(key, options, callback) {
       if(locks.has(key))return callback(null);
       locks.add(key);try{return await callback({});}finally{locks.delete(key);}
@@ -378,6 +398,6 @@ test('entry pages load durable receipt helper before their submission client',()
   for(const [file,client]of [['index.html','pages/js/main.js'],['pages/correction.html','js/correction.js']]) {
     const html=fs.readFileSync(path.join(root,file),'utf8');
     assert(html.indexOf('submission-receipts.js')<html.indexOf(client));
-    assert(html.includes(client+'?v=2026093004'));
+    assert(html.includes(client+'?v=2026093005'));
   }
 });

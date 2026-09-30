@@ -7,9 +7,9 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>店舗別貸借分析システム</title>
     <link href="css/styles.css" rel="stylesheet" />
-    <script src="../config.js"></script>
+    <script src="../config.js?v=2026093005"></script>
     <!-- シンプル認証システム -->
-    <script src="../js/simple-auth.js"></script>
+    <script src="../js/simple-auth.js?v=2026093005"></script>
     <!-- 統合データローダー（API呼び出し最適化） -->
     <script src="../js/unified-data-loader.js"></script>
     <!-- シンプル最適化システム -->
@@ -726,6 +726,7 @@
                     // パスワード認証とAPI認証の両方をクリア
                     sessionStorage.removeItem('apiAuthenticated');
                     sessionStorage.removeItem('passwordAuth');
+                    window.LoanSession?.clear();
                     window.location.reload(); // ページをリロードして初期状態に戻る
                 }
 

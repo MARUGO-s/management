@@ -131,7 +131,11 @@ class SimpleAuth {
             });
             
             const result = await response.json();
-            return result.success && result.isValid;
+            if (!(result.success && result.isValid && result.token)) return false;
+            // シートの読み取り・登録に使うトークンを保存する。
+            if (!window.LoanSession) return false; // 古い config.js がキャッシュされている
+            window.LoanSession.set(result.token, result.expiresAt);
+            return true;
         } catch (error) {
             console.error('❌ パスワード検証エラー:', error);
             return false;
@@ -140,6 +144,8 @@ class SimpleAuth {
 
     // 認証状態チェック
     isAuthenticated() {
+        // トークンがなければ（期限切れ・旧ログイン）ログインし直してもらう。
+        if (!window.LoanSession?.get()) return false;
         const authData = sessionStorage.getItem(this.STORAGE_KEY);
         if (!authData) return false;
 
@@ -189,8 +195,10 @@ class SimpleAuth {
                 // 認証成功
                 this.setAuthenticated();
                 passwordError.style.display = 'none';
-                this.hideAuthScreen();
                 console.log('✅ 認証成功（Supabase）');
+                // ログイン前に失敗したデータ読み込みをやり直すため、再読み込みする。
+                location.reload();
+                return;
             } else {
                 // 認証失敗
                 this.showError('パスワードが正しくありません');
@@ -360,6 +368,7 @@ class SimpleAuth {
     // ログアウト
     logout() {
         sessionStorage.removeItem(this.STORAGE_KEY);
+        window.LoanSession?.clear();
         console.log('✅ ログアウトしました');
         this.showAuthScreen();
     }

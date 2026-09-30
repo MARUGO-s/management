@@ -116,10 +116,15 @@
       ({ result } = await fetchJson(url, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload), redirect: 'follow'
+        // ログインで発行されたトークンを添える（GASで確認し、行には書き込まない）。
+        body: JSON.stringify({ ...payload, sessionToken: root.LoanSession?.get()?.token || '' }), redirect: 'follow'
       }));
     } catch (error) {
       throw outcomeError('通信が不安定なため、登録結果を確認できませんでした。', 'unknown', error.message);
+    }
+    if (result?.code === 'SESSION_REQUIRED') {
+      root.LoanSession?.clear();
+      throw outcomeError(result.message, 'rejected');
     }
     if (result?.status === 'ERROR' && result.written === false) {
       throw outcomeError('サーバーで登録を中止しました。', 'rejected', result.message);

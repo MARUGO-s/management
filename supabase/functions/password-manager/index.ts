@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { issueSessionToken, verifySessionToken } from '../_shared/session.ts'
 
 // パスワード管理用のEdge Function（データベースベース）
 serve(async (req) => {
@@ -15,7 +16,15 @@ serve(async (req) => {
   }
 
   try {
-    const { action, passwordType, currentPassword, newPassword } = await req.json()
+    const { action, passwordType, currentPassword, newPassword, token } = await req.json()
+
+    // GAS などサーバー側からのトークン確認。DBに触れないため先に処理する。
+    if (action === 'check-token') {
+      const session = await verifySessionToken(token)
+      return new Response(JSON.stringify({ success: true, valid: !!session, typ: session?.typ ?? null }), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      })
+    }
     
     // Supabaseクライアントを初期化
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
@@ -61,17 +70,16 @@ serve(async (req) => {
         const isValid = inputHash === storedHash
         
         console.log(`🔍 パスワード検証: type=${passwordType}, match=${isValid}`)
+        // 総当たりを遅らせる。
+        if (!isValid) await new Promise(resolve => setTimeout(resolve, 1000))
+        // 成功時はデータ読み取り・登録に使う有効期限付きトークンを発行する。
+        const session = isValid ? await issueSessionToken(passwordType) : null
         
         return new Response(JSON.stringify({
           success: true,
           isValid: isValid,
-          debug: {
-            passwordType: passwordType,
-            hasStoredPassword: !!storedHash,
-            hasInputPassword: !!currentPassword,
-            inputLength: currentPassword?.length || 0,
-            hashMatch: isValid
-          }
+          token: session?.token ?? null,
+          expiresAt: session?.expiresAt ?? null
         }), {
           headers: {
             'Content-Type': 'application/json',
