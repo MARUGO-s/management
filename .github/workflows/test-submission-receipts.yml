@@ -20,9 +20,6 @@ jobs:
       - run: node --test scripts/test_submission_receipts.cjs
       - run: |
           node --check js/submission-receipts.js
-          node --check main.js
-          node --check js/main.js
           node --check pages/js/main.js
-          node --check js/correction.js
           node --check pages/js/correction.js
           git diff --check

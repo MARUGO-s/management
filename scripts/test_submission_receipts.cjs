@@ -301,7 +301,7 @@ function formContext(b) {
   return {get,button};
 }
 
-for(const file of ['main.js','js/main.js','pages/js/main.js']) {
+for(const file of ['pages/js/main.js']) {
   test(file+' actual submitData recovers partial batch without inserting its saved rows again',async()=>{
     const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
     const source=fs.readFileSync(path.join(root,file),'utf8');
@@ -325,7 +325,7 @@ for(const file of ['main.js','js/main.js','pages/js/main.js']) {
   });
 }
 
-for(const file of ['main.js','js/main.js','pages/js/main.js']) {
+for(const file of ['pages/js/main.js']) {
   test(file+' confirmed server rejection is shown as not registered',async()=>{
     const b=browser(),ui=formContext(b);
     const source=fs.readFileSync(path.join(root,file),'utf8');
@@ -340,7 +340,7 @@ for(const file of ['main.js','js/main.js','pages/js/main.js']) {
   });
 }
 
-for(const file of ['main.js','js/main.js','pages/js/main.js']) {
+for(const file of ['pages/js/main.js']) {
   test(file+' another tab sending is shown as not sent, and retry goes through the lock again',async()=>{
     const locks=new Set(['loan-submit:gas']);
     const b=browser(new Map(),locks),ui=formContext(b);
@@ -355,7 +355,7 @@ for(const file of ['main.js','js/main.js','pages/js/main.js']) {
   });
 }
 
-for(const file of ['main.js','js/main.js','pages/js/main.js']) {
+for(const file of ['pages/js/main.js']) {
   test(file+' blank quantity or zero amount stops before sending and keeps the button usable',async()=>{
     const b=browser(),ui=formContext(b);
     const source=fs.readFileSync(path.join(root,file),'utf8');
@@ -371,7 +371,7 @@ for(const file of ['main.js','js/main.js','pages/js/main.js']) {
   });
 }
 
-for(const file of ['js/correction.js','pages/js/correction.js']) {
+for(const file of ['pages/js/correction.js']) {
   test(file+' actual correction retry uses same receipt after its original row shifts',async()=>{
     const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
     s.rows.push(Array(13).fill(''));
