@@ -1,5 +1,15 @@
 # 変更履歴
 
+## 2026-09-30 — データの非公開化とログイン必須化（本番GASバージョン79・画面 2026093005）
+
+- 背景: スプレッドシートが「リンクを知っている全員が閲覧可」で、IDが公開サイト・公開リポジトリにあったため、取引3,019行と「マスタ」の借主メール23件を誰でも読めた。GASへの登録も誰でも送れた。
+- スプレッドシートの一般的なアクセスを「制限付き」に変更。読み取りはサービスアカウント `loan-sheets-reader@gemini-api-471418.iam.gserviceaccount.com`（閲覧者）で行う。鍵は Supabase secret `GOOGLE_SERVICE_ACCOUNT_JSON`。
+- password-manager: ログイン成功時に HMAC 署名の8時間トークンを発行（secret `SESSION_SIGNING_SECRET`）。`check-token` を追加。パスワード不一致時は1秒遅延。本番に残っていた「入力パスワードを平文でログ出力する」旧版を置き換えた。
+- sheets-api: トークン必須（secret `SHEETS_REQUIRE_SESSION=true`、解除すると移行モード）。読めるのは貸借表・原価リスト・食材コストのみ（マスタ不可）、読み取り専用、エラー詳細を返さない。
+- GAS v79: 登録・アップロード時にトークンを Supabase で確認（有効なものは10分キャッシュ）。トークンはログ・行に残さない。外部接続（UrlFetchApp）の権限はスクリプト所有者が承認済み。
+- 画面: ログインでトークンを保存し、シート読み取り・登録に添付。期限切れ・無効時はログインし直す。ログイン画面のない修正・原価・食材画面は未ログインならトップへ移動。`config.js` / `simple-auth.js` にキャッシュ版を付与。
+- ロールバック: 読み取り必須の解除は `supabase secrets unset --project-ref mzismgyctulktrihcwfg SHEETS_REQUIRE_SESSION` 後に sheets-api を再デプロイ。登録側は `clasp redeploy AKfycbxxrH8ZtjpadlxvdnbFFOvyc4kCsANrZt-aOu5HZ2RhlbSgDwFsJzq7AfMGW58w3HTW -V 78`。
+
 ## 2026-09-30 — 入力チェックと数式インジェクション対策（本番GASバージョン78・画面 2026093004）
 
 - GAS: 利用者の入力が `=` `+` `-` `@` で始まる場合、先頭に `'` を付けて文字列として書き込む（登録・修正・食材/原価アップロード）。数式として実行され外部へ送信されるのを防ぐ。
