@@ -124,6 +124,15 @@ for (const file of ['docs/gas_scripts/gas_code_complete.gs','docs/gas_scripts/ga
     assert.equal(s.properties.size,0);
     assert.equal(s.rows.length,2);
   });
+  test(file+' formula-like input is stored as text',()=>{
+    const s=server(file);
+    const data={...payload('=IMPORTXML("https://example.com","//a")'),name:'+81',receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    assert.equal(s.rows[1][5],'\'=IMPORTXML("https://example.com","//a")');
+    assert.equal(s.rows[1][1],"'+81");
+    assert.equal(s.rows[1][7],'100');
+    assert.equal(s.post(data).duplicate,true);
+  });
   test(file+' occupied metadata columns fail without overwriting',()=>{
     const s=server(file);s.rows[0][11]='existing';
     assert.equal(s.context.doGet().receiptColumnsReady,false);
@@ -256,6 +265,7 @@ function formContext(b) {
   const button=element();button.querySelector=()=>get('btn-text');
   const rows=[payload('A'),payload('B')].map(p=>{
     const inputs=Object.fromEntries(Object.entries(p).map(([key,v])=>[key,element(String(v))]));
+    inputs.quantity.classList.add('quantity');inputs.amount.classList.add('amount'); // 実画面と同じクラス
     return {querySelector(selector){return inputs[selector.slice(1).replace('unit-price','unitPrice')]||null;}};
   });
   b.context.document={getElementById:get,querySelector:selector=>selector.startsWith('.submit-btn')?button:null,
@@ -325,6 +335,22 @@ for(const file of ['main.js','js/main.js','pages/js/main.js']) {
   });
 }
 
+for(const file of ['main.js','js/main.js','pages/js/main.js']) {
+  test(file+' blank quantity or zero amount stops before sending and keeps the button usable',async()=>{
+    const b=browser(),ui=formContext(b);
+    const source=fs.readFileSync(path.join(root,file),'utf8');
+    vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
+    let posts=0;
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1})};};
+    b.context.convertToHalfWidthNumber=v=>v==='1'?'':String(v); // 数量「1」を空欄として扱う
+    await b.context.submitData();
+    assert.equal(posts,0);
+    assert.match(ui.get('errorModalBody').textContent,/未入力か0の行があります（2行）/);
+    assert.equal(ui.button.disabled,false);
+    assert.equal(b.context.submitData._isRunning,false);
+  });
+}
+
 for(const file of ['js/correction.js','pages/js/correction.js']) {
   test(file+' actual correction retry uses same receipt after its original row shifts',async()=>{
     const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
@@ -352,6 +378,6 @@ test('entry pages load durable receipt helper before their submission client',()
   for(const [file,client]of [['index.html','pages/js/main.js'],['pages/correction.html','js/correction.js']]) {
     const html=fs.readFileSync(path.join(root,file),'utf8');
     assert(html.indexOf('submission-receipts.js')<html.indexOf(client));
-    assert(html.includes(client+'?v=2026093003'));
+    assert(html.includes(client+'?v=2026093004'));
   }
 });

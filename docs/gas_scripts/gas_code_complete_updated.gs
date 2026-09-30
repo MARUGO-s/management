@@ -370,6 +370,11 @@ function processNormalData(data) {
  * 🔧 日付処理を改善：タイムゾーンの問題を解決
  * 🔧 数量フィールド：小数点以下を保持するため文字列として明示的に処理
  */
+// 利用者の入力が「=」「+」「-」「@」で始まるとシートで数式として実行されるため、文字列として書く。
+function sheetText_(value) {
+  return typeof value === 'string' && /^[=+\-@]/.test(value) ? "'" + value : value;
+}
+
 function createRowDataArray(data, correctionMark) {
     // 📅 日付文字列を "YYYY/MM/DD" 形式に変換
     // Google Sheetsが日本ロケールとして正しく認識するようにする
@@ -404,7 +409,7 @@ function createRowDataArray(data, correctionMark) {
       data.amount,       // I列: 金額
       new Date().toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'}), // J列: 入力日時
       correctionMark     // K列: 修正
-    ];
+    ].map(sheetText_);
 }
 
 
@@ -632,7 +637,7 @@ function handleIngredientsUpload(uploadData) {
       '', // 発注送信時間（空）
       '', // 送信日（空）
       ''  // 送信時間（空）
-    ]);
+    ].map(sheetText_));
 
     // シートの一番下にデータを追加
     const lastRow = sheet.getLastRow();
@@ -708,7 +713,7 @@ function handleCostUpload(uploadData) {
       item.orderSendTime || '',      // AN: 発注送信時間
       item.sendDate || '',           // AO: 送信日
       item.sendTime || ''            // AP: 送信時間
-    ]);
+    ].map(sheetText_));
 
     // シートの一番下にデータを追加
     const lastRow = sheet.getLastRow();

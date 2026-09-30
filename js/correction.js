@@ -761,6 +761,7 @@ async function submitCorrectionData(receiptLocked = false) {
     if (!data.borrower) validationErrors.push('借主');
     if (!data.category) validationErrors.push('カテゴリー');
     if (!data.item) validationErrors.push('品目');
+    if (!(parseFloat(data.quantity) > 0)) validationErrors.push('個/本/g');
     if (!data.amount) validationErrors.push('金額');
     if (!data.originalRowIndex) validationErrors.push('元の行番号'); // 🔥 追加: 行番号のバリデーション
 

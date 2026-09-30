@@ -1880,6 +1880,7 @@ async function submitData(options = {}) {
 
     let allPayloads = [];
     pendingErrorQueue = [];
+    let invalidNumberRows = 0;
     let groupIndex = 0;
     for (const gd of groupDefs) {
       const date = gd.dateEl?.value || '';
@@ -1954,6 +1955,8 @@ async function submitData(options = {}) {
          else { clearError(amtEl); }
          const amt = parseFloat(en.amount);
          if (en.amount && (isNaN(amt) || amt <= 0)) { markError(amtEl); }
+         // 数量・金額はハイライト対象外のため、別に数えて送信を止める。
+         if (!(parseFloat(en.quantity) > 0) || !(amt > 0)) invalidNumberRows++;
         const payload = {
           date, name, lender, borrower,
           category: en.category,
@@ -2069,13 +2072,19 @@ async function submitData(options = {}) {
       return;
     }
 
-    if (allPayloads.length === 0) {
+    if (invalidNumberRows > 0 || allPayloads.length === 0) {
       const errorModal = document.getElementById('errorModal');
       const errorModalBody = document.getElementById('errorModalBody');
       if (errorModal && errorModalBody) {
-        errorModalBody.textContent = '少なくとも1行の品目を入力してください。';
+        errorModalBody.textContent = allPayloads.length === 0 ? '少なくとも1行の品目を入力してください。' :
+          `個/本/g または金額が未入力か0の行があります（${invalidNumberRows}行）。内容をご確認ください。`;
         errorModal.classList.add('show');
       }
+      // 送信せずに終えるため、送信ボタンと二重実行防止を元に戻す。
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('loading');
+      btnText.textContent = originalText;
+      submitData._isRunning = false;
       return;
     }
 
