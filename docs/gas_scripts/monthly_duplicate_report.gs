@@ -1,7 +1,8 @@
 // 月次「重複チェック」報告（本番GASの MonthlyDuplicateReport.js と同じ内容。判定は DuplicateCheck.js =
 // リポジトリの js/duplicate-check.js をそのまま置いたもの）。
 //
-// 毎月1日 6時台（日本時間）に前月分の重複・入力ミスの疑いを集計し、LINE Report の mtalk-loan-report へ送る。
+// 毎月1日 6時台（日本時間）に前々月・前月の2か月分の重複・入力ミスの疑いを集計し、LINE Report の mtalk-loan-report へ送る
+// （月が変わってから前月分を入力する人もいるので、前月分は次の報告でもう一度見る）。
 // M-talk の「貸借管理 報告」Bot として、全権管理者との1対1と Bot を招待したルームに届く。
 // 入力者名は送らない（日付・店舗・品目・金額・件数だけ）。
 //
@@ -91,36 +92,62 @@ function looksLikePersonalInfo_(text) {
   return digits.length >= 10 && digits.length <= 12;
 }
 
-// 前月分の報告（M-talk のカードに載せる見出し・項目・要点）を組み立てる。
+// 実行した月の前々月1日〜前月末日（例: 11/1 実行 → 9/1〜10/31）。月が変わってから前月分を入力する人もいるので、
+// 毎回2か月分を見る（前月分は次の報告でもう一度見る）。previousReport は前回の報告（前月1日 6:00）の入力日時の文字列。
+function duplicateReportPeriod_(now, format) {
+  const parts = format(now, 'yyyy-MM').split('-').map(Number);
+  const shift = back => {
+    const total = parts[0] * 12 + (parts[1] - 1) - back;
+    return { year: Math.floor(total / 12), month: total % 12 + 1 };
+  };
+  const first = shift(2);
+  const last = shift(1);
+  const pad = n => String(n).padStart(2, '0');
+  const lastDay = new Date(Date.UTC(last.year, last.month, 0)).getUTCDate();
+  return {
+    first: first,
+    last: last,
+    start: first.year + '-' + pad(first.month) + '-01',
+    end: last.year + '-' + pad(last.month) + '-' + pad(lastDay),
+    key: first.year + '-' + pad(first.month) + '_' + last.year + '-' + pad(last.month),
+    label: first.year === last.year
+      ? first.year + '年' + first.month + '月〜' + last.month + '月分'
+      : first.year + '年' + first.month + '月〜' + last.year + '年' + last.month + '月分',
+    previousReport: last.year + '/' + pad(last.month) + '/01 06:00:00'
+  };
+}
+
+// 前々月・前月の報告（M-talk のカードに載せる見出し・項目・要点）を組み立てる。
 // rows は DuplicateCheck.rowsFromSheetValues の結果、format(date, pattern) は日本時間の書式化。
+// 前回の報告より後に入力された行を含む疑いは「【新】」を付け、件数も出す（2か月分なので前回と重なるため）。
 function buildDuplicateReportPayload_(rows, now, format) {
-  const thisMonth = format(now, 'yyyy-MM').split('-').map(Number);
-  const year = thisMonth[1] === 1 ? thisMonth[0] - 1 : thisMonth[0];
-  const month = thisMonth[1] === 1 ? 12 : thisMonth[1] - 1;
-  const mm = String(month).padStart(2, '0');
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const start = year + '-' + mm + '-01';
-  const end = year + '-' + mm + '-' + String(lastDay).padStart(2, '0');
+  const period = duplicateReportPeriod_(now, format);
+  const start = period.start;
+  const end = period.end;
+  const previousReportTime = DuplicateCheck.parseInputTime(period.previousReport);
 
   const result = DuplicateCheck.findSuspects(rows);
-  const inMonth = DuplicateCheck.filterGroupsByPeriod(result.groups, start, end);
-  const summary = DuplicateCheck.summarize(inMonth);
-  const older = result.groups.filter(group => group.level !== 'check' && inMonth.indexOf(group) < 0 &&
+  const inPeriod = DuplicateCheck.filterGroupsByPeriod(result.groups, start, end);
+  const summary = DuplicateCheck.summarize(inPeriod);
+  const older = result.groups.filter(group => group.level !== 'check' && inPeriod.indexOf(group) < 0 &&
     group.rows.every(row => row.date < start));
   const olderSummary = DuplicateCheck.summarize(older);
+  const isNew = group => group.rows.some(row => DuplicateCheck.parseInputTime(row.inputDate) >= previousReportTime);
 
   const yen = value => '¥' + Math.round(value).toLocaleString('ja-JP');
   const safe = text => !looksLikePersonalInfo_(text);
   const describe = group => {
     const row = group.rows[0];
-    const head = row.date + ' ' + row.lender + '→' + row.borrower + ' ' + row.item;
-    if (group.eitherSide) return group.kind + '・' + group.duplicateRows.length + '品 ' + yen(group.extraAmount);
-    return head + ' ' + yen(row.amount) + (group.rows.length > 1 ? ' ×' + group.rows.length : '');
+    const mark = isNew(group) ? '【新】' : '';
+    if (group.eitherSide) return mark + group.kind + '・' + group.duplicateRows.length + '品 ' + yen(group.extraAmount);
+    return mark + row.date + ' ' + row.lender + '→' + row.borrower + ' ' + row.item + ' ' + yen(row.amount) +
+      (group.rows.length > 1 ? ' ×' + group.rows.length : '');
   };
   const topItems = (groups, count) => groups.slice()
     .sort((a, b) => b.extraAmount - a.extraAmount || String(b.rows[0].date).localeCompare(String(a.rows[0].date)))
     .map(describe).filter(safe).slice(0, count);
-  const levelGroups = level => inMonth.filter(group => group.level === level);
+  const levelGroups = level => inPeriod.filter(group => group.level === level);
+  const newCount = level => levelGroups(level).filter(isNew).length + 'グループ';
 
   const sections = [];
   if (summary.high.groups > 0) {
@@ -128,7 +155,8 @@ function buildDuplicateReportPayload_(rows, now, format) {
       heading: '重複の疑いが強い',
       fields: [
         { label: '重複', value: summary.high.duplicateRows + '件（' + summary.high.groups + 'グループ）' },
-        { label: '重複分', value: yen(summary.high.extraAmount) }
+        { label: '重複分', value: yen(summary.high.extraAmount) },
+        { label: '前回の報告後', value: newCount('high') }
       ],
       items: topItems(levelGroups('high'), 5)
     });
@@ -138,7 +166,8 @@ function buildDuplicateReportPayload_(rows, now, format) {
       heading: '重複の可能性',
       fields: [
         { label: '重複', value: summary.medium.duplicateRows + '件（' + summary.medium.groups + 'グループ）' },
-        { label: '重複分', value: yen(summary.medium.extraAmount) }
+        { label: '重複分', value: yen(summary.medium.extraAmount) },
+        { label: '前回の報告後', value: newCount('medium') }
       ],
       items: topItems(levelGroups('medium'), 3)
     });
@@ -148,7 +177,8 @@ function buildDuplicateReportPayload_(rows, now, format) {
     levelGroups('check').forEach(group => { kinds[group.kind] = (kinds[group.kind] || 0) + 1; });
     sections.push({
       heading: '要確認（入力ミスの可能性）',
-      fields: Object.keys(kinds).slice(0, 8).map(kind => ({ label: kind.replace(/（.*$/, '').slice(0, 24), value: kinds[kind] + '件' })),
+      fields: Object.keys(kinds).slice(0, 7).map(kind => ({ label: kind.replace(/（.*$/, '').slice(0, 24), value: kinds[kind] + '件' }))
+        .concat([{ label: '前回の報告後', value: newCount('check') }]),
       items: []
     });
   }
@@ -157,7 +187,7 @@ function buildDuplicateReportPayload_(rows, now, format) {
   }
   if (olderSummary.high.groups + olderSummary.medium.groups > 0) {
     sections.push({
-      heading: '前月より前の未処理',
+      heading: '対象期間より前の未処理',
       fields: [
         { label: '疑いが強い', value: olderSummary.high.duplicateRows + '件・' + yen(olderSummary.high.extraAmount) },
         { label: '可能性', value: olderSummary.medium.duplicateRows + '件・' + yen(olderSummary.medium.extraAmount) }
@@ -167,11 +197,11 @@ function buildDuplicateReportPayload_(rows, now, format) {
   }
 
   return {
-    dedupe_key: 'loan-duplicate:' + year + '-' + mm,
-    title: '重複チェック（' + year + '年' + month + '月分）',
+    dedupe_key: 'loan-duplicate:' + period.key,
+    title: '重複チェック（' + period.label + '）',
     subtitle: start.replace(/-/g, '/') + '〜' + end.replace(/-/g, '/') + ' · ' + format(now, 'M/d HH:mm') + ' 作成',
     sections: sections.slice(0, 4),
-    note: '重複と確認できた行は、貸借管理の「店舗別貸借分析」→「重複チェック」で行を選び、逆取引修正で取り消してください（行は削除しません）。修正で取り消し済みの行は数えていません。',
+    note: '月が変わってから前月分を入力する人もいるため、毎回2か月分を確認します（前月分は次回も確認）。【新】は前回の報告後に入力されたものです。重複と確認できた行は「店舗別貸借分析」→「重複チェック」で行を選び、逆取引修正で取り消してください（行は削除しません）。',
     links: [{ label: '重複チェックを開く', url: LOAN_REPORT_APP_URL }]
   };
 }

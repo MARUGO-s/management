@@ -10,18 +10,21 @@ const HEADER = ['›', '名前', '貸主', '借主', 'カテゴリー', '品目'
 const line = (date, name, lender, borrower, item, amount, input, correction = '') =>
   [date, name, lender, borrower, '飲料', item, '1.00', amount.toLocaleString(), amount.toLocaleString(), input, correction];
 const VALUES = [HEADER,
-  // 9月: 同じ人の短時間の再送（高）
+  // 9月: 同じ人の短時間の再送（高）。前回の報告（9/1 6:00）より後の入力 → 【新】
   line('2026/09/03', '庄司友紀', '焼肉マルゴ', 'MARUGO MARUNOUCHI', 'アサヒ　シャンティ', 3948, '2026/09/14 22:06:46'),
   line('2026/09/03', '庄司友紀', '焼肉マルゴ', 'MARUGO MARUNOUCHI', 'シャンティ', 3948, '2026/09/14 22:10:58'),
+  // 8月: 同じ人の短時間の再送（高）。前回の報告より前の入力（前回も報告済み）
+  line('2026/08/05', '齋藤 弾', 'MITAN', '鮨こるり', 'ホールケーキ', 7677, '2026/08/05 21:40:00'),
+  line('2026/08/05', '齋藤 弾', 'MITAN', '鮨こるり', 'ホールケーキ', 7677, '2026/08/05 21:45:01'),
   // 9月: 両店が入力（中）
   line('2026/09/25', '大塚沙希子', 'MARUGO‑D', "eric'S", 'Blason Rose', 7040, '2026/09/25 16:14:46'),
   line('2026/09/25', '野口淳平', 'MARUGO‑D', "eric'S", 'Blason Rose', 7040, '2026/09/25 17:06:37'),
   // 9月: 向きの食い違い（要確認）
   line('2026/09/02', '名塚', '本部', '371BAR', 'La Tache16', 234916, '2026/09/21 21:31:25'),
   line('2026/09/02', '伊藤瑛介', '371BAR', '本部', 'La Tache16', 234916, '2026/09/23 12:06:26'),
-  // 8月: 未処理の重複（前月より前）
-  line('2026/08/05', '齋藤 弾', 'MITAN', '鮨こるり', 'ホールケーキ', 7677, '2026/08/05 21:40:00'),
-  line('2026/08/05', '齋藤 弾', 'MITAN', '鮨こるり', 'ホールケーキ', 7677, '2026/08/05 21:45:01'),
+  // 7月: 未処理の重複（対象期間より前）
+  line('2026/07/10', '木津美咲', 'MARUGO GRANDE', '371BAR', '瀬戸田レモン', 2800, '2026/07/10 11:27:21'),
+  line('2026/07/10', '木津美咲', 'MARUGO GRANDE', '371BAR', '瀬戸田レモン', 2800, '2026/07/10 11:28:03'),
 ];
 
 function context(overrides = {}) {
@@ -94,24 +97,31 @@ const rows = ctx => ctx.DuplicateCheck.rowsFromSheetValues(VALUES);
 const plain = value => JSON.parse(JSON.stringify(value));
 const jst = (y, m, d, h = 6, min = 10) => new Date(Date.UTC(y, m - 1, d, h - 9, min));
 
-test('前月分（1日 6時台に実行 → 前の月）を対象にし、1月は前年12月になる', () => {
+test('前々月と前月の2か月分を対象にし、年をまたいでも正しい', () => {
   const { ctx } = context();
-  const format = ctx.Utilities.formatDate.bind(null);
-  const fmt = (date, pattern) => format(date, 'Asia/Tokyo', pattern);
-  const sept = ctx.buildDuplicateReportPayload_(rows(ctx), jst(2026, 10, 1), fmt);
-  assert.equal(sept.dedupe_key, 'loan-duplicate:2026-09');
-  assert.equal(sept.title, '重複チェック（2026年9月分）');
-  assert.match(sept.subtitle, /^2026\/09\/01〜2026\/09\/30 · 10\/1 06:10 作成$/);
-  const dec = ctx.buildDuplicateReportPayload_(rows(ctx), jst(2027, 1, 1), fmt);
-  assert.equal(dec.dedupe_key, 'loan-duplicate:2026-12');
-  assert.match(dec.subtitle, /^2026\/12\/01〜2026\/12\/31/);
+  const fmt = (date, pattern) => ctx.Utilities.formatDate(date, 'Asia/Tokyo', pattern);
+  const oct = ctx.buildDuplicateReportPayload_(rows(ctx), jst(2026, 10, 1), fmt);
+  assert.equal(oct.dedupe_key, 'loan-duplicate:2026-08_2026-09');
+  assert.equal(oct.title, '重複チェック（2026年8月〜9月分）');
+  assert.match(oct.subtitle, /^2026\/08\/01〜2026\/09\/30 · 10\/1 06:10 作成$/);
+  const jan = ctx.buildDuplicateReportPayload_(rows(ctx), jst(2027, 1, 1), fmt);
+  assert.equal(jan.dedupe_key, 'loan-duplicate:2026-11_2026-12');
+  assert.equal(jan.title, '重複チェック（2026年11月〜12月分）');
+  assert.match(jan.subtitle, /^2026\/11\/01〜2026\/12\/31/);
+  const feb = ctx.buildDuplicateReportPayload_(rows(ctx), jst(2027, 2, 1), fmt);
+  assert.equal(feb.dedupe_key, 'loan-duplicate:2026-12_2027-01');
+  assert.equal(feb.title, '重複チェック（2026年12月〜2027年1月分）');
+  assert.match(feb.subtitle, /^2026\/12\/01〜2027\/01\/31/);
+  const period = plain(ctx.duplicateReportPeriod_(jst(2026, 10, 1), fmt));
+  assert.equal(period.previousReport, '2026/09/01 06:00:00');
 });
 
-test('報告は受け口の上限に収まり、入力者名を含まない', () => {
+test('報告は受け口の上限に収まり、前回の報告後の分に【新】を付け、入力者名を含まない', () => {
   const { ctx } = context();
   const fmt = (date, pattern) => ctx.Utilities.formatDate(date, 'Asia/Tokyo', pattern);
   const payload = plain(ctx.buildDuplicateReportPayload_(rows(ctx), jst(2026, 10, 1), fmt));
   assert.match(payload.dedupe_key, /^[A-Za-z0-9:_.-]{8,112}$/);
+  assert.ok(payload.note.length <= 300);
   assert.ok(payload.sections.length >= 1 && payload.sections.length <= 4);
   for (const s of payload.sections) {
     assert.ok(s.heading.length <= 40);
@@ -119,13 +129,22 @@ test('報告は受け口の上限に収まり、入力者名を含まない', ()
     s.fields.forEach(f => assert.ok(f.label.length <= 24 && f.value.length <= 120, JSON.stringify(f)));
     s.items.forEach(i => assert.ok(i.length <= 200));
   }
-  assert.deepEqual(payload.sections.map(s => s.heading), ['重複の疑いが強い', '重複の可能性', '要確認（入力ミスの可能性）', '前月より前の未処理']);
-  assert.deepEqual(payload.sections[0].fields, [{ label: '重複', value: '1件（1グループ）' }, { label: '重複分', value: '¥3,948' }]);
-  assert.match(payload.sections[0].items[0], /^2026-09-03 焼肉マルゴ→MARUGO MARUNOUCHI アサヒ　シャンティ ¥3,948 ×2$/);
-  assert.deepEqual(payload.sections[3].fields[0], { label: '疑いが強い', value: '1件・¥7,677' });
+  assert.deepEqual(payload.sections.map(s => s.heading), ['重複の疑いが強い', '重複の可能性', '要確認（入力ミスの可能性）', '対象期間より前の未処理']);
+  assert.deepEqual(payload.sections[0].fields, [
+    { label: '重複', value: '2件（2グループ）' }, { label: '重複分', value: '¥11,625' }, { label: '前回の報告後', value: '1グループ' },
+  ]);
+  assert.deepEqual(payload.sections[0].items, [
+    '2026-08-05 MITAN→鮨こるり ホールケーキ ¥7,677 ×2',
+    '【新】2026-09-03 焼肉マルゴ→MARUGO MARUNOUCHI アサヒ　シャンティ ¥3,948 ×2',
+  ]);
+  assert.deepEqual(payload.sections[1].fields[2], { label: '前回の報告後', value: '1グループ' });
+  assert.deepEqual(payload.sections[2].fields, [
+    { label: '貸主と借主が逆の登録が打ち消し合っている', value: '1件' }, { label: '前回の報告後', value: '1グループ' },
+  ]);
+  assert.deepEqual(payload.sections[3].fields[0], { label: '疑いが強い', value: '1件・¥2,800' });
   assert.equal(payload.links[0].url, 'https://marugo-s.github.io/management/pages/marugo.html');
   const json = JSON.stringify(payload);
-  for (const name of ['庄司', '大塚', '野口', '名塚', '伊藤', '齋藤']) assert.ok(!json.includes(name), name);
+  for (const name of ['庄司', '大塚', '野口', '名塚', '伊藤', '齋藤', '木津']) assert.ok(!json.includes(name), name);
 });
 
 test('疑いが無い月は「ありませんでした」を送る', () => {
