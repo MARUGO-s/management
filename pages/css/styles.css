@@ -434,7 +434,8 @@ body {
 .all-data-btn,
 .correction-search-btn,
 .mmart-analysis-btn,
-.store-balance-btn {
+.store-balance-btn,
+.duplicate-check-btn {
     flex-shrink: 0;
     min-width: 120px;
     padding: 15px 20px;
@@ -493,6 +494,16 @@ body {
 }
 
 .store-balance-btn:hover {
+    transform: translateY(-2px);
+}
+
+.duplicate-check-btn {
+    background: linear-gradient(135deg, #7b5ea7 0%, #5e4687 100%);
+    color: white;
+    border: none;
+}
+
+.duplicate-check-btn:hover {
     transform: translateY(-2px);
 }
 

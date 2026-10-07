@@ -371,6 +371,25 @@ for(const file of ['pages/js/main.js']) {
   });
 }
 
+for(const file of ['pages/js/main.js']) {
+  test(file+' similar existing entry asks before sending, and cancel sends nothing',async()=>{
+    const b=browser(),ui=formContext(b);
+    const source=fs.readFileSync(path.join(root,file),'utf8');
+    vm.runInContext(fs.readFileSync(path.join(root,'js/duplicate-check.js'),'utf8'),b.context);
+    vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
+    const a=payload('A');
+    b.context.callSheetsAPI=async()=>({values:[['›'],[a.date,'別の人',a.lender,a.borrower,a.category,a.item,'1','100','100','2026/09/29 18:00:00','']]});
+    let asked='';b.context.confirm=message=>{asked=message;return false;};
+    let posts=0;
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1})};};
+    await b.context.submitData();
+    assert.match(asked,/同じ取引がすでに登録されています/);
+    assert.equal(posts,0);
+    assert.equal(ui.button.disabled,false);
+    assert.equal(b.context.submitData._isRunning,false);
+  });
+}
+
 for(const file of ['pages/js/correction.js']) {
   test(file+' actual correction retry uses same receipt after its original row shifts',async()=>{
     const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
@@ -398,6 +417,6 @@ test('entry pages load durable receipt helper before their submission client',()
   for(const [file,client]of [['index.html','pages/js/main.js'],['pages/correction.html','js/correction.js']]) {
     const html=fs.readFileSync(path.join(root,file),'utf8');
     assert(html.indexOf('submission-receipts.js')<html.indexOf(client));
-    assert(html.includes(client+'?v=2026093005'));
+    assert.match(html,new RegExp(client.replace(/[.\/]/g,'\\$&')+'\\?v=\\d{10}'));
   }
 });

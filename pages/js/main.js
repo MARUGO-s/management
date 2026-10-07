@@ -1881,7 +1881,7 @@ async function submitData(options = {}) {
       const errorModalBody = document.getElementById('errorModalBody');
       if (window.LoanReceipts) {
         window.LoanReceipts.presentFailure(errorModal, errorModalBody,
-          window.LoanReceipts.describeFailure(error, 0, 1, true), () => submitData({ ...options, receiptLocked: false }));
+          window.LoanReceipts.describeFailure(error, 0, 1, true), () => submitData({ ...options, receiptLocked: false, skipSimilarCheck: true }));
       } else {
         errorModalBody.textContent = error.message;
       }
@@ -1896,7 +1896,7 @@ async function submitData(options = {}) {
   }
   submitData._isRunning = true;
   
-  const { isCorrection = false, correctionOnly = false, correctionMark = "" } = options;
+  const { isCorrection = false, correctionOnly = false, correctionMark = "", skipSimilarCheck = false } = options;
   console.log('🚀 submitData開始:', { isCorrection, correctionOnly, correctionMark });
   
   const popupOverlay = document.getElementById('status-popup-overlay');
@@ -2191,6 +2191,15 @@ async function submitData(options = {}) {
       return;
     }
 
+    // 似た登録がすでに集計に残っていれば、別の取引かを確認する（別の端末・別の人の入力も対象）
+    if (!isCorrection && !skipSimilarCheck && !(await confirmNoSimilarEntries(allPayloads))) {
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('loading');
+      btnText.textContent = originalText;
+      submitData._isRunning = false;
+      return;
+    }
+
     await window.LoanReceipts.ensureServer(GAS_URL);
     allPayloads = window.LoanReceipts.prepare(GAS_URL, allPayloads);
     const registrationResults = [];
@@ -2368,7 +2377,7 @@ async function submitData(options = {}) {
     if (errorModal && errorModalBody) {
       const failure = window.LoanReceipts.describeFailure(error, error.registeredCount || 0, error.totalCount || 1, true);
       window.LoanReceipts.presentFailure(errorModal, errorModalBody, failure,
-        () => submitData({ ...options, receiptLocked: false }));
+        () => submitData({ ...options, receiptLocked: false, skipSimilarCheck: true }));
       errorModal.classList.add('show');
       // フォーカス制御を削除（シンプルな状態に戻す）
       if (errorModalCloseBtn) {
@@ -2422,6 +2431,48 @@ async function submitData(options = {}) {
       }, { once: true });
     }
   }
+}
+
+// 送信前の重複確認: これから登録する内容と似た登録が、すでに集計に残っていないかを調べる
+// （判定は js/duplicate-check.js。同じ日付・貸主・借主・金額で品目が同じもの、
+//   同じ人が24時間以内に日付だけ違う同じ内容を登録したもの）。
+// 確認できなかった場合（通信エラー等）は送信を止めない。キャンセルされたら false を返す
+async function confirmNoSimilarEntries(payloads) {
+  const checker = globalThis.DuplicateCheck;
+  if (!checker) return true;
+  let rows;
+  try {
+    const data = await callSheetsAPI('貸借表!A:K', 'GET');
+    rows = checker.rowsFromSheetValues(data.values || []);
+  } catch (error) {
+    console.warn('⚠️ 重複確認用のデータを取得できなかったため、確認せずに送信します:', error);
+    return true;
+  }
+
+  const findings = checker.findSimilarForNewEntries(rows, payloads);
+  if (findings.length === 0) return true;
+
+  const unique = list => [...new Set(list)];
+  const describe = row => `・${row.date} ${row.lender}→${row.borrower} ${row.item} ¥${row.amount.toLocaleString()}（${row.name} ${row.inputDate} 入力）`;
+  const listRows = (rowsToShow, lines) => {
+    rowsToShow.slice(0, 5).forEach(row => lines.push(describe(row)));
+    if (rowsToShow.length > 5) lines.push(`・ほか${rowsToShow.length - 5}件`);
+  };
+  const sameTransaction = unique(findings.flatMap(finding => finding.sameTransaction));
+  const redated = unique(findings.flatMap(finding => finding.redated));
+  const lines = [];
+  if (sameTransaction.length > 0) {
+    lines.push('同じ取引がすでに登録されています。');
+    listRows(sameTransaction, lines);
+  }
+  if (redated.length > 0) {
+    if (lines.length > 0) lines.push('');
+    lines.push('日付だけ違う同じ内容を、最近登録しています。');
+    listRows(redated, lines);
+    lines.push('日付を直して入れ直す場合は、前の登録を「逆取引修正」で取り消してください。');
+  }
+  lines.push('', '別の取引として登録する場合は「OK」、やめる場合は「キャンセル」を押してください。');
+  return confirm(lines.join('\n'));
 }
 
 function initializeElements() {

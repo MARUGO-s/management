@@ -17,9 +17,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test scripts/test_submission_receipts.cjs
+      - run: node --test scripts/test_submission_receipts.cjs scripts/test_duplicate_check.cjs
       - run: |
           node --check js/submission-receipts.js
+          node --check js/duplicate-check.js
           node --check pages/js/main.js
           node --check pages/js/correction.js
           git diff --check
