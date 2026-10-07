@@ -2173,16 +2173,19 @@
                     let totalTransactions = 0;
                     let positiveStores = 0;
                     let negativeStores = 0;
+                    let zeroStores = 0;
 
                     sortedStores.forEach(store => {
                         totalLent += store.lentAmount;
                         totalBorrowed += store.borrowedAmount;
                         totalBalance += store.balance;
                         totalTransactions += store.totalTransactions;
-                        if (store.balance >= 0) {
+                        if (store.balance > 0) {
                             positiveStores++;
-                        } else {
+                        } else if (store.balance < 0) {
                             negativeStores++;
+                        } else {
+                            zeroStores++;
                         }
                     });
 
@@ -2223,7 +2226,7 @@
                     <div class="value">${sortedStores.length}</div>
                     <p>店舗</p>
                     <div class="breakdown">
-                        プラス: ${positiveStores}店舗 / マイナス: ${negativeStores}店舗
+                        プラス: ${positiveStores}店舗 / マイナス: ${negativeStores}店舗${zeroStores > 0 ? ` / ±0: ${zeroStores}店舗` : ''}
                     </div>
                 </div>
                 ${storeGroups.map((group, groupIndex) => `
@@ -2259,16 +2262,19 @@
                     let totalTransactions = 0;
                     let positiveStores = 0;
                     let negativeStores = 0;
+                    let zeroStores = 0;
 
                     sortedStores.forEach(store => {
                         totalLent += store.lentAmount;
                         totalBorrowed += store.borrowedAmount;
                         totalBalance += store.balance;
                         totalTransactions += store.totalTransactions;
-                        if (store.balance >= 0) {
+                        if (store.balance > 0) {
                             positiveStores++;
-                        } else {
+                        } else if (store.balance < 0) {
                             negativeStores++;
+                        } else {
+                            zeroStores++;
                         }
                     });
 
@@ -2303,7 +2309,7 @@
                     <div class="value">${sortedStores.length}</div>
                     <p>店舗</p>
                     <div class="breakdown">
-                        プラス: ${positiveStores}店舗 / マイナス: ${negativeStores}店舗
+                        プラス: ${positiveStores}店舗 / マイナス: ${negativeStores}店舗${zeroStores > 0 ? ` / ±0: ${zeroStores}店舗` : ''}
                     </div>
                 </div>
             `;
