@@ -1,5 +1,14 @@
 # 変更履歴
 
+## 2026-10-07 — 月次の重複チェック報告を M-talk の「貸借管理 報告」Bot へ（GAS・未配備）
+
+- 毎月1日 6時台（日本時間、GAS の予約の仕様で 6:00〜7:00 のどこか）に、前月分の重複・入力ミスの疑いを集計して LINE Report の `mtalk-loan-report` へ送る。M-talk の「貸借管理 報告」Bot として、全権管理者との1対1と Bot を招待したルームに届く（LINE Report 側の変更は MARUGO-s/line_report のブランチ `feat/loan-report-bot`）。
+- 本番 GAS に2ファイルを追加する: `DuplicateCheck.js`（`js/duplicate-check.js` をそのまま）と `MonthlyDuplicateReport.js`（`docs/gas_scripts/monthly_duplicate_report.gs` と同じ）。既存の `コード.js`・Web アプリのデプロイ（v79）は変えない（予約は HEAD のコードで動く）。
+- 報告の中身: 重複の疑いが強い／可能性の件数・重複分の金額・主なもの（日付・店舗・品目・金額。入力者名は送らない）、要確認の種類別件数、前月より前で未処理の件数、「重複チェックを開く」リンク。同じ月は二重に届かない（`dedupe_key = loan-duplicate:YYYY-MM`）。送れなかったときは例外にして、GAS の予約の失敗通知で分かるようにする。
+- 認証: スクリプトプロパティ `LOAN_MTALK_TOKEN`（LINE Report の secret と同じ値、32文字以上）で Bearer と HMAC 署名を付ける。gourmet 用の合言葉とは別。
+- テスト: `scripts/test_monthly_duplicate_report.cjs`（前月の範囲・上限・入力者名なし・署名・送信と失敗・予約の登録し直し）を CI に追加。作った報告が LINE Report の受け口の検証を通ることも確認。
+- 初回の手順: GAS で `setupMonthlyDuplicateReport` を1回実行（予約の登録と、送らずに送り先とカードを確認。権限の許可が出る）。ロールバック: GAS の予約を削除し、追加した2ファイルを消す。
+
 ## 2026-10-07 — 重複登録の送信前警告と「重複チェック」ボタン（画面のみ）
 
 - 判定ロジックを `js/duplicate-check.js` に集約（入力画面・店舗別貸借分析・今後の月次自動チェックで共通）。修正データと元データの相殺判定も店舗別貸借分析からここへ移した。テストは `scripts/test_duplicate_check.cjs`（CI でも実行）。
