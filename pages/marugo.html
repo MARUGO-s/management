@@ -882,6 +882,7 @@
                         const getColumnIndex = (aliases) => {
                             for (const alias of aliases) {
                                 const index = headers.findIndex(header => {
+                                    if (!header) return false; // 空の見出しはどの名前にも部分一致してしまうため除外
                                     if (header === alias) return true;
                                     if (header.toLowerCase().includes(alias.toLowerCase()) ||
                                         alias.toLowerCase().includes(header.toLowerCase())) return true;
@@ -946,7 +947,8 @@
                             };
                         });
 
-                        this.stores = unifiedData.stores;
+                        // プルダウンは正規化後の店舗名で作る（未正規化の名前を選ぶと検索結果が0件になるため）
+                        this.stores = new Set(this.data.flatMap(row => [row.lender, row.borrower]).filter(Boolean));
 
                         this.populateStoreDropdown();
 
@@ -978,6 +980,7 @@
                     const getColumnIndex = (aliases) => {
                         for (const alias of aliases) {
                             const index = headers.findIndex(header => {
+                                if (!header) return false; // 空の見出しはどの名前にも部分一致してしまうため除外
                                 if (header === alias) return true;
                                 if (header.toLowerCase().includes(alias.toLowerCase()) ||
                                     alias.toLowerCase().includes(header.toLowerCase())) return true;
@@ -1059,9 +1062,73 @@
                     this.debugLog('検出された店舗一覧', Array.from(this.stores).sort());
                 }
 
+                // 集計用カテゴリー（食材・飲料・その他）
+                // シートのカテゴリーが「食材」「飲料」ならそれを優先し、それ以外（M-mart・その他・空欄）だけ品目名から推定する
+                classifyCategory(row) {
+                    const category = row.category || '';
+                    const item = (row.item || '').toLowerCase();
+                    if (category.includes('飲料') || category.includes('ドリンク') || category.includes('酒')) return '飲料';
+                    if (category.includes('食材') || category.includes('食品')) return '食材';
+
+                    const drinkKeywords = ['酒', 'ビール', 'ワイン', '日本酒', '焼酎', 'ウイスキー', 'カクテル', 'チューハイ',
+                        'サワー', 'ジュース', 'コーヒー', '茶', '水', 'ソーダ', 'コーラ'];
+                    const foodKeywords = ['肉', '魚', '野菜', '米', 'パン', '麺', '調味料', '油', '塩', '砂糖', '醤油', '味噌',
+                        'だし', 'スパイス', '香辛料', '人参', '玉ねぎ', 'じゃがいも', 'アサリ', '鮭', '麻', 'オリーブオイル'];
+                    if (drinkKeywords.some(keyword => item.includes(keyword))) return '飲料';
+                    if (foodKeywords.some(keyword => item.includes(keyword))) return '食材';
+                    return 'その他';
+                }
+
+                // 貸主・借主の実質的な向き（M-martで貸主・借主が逆に記録された2026年データを補正）
+                getEffectiveParties(row) {
+                    if (row.category && row.category.match(/^m-mart/i) &&
+                        row.borrower && row.borrower.toUpperCase() === '本部') {
+                        return { lender: row.borrower, borrower: row.lender };
+                    }
+                    return { lender: row.lender, borrower: row.borrower };
+                }
+
+                // 修正データ（✏️修正）と真下の元データが打ち消し合うか（貸し借りが逆で同額、または合計0）
+                isOffsetPair(row, nextRow) {
+                    const correctionAmount = typeof row.amount === 'number' ? row.amount : this.parseAmount(row.amount);
+                    const nextAmount = typeof nextRow.amount === 'number' ? nextRow.amount : this.parseAmount(nextRow.amount);
+                    const isLenderBorrowerReversed = row.lender === nextRow.borrower && row.borrower === nextRow.lender;
+                    const isAmountSame = Math.abs(correctionAmount - nextAmount) < 0.01;
+                    const isAmountOffset = Math.abs(correctionAmount + nextAmount) < 0.01;
+                    return (isLenderBorrowerReversed && isAmountSame) || isAmountOffset;
+                }
+
+                // 集計から除く行（修正データと元データの相殺ペア）のスプレッドシート行番号
+                // 期間・店舗で絞る前の全データ（シートの並び順）で判定する
+                getOffsetRowIndexSet() {
+                    const offsetRows = new Set();
+                    for (let i = 0; i < this.data.length - 1; i++) {
+                        const row = this.data[i];
+                        const nextRow = this.data[i + 1];
+                        if (!row.correction || !row.correction.includes('✏️修正')) continue;
+                        if (offsetRows.has(row.originalRowIndex) || offsetRows.has(nextRow.originalRowIndex)) continue;
+                        if (this.isOffsetPair(row, nextRow)) {
+                            offsetRows.add(row.originalRowIndex);
+                            offsetRows.add(nextRow.originalRowIndex);
+                        }
+                    }
+                    return offsetRows;
+                }
+
+                // 集計対象の行（相殺ペアを除く）と除外した件数
+                getAggregationRows(rows) {
+                    const offsetRows = this.getOffsetRowIndexSet();
+                    const effectiveRows = rows.filter(row => !offsetRows.has(row.originalRowIndex));
+                    return { effectiveRows, excludedCount: rows.length - effectiveRows.length };
+                }
+
                 // 店舗名の正規化
                 normalizeStoreName(storeName) {
                     if (!storeName) return '';
+
+                    // ハイフン類は入力画面の店舗リストと同じ「‑」(U+2011) にそろえる
+                    // （「MARUGO-D」と「MARUGO‑D」が別店舗として集計されるのを防ぐ）
+                    storeName = storeName.replace(/[-\u2010\u2012\u2013\u2212\uFF0D]/g, '\u2011');
 
                     // まず基本的なクリーニング
                     let normalized = storeName.trim().toUpperCase();
@@ -1082,8 +1149,8 @@
                         'MARUGO GRANDE': 'MARUGO GRANDE',
                         'MARUGO MARUNOUCHI': 'MARUGO MARUNOUCHI',
                         'MARUGO YOTSUYA': 'MARUGO YOTSUYA',
-                        'MARUGO-D': 'MARUGO-D',
-                        'MARUGO-OTTO': 'MARUGO-OTTO'
+                        'MARUGO\u2011D': 'MARUGO\u2011D',
+                        'MARUGO\u2011OTTO': 'MARUGO\u2011OTTO'
                     };
 
                     // 完全一致での正規化
@@ -1402,17 +1469,13 @@
 
                             if (!isHonbuInvolved) return false;
 
-                            // 日付フィルター
-                            const rowDate = row.date ? new Date(row.date) : null;
-                            if (startDate && (!rowDate || rowDate < new Date(startDate))) {
+                            // 日付フィルター（他の検索と同じく YYYY-MM-DD の文字列で比較）
+                            const rowDateStr = this.extractDateFromDateTime(row.date);
+                            if (startDate && (!rowDateStr || rowDateStr < startDate)) {
                                 return false;
                             }
-                            if (endDate) {
-                                const endOfDay = new Date(endDate);
-                                endOfDay.setHours(23, 59, 59, 999);
-                                if (!rowDate || rowDate > endOfDay) {
-                                    return false;
-                                }
+                            if (endDate && (!rowDateStr || rowDateStr > endDate)) {
+                                return false;
                             }
 
                             return true;
@@ -1541,7 +1604,9 @@
                         hasCorrection: r.correction && r.correction.includes('✏️修正')
                     })));
 
-                    this.searchResults.forEach(row => {
+                    // 修正データと元データの相殺ペアは集計から除く
+                    const { effectiveRows } = this.getAggregationRows(this.searchResults);
+                    effectiveRows.forEach(row => {
                         // 店舗名を特定（本部ではない方が店舗）
                         let storeName = '';
                         const lender = row.lender ? row.lender.toUpperCase() : '';
@@ -1610,88 +1675,6 @@
                             correction: correctionValue // 修正タグを追加
                         });
                     });
-
-                    // 修正データと元データを相殺して削除（元データの並び順で、修正データの真下が元データ）
-                    try {
-                        const self = this; // thisのコンテキストを保持
-                        Object.keys(storeData).forEach(storeName => {
-                            try {
-                                const items = storeData[storeName].items;
-                                if (!items || items.length === 0) return;
-
-                                const excludeIndices = new Set();
-
-                                // 修正データを探して、真下のデータ（元データ）と相殺ペアを特定
-                                items.forEach((item, index) => {
-                                    try {
-                                        const hasCorrection = item.correction && (
-                                            item.correction.includes('✏️修正') ||
-                                            item.correction.includes('修正')
-                                        );
-
-                                        if (!hasCorrection) return;
-
-                                        // 真下のデータを確認（元データの並び順で、修正データの真下が元データ）
-                                        const nextIndex = index + 1;
-                                        if (nextIndex >= items.length) return;
-
-                                        const nextItem = items[nextIndex];
-                                        if (!nextItem) return;
-
-                                        // 金額を取得
-                                        const correctionAmount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
-                                        const nextAmount = typeof nextItem.amount === 'number' ? nextItem.amount : (self.parseAmount ? self.parseAmount(nextItem.amount) : parseFloat(nextItem.amount) || 0);
-
-                                        // 品目名と金額が同じで、真下のデータ（元データ）の場合
-                                        const isAmountSame = Math.abs(correctionAmount - nextAmount) < 0.01;
-                                        const isItemSame = item.item === nextItem.item;
-                                        const isOffset = isAmountSame && isItemSame;
-
-                                        if (isOffset) {
-                                            excludeIndices.add(index);
-                                            excludeIndices.add(nextIndex);
-                                        }
-                                    } catch (err) {
-                                        console.error(`相殺判定エラー(${storeName}, インデックス${index}):`, err);
-                                    }
-                                });
-
-                                // 相殺ペアを除外
-                                if (excludeIndices.size > 0) {
-                                    // 除外するデータの金額を集計から差し引く
-                                    excludeIndices.forEach(idx => {
-                                        try {
-                                            const item = items[idx];
-                                            const amount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
-                                            storeData[storeName].totalAmount -= amount;
-                                            storeData[storeName].count--;
-
-                                            if (item.paymentMethod === 'card') {
-                                                storeData[storeName].cardAmount -= amount;
-                                                storeData[storeName].cardCount--;
-                                            } else if (item.paymentMethod === 'cash') {
-                                                storeData[storeName].cashAmount -= amount;
-                                                storeData[storeName].cashCount--;
-                                            } else {
-                                                storeData[storeName].otherAmount -= amount;
-                                                storeData[storeName].otherCount--;
-                                            }
-                                        } catch (err) {
-                                            console.error(`相殺削除エラー(${storeName}, インデックス${idx}):`, err);
-                                        }
-                                    });
-
-                                    // itemsから除外
-                                    storeData[storeName].items = items.filter((item, index) => !excludeIndices.has(index));
-                                }
-                            } catch (err) {
-                                console.error(`店舗別相殺削除エラー(${storeName}):`, err);
-                            }
-                        });
-                    } catch (err) {
-                        console.error('相殺削除処理エラー:', err);
-                        // エラーが発生しても処理を続行
-                    }
 
                     // 合計金額でソート（降順）
                     const sortedStores = Object.values(storeData).sort((a, b) => b.totalAmount - a.totalAmount);
@@ -1934,24 +1917,12 @@
                 </small>
             `;
 
-                    // 店舗ごとに集計
+                    // 店舗ごとに集計（修正データと元データの相殺ペアは除く）
                     const storeData = {};
-                    this.searchResults.forEach(row => {
-                        let lender = row.lender;
-                        let borrower = row.borrower;
-                        let category = row.category;
-
-                        // M-martデータの場合の正規化（2026年データ対応）
-                        // 本来「貸主：本部」「借主：店舗」であるべきものが逆になっている場合を補正
-                        if (category && category.match(/^m-mart/i)) {
-                            // 借主が「本部」の場合、実質的に店舗への貸出（貸主が本部、借主が店舗）として扱う
-                            if (borrower && borrower.toUpperCase() === '本部') {
-                                // 役割を反転
-                                const temp = lender;
-                                lender = borrower;
-                                borrower = temp;
-                            }
-                        }
+                    const { effectiveRows } = this.getAggregationRows(this.searchResults);
+                    effectiveRows.forEach(row => {
+                        const { lender, borrower } = this.getEffectiveParties(row);
+                        const category = row.category;
 
                         // 貸主としての取引
                         if (lender) {
@@ -2013,133 +1984,6 @@
                             });
                         }
                     });
-
-                    // 修正データと元データを相殺して削除
-                    const self = this; // thisのコンテキストを保持
-                    try {
-                        Object.keys(storeData).forEach(storeName => {
-                            try {
-                                const store = storeData[storeName];
-
-                                // 貸出取引の相殺削除（元データの並び順で、修正データの真下が元データ）
-                                const lentExcludeIndices = new Set();
-
-                                try {
-                                    store.lentItems.forEach((item, index) => {
-                                        try {
-                                            const hasCorrection = item.correction && (
-                                                item.correction.includes('✏️修正') ||
-                                                item.correction.includes('修正')
-                                            );
-
-                                            if (!hasCorrection) return;
-
-                                            // 真下のデータを確認（元データの並び順で、修正データの真下が元データ）
-                                            const nextIndex = index + 1;
-                                            if (nextIndex >= store.lentItems.length) return;
-
-                                            const nextItem = store.lentItems[nextIndex];
-                                            if (!nextItem) return;
-
-                                            const correctionAmount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
-                                            const nextAmount = typeof nextItem.amount === 'number' ? nextItem.amount : (self.parseAmount ? self.parseAmount(nextItem.amount) : parseFloat(nextItem.amount) || 0);
-                                            const isAmountSame = Math.abs(correctionAmount - nextAmount) < 0.01;
-                                            const isItemSame = item.item === nextItem.item;
-                                            const isOffset = isAmountSame && isItemSame;
-
-                                            if (isOffset) {
-                                                lentExcludeIndices.add(index);
-                                                lentExcludeIndices.add(nextIndex);
-                                            }
-                                        } catch (err) {
-                                            console.error(`貸出相殺判定エラー(${storeName}, インデックス${index}):`, err);
-                                        }
-                                    });
-                                } catch (err) {
-                                    console.error(`貸出相殺削除処理エラー(${storeName}):`, err);
-                                }
-
-                                if (lentExcludeIndices.size > 0) {
-                                    try {
-                                        lentExcludeIndices.forEach(idx => {
-                                            try {
-                                                const item = store.lentItems[idx];
-                                                const amount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
-                                                store.lentAmount -= amount;
-                                                store.lentCount--;
-                                            } catch (err) {
-                                                console.error(`貸出相殺削除エラー(${storeName}, インデックス${idx}):`, err);
-                                            }
-                                        });
-                                        store.lentItems = store.lentItems.filter((item, index) => !lentExcludeIndices.has(index));
-                                    } catch (err) {
-                                        console.error(`貸出相殺削除処理エラー(${storeName}):`, err);
-                                    }
-                                }
-
-                                // 借入取引の相殺削除（元データの並び順で、修正データの真下が元データ）
-                                const borrowedExcludeIndices = new Set();
-
-                                try {
-                                    store.borrowedItems.forEach((item, index) => {
-                                        try {
-                                            const hasCorrection = item.correction && (
-                                                item.correction.includes('✏️修正') ||
-                                                item.correction.includes('修正')
-                                            );
-
-                                            if (!hasCorrection) return;
-
-                                            // 真下のデータを確認（元データの並び順で、修正データの真下が元データ）
-                                            const nextIndex = index + 1;
-                                            if (nextIndex >= store.borrowedItems.length) return;
-
-                                            const nextItem = store.borrowedItems[nextIndex];
-                                            if (!nextItem) return;
-
-                                            const correctionAmount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
-                                            const nextAmount = typeof nextItem.amount === 'number' ? nextItem.amount : (self.parseAmount ? self.parseAmount(nextItem.amount) : parseFloat(nextItem.amount) || 0);
-                                            const isAmountSame = Math.abs(correctionAmount - nextAmount) < 0.01;
-                                            const isItemSame = item.item === nextItem.item;
-                                            const isOffset = isAmountSame && isItemSame;
-
-                                            if (isOffset) {
-                                                borrowedExcludeIndices.add(index);
-                                                borrowedExcludeIndices.add(nextIndex);
-                                            }
-                                        } catch (err) {
-                                            console.error(`借入相殺判定エラー(${storeName}, インデックス${index}):`, err);
-                                        }
-                                    });
-                                } catch (err) {
-                                    console.error(`借入相殺削除処理エラー(${storeName}):`, err);
-                                }
-
-                                if (borrowedExcludeIndices.size > 0) {
-                                    try {
-                                        borrowedExcludeIndices.forEach(idx => {
-                                            try {
-                                                const item = store.borrowedItems[idx];
-                                                const amount = typeof item.amount === 'number' ? item.amount : (self.parseAmount ? self.parseAmount(item.amount) : parseFloat(item.amount) || 0);
-                                                store.borrowedAmount -= amount;
-                                                store.borrowedCount--;
-                                            } catch (err) {
-                                                console.error(`借入相殺削除エラー(${storeName}, インデックス${idx}):`, err);
-                                            }
-                                        });
-                                        store.borrowedItems = store.borrowedItems.filter((item, index) => !borrowedExcludeIndices.has(index));
-                                    } catch (err) {
-                                        console.error(`借入相殺削除処理エラー(${storeName}):`, err);
-                                    }
-                                }
-                            } catch (err) {
-                                console.error(`店舗別相殺削除エラー(${storeName}):`, err);
-                            }
-                        });
-                    } catch (err) {
-                        console.error('相殺削除処理エラー:', err);
-                        // エラーが発生しても処理を続行
-                    }
 
                     // 残高を計算してソート（残高の絶対値で降順）
                     const sortedStores = Object.values(storeData).map(store => {
@@ -2689,51 +2533,27 @@
 
                     let totalAmount = 0;
 
-                    this.searchResults.forEach(row => {
-                        // カテゴリーの正規化
-                        let category = row.category || 'その他';
-                        const item = (row.item || '').toLowerCase();
+                    // 修正データと元データの相殺ペアは集計から除く
+                    const { effectiveRows, excludedCount } = this.getAggregationRows(this.searchResults);
 
-                        // 品目から飲料を判定
-                        if (category.includes('飲料') || category.includes('ドリンク') || category.includes('酒') ||
-                            item.includes('酒') || item.includes('ビール') || item.includes('ワイン') ||
-                            item.includes('日本酒') || item.includes('焼酎') || item.includes('ウイスキー') ||
-                            item.includes('カクテル') || item.includes('チューハイ') || item.includes('サワー') ||
-                            item.includes('ジュース') || item.includes('コーヒー') || item.includes('茶') ||
-                            item.includes('水') || item.includes('ソーダ') || item.includes('コーラ')) {
-                            category = '飲料';
-                        }
-                        // 食材の判定
-                        else if (category.includes('食材') || category.includes('食品') ||
-                            item.includes('肉') || item.includes('魚') || item.includes('野菜') ||
-                            item.includes('米') || item.includes('パン') || item.includes('麺') ||
-                            item.includes('調味料') || item.includes('油') || item.includes('塩') ||
-                            item.includes('砂糖') || item.includes('醤油') || item.includes('味噌') ||
-                            item.includes('だし') || item.includes('スパイス') || item.includes('香辛料') ||
-                            item.includes('人参') || item.includes('玉ねぎ') || item.includes('じゃがいも') ||
-                            item.includes('アサリ') || item.includes('鮭') || item.includes('麻') ||
-                            item.includes('オリーブオイル')) {
-                            category = '食材';
-                        }
-                        // その他
-                        else {
-                            category = 'その他';
-                        }
+                    effectiveRows.forEach(row => {
+                        const category = this.classifyCategory(row);
 
                         totalAmount += row.amount;
                         totalByCategory[category] = (totalByCategory[category] || 0) + row.amount;
                         countByCategory[category] = (countByCategory[category] || 0) + 1;
 
                         // 店舗別統計
-                        if (row.lender) {
-                            if (!storeTransactions[row.lender]) storeTransactions[row.lender] = { lent: 0, borrowed: 0, count: 0 };
-                            storeTransactions[row.lender].lent += row.amount;
-                            storeTransactions[row.lender].count++;
+                        const { lender, borrower } = this.getEffectiveParties(row);
+                        if (lender) {
+                            if (!storeTransactions[lender]) storeTransactions[lender] = { lent: 0, borrowed: 0, count: 0 };
+                            storeTransactions[lender].lent += row.amount;
+                            storeTransactions[lender].count++;
                         }
-                        if (row.borrower) {
-                            if (!storeTransactions[row.borrower]) storeTransactions[row.borrower] = { lent: 0, borrowed: 0, count: 0 };
-                            storeTransactions[row.borrower].borrowed += row.amount;
-                            storeTransactions[row.borrower].count++;
+                        if (borrower) {
+                            if (!storeTransactions[borrower]) storeTransactions[borrower] = { lent: 0, borrowed: 0, count: 0 };
+                            storeTransactions[borrower].borrowed += row.amount;
+                            storeTransactions[borrower].count++;
                         }
                     });
 
@@ -2760,9 +2580,10 @@
                 <div class="summary-card neutral">
                     <h3>総取引金額</h3>
                     <div class="value">¥${totalAmount.toLocaleString()}</div>
-                    <p>${this.searchResults.length}件</p>
+                    <p>${effectiveRows.length}件</p>
                     <div class="breakdown">
                         ${createBreakdown(totalByCategory, true, countByCategory)}
+                        ${excludedCount > 0 ? `<br><span class="breakdown-item">修正で相殺: ${excludedCount}件除外</span>` : ''}
                     </div>
                 </div>
                 <div class="summary-card positive">
@@ -2776,7 +2597,7 @@
                 </div>
                 <div class="summary-card neutral">
                     <h3>平均取引額</h3>
-                    <div class="value">¥${this.searchResults.length > 0 ? Math.round(totalAmount / this.searchResults.length).toLocaleString() : '0'}</div>
+                    <div class="value">¥${effectiveRows.length > 0 ? Math.round(totalAmount / effectiveRows.length).toLocaleString() : '0'}</div>
                     <p>1件あたり</p>
                     <div class="breakdown">
                         ${(() => {
@@ -2817,38 +2638,16 @@
                     // 🔍 初期値確認
                     console.log('🔍 初期値:', { totalLent: typeof totalLent, totalBorrowed: typeof totalBorrowed });
 
-                    this.searchResults.forEach(row => {
-                        // カテゴリーの正規化
-                        let category = row.category || 'その他';
-                        const item = (row.item || '').toLowerCase();
+                    // 修正データと元データの相殺ペアは集計から除く
+                    const { effectiveRows, excludedCount } = this.getAggregationRows(this.searchResults);
+                    let lentCount = 0;
+                    let borrowedCount = 0;
 
-                        // 品目から飲料を判定
-                        if (category.includes('飲料') || category.includes('ドリンク') || category.includes('酒') ||
-                            item.includes('酒') || item.includes('ビール') || item.includes('ワイン') ||
-                            item.includes('日本酒') || item.includes('焼酎') || item.includes('ウイスキー') ||
-                            item.includes('カクテル') || item.includes('チューハイ') || item.includes('サワー') ||
-                            item.includes('ジュース') || item.includes('コーヒー') || item.includes('茶') ||
-                            item.includes('水') || item.includes('ソーダ') || item.includes('コーラ')) {
-                            category = '飲料';
-                        }
-                        // 食材の判定
-                        else if (category.includes('食材') || category.includes('食品') ||
-                            item.includes('肉') || item.includes('魚') || item.includes('野菜') ||
-                            item.includes('米') || item.includes('パン') || item.includes('麺') ||
-                            item.includes('調味料') || item.includes('油') || item.includes('塩') ||
-                            item.includes('砂糖') || item.includes('醤油') || item.includes('味噌') ||
-                            item.includes('だし') || item.includes('スパイス') || item.includes('香辛料') ||
-                            item.includes('人参') || item.includes('玉ねぎ') || item.includes('じゃがいも') ||
-                            item.includes('アサリ') || item.includes('鮭') || item.includes('麻') ||
-                            item.includes('オリーブオイル')) {
-                            category = '食材';
-                        }
-                        // その他
-                        else {
-                            category = 'その他';
-                        }
+                    effectiveRows.forEach(row => {
+                        const category = this.classifyCategory(row);
 
-                        if (row.lender === storeName) {
+                        const { lender, borrower } = this.getEffectiveParties(row);
+                        if (lender === storeName) {
                             console.log('🔍 貸出加算:', {
                                 amount: row.amount,
                                 type: typeof row.amount,
@@ -2856,9 +2655,10 @@
                             });
 
                             totalLent += row.amount;
+                            lentCount++;
                             lentByCategory[category] = (lentByCategory[category] || 0) + row.amount;
                             lentCountByCategory[category] = (lentCountByCategory[category] || 0) + 1;
-                        } else if (row.borrower === storeName) {
+                        } else if (borrower === storeName) {
                             console.log('🔍 借入加算:', {
                                 amount: row.amount,
                                 type: typeof row.amount,
@@ -2866,6 +2666,7 @@
                             });
 
                             totalBorrowed += row.amount;
+                            borrowedCount++;
                             borrowedByCategory[category] = (borrowedByCategory[category] || 0) + row.amount;
                             borrowedCountByCategory[category] = (borrowedCountByCategory[category] || 0) + 1;
                         }
@@ -2920,7 +2721,7 @@
                 <div class="summary-card positive">
                     <h3>貸出合計</h3>
                     <div class="value">¥${totalLent.toLocaleString()}</div>
-                    <p>${this.searchResults.filter(row => row.lender === storeName).length}件</p>
+                    <p>${lentCount}件</p>
                     <div class="breakdown">
                         ${createBreakdown(lentByCategory, true, lentCountByCategory)}
                     </div>
@@ -2928,7 +2729,7 @@
                 <div class="summary-card negative">
                     <h3>借入合計</h3>
                     <div class="value">¥${totalBorrowed.toLocaleString()}</div>
-                    <p>${this.searchResults.filter(row => row.borrower === storeName).length}件</p>
+                    <p>${borrowedCount}件</p>
                     <div class="breakdown">
                         ${createBreakdown(borrowedByCategory, true, borrowedCountByCategory)}
                     </div>
@@ -2943,7 +2744,7 @@
                 </div>
                 <div class="summary-card neutral">
                     <h3>取引件数</h3>
-                    <div class="value">${this.searchResults.length}</div>
+                    <div class="value">${lentCount + borrowedCount}</div>
                     <p>件</p>
                     <div class="breakdown">
                         ${(() => {
@@ -2957,6 +2758,7 @@
                             return categories
                                 .filter(category => (totalCountByCategory[category] || 0) > 0)
                                 .map(category => `<span class="breakdown-item">${category}: ${totalCountByCategory[category]}件</span>`)
+                                .concat(excludedCount > 0 ? [`<span class="breakdown-item">修正で相殺: ${excludedCount}件除外</span>`] : [])
                                 .join('<br>');
                         })()}
                     </div>
@@ -2997,15 +2799,7 @@
                             const storeName = document.getElementById('store-name').value;
 
                             // M-martデータかつ貸主・借主が逆転している場合の正規化
-                            let effectiveLender = row.lender;
-                            let effectiveBorrower = row.borrower;
-
-                            if (row.category && row.category.match(/^m-mart/i)) {
-                                if (row.borrower && row.borrower.toUpperCase() === '本部') {
-                                    effectiveLender = row.borrower;
-                                    effectiveBorrower = row.lender;
-                                }
-                            }
+                            const { lender: effectiveLender, borrower: effectiveBorrower } = this.getEffectiveParties(row);
 
                             const isLender = effectiveLender === storeName;
                             const transactionType = isLender ? '貸出' : '借入';
@@ -3319,11 +3113,11 @@
                         return;
                     }
 
-                    // 店舗別貸借り合計の場合は、ポップアップを表示せずに直接「全てを表示」でエクスポート
+                    // 店舗別貸借り合計・M-mart分析の集計CSVは、画面と同じく相殺ペアを除いた行で直接エクスポート
                     const detailsTitle = document.getElementById('details-title')?.textContent || '';
-                    if (detailsTitle.includes('店舗別貸借り合計') || detailsTitle.includes('残高一覧')) {
-                        console.log('店舗別貸借り合計のため、直接エクスポートします');
-                        this.performExport(this.searchResults, 'include', []);
+                    if (detailsTitle.includes('店舗別貸借り合計') || detailsTitle.includes('残高一覧') || detailsTitle.includes('M-mart分析')) {
+                        console.log('集計表示のため、画面と同じ行で直接エクスポートします');
+                        this.performExport(this.getAggregationRows(this.searchResults).effectiveRows, 'include', []);
                         return;
                     }
 
@@ -3558,27 +3352,9 @@
                             }
                         });
 
-                        // 金額が相殺されるか確認（プラマイ0になる）
-                        // 貸し借りが逆で金額が同じ場合
-                        const isLenderBorrowerReversed =
-                            row.lender === nextRow.borrower &&
-                            row.borrower === nextRow.lender;
+                        const isOffset = this.isOffsetPair(row, nextRow);
 
-                        const isAmountSame = Math.abs(correctionAmount - nextAmount) < 0.01;
-                        const isAmountOffset = Math.abs(correctionAmount + nextAmount) < 0.01;
-
-                        const isOffset =
-                            // 貸し借りが入れ替わっていて金額が同じ
-                            (isLenderBorrowerReversed && isAmountSame) ||
-                            // または金額の合計が0（プラマイ0）
-                            isAmountOffset;
-
-                        console.log(`🔍 相殺判定結果（インデックス${index}）:`, {
-                            isLenderBorrowerReversed,
-                            isAmountSame,
-                            isAmountOffset,
-                            isOffset
-                        });
+                        console.log(`🔍 相殺判定結果（インデックス${index}）:`, { isOffset });
 
                         if (isOffset) {
                             console.log('✅ 相殺ペアを発見:', {
