@@ -1471,7 +1471,7 @@
                     });
 
                     this.log(`検索完了: ${this.searchResults.length}件の取引が見つかりました`, 'success');
-                    this.displayResults(storeName || "全店舗"); // 店舗名がない場合は「全店舗」と表示
+                    this.displayResults(storeName, startDate, endDate);
                 }
 
                 showAllData() {
@@ -1483,12 +1483,14 @@
                     this.displayAllDataResults("全取引詳細");
                 }
 
-                displayResults(storeName) {
+                displayResults(storeName, startDate, endDate) {
                     const resultsSection = document.getElementById('results-section');
                     resultsSection.style.display = 'block';
+                    // 店舗未選択時は全店舗の集計・表示にする（店舗名での貸出/借入判定ができないため）
+                    const isAllStores = !storeName;
 
                     // ヘッダーとサブタイトルを店舗検索用に設定
-                    document.getElementById('details-title').textContent = `${storeName}の取引詳細`;
+                    document.getElementById('details-title').textContent = `${isAllStores ? '全店舗' : storeName}の取引詳細`;
                     document.getElementById('details-subtitle').innerHTML = `
                 <small style="color: white; font-size: 12px;">
                     期間内の取引データ<br>
@@ -1498,8 +1500,13 @@
             `;
 
                     showSummary(); // サマリーを表示する関数を呼び出す
-                    this.updateSummaryCards(storeName);
-                    this.updateDetailsTable(false); // 店舗別検索モード
+                    if (isAllStores) {
+                        const formatDate = (dateStr) => (dateStr || '').replace(/-/g, '/');
+                        this.updateAllDataSummaryCards(`${formatDate(startDate)} 〜<br>${formatDate(endDate)}`);
+                    } else {
+                        this.updateSummaryCards(storeName);
+                    }
+                    this.updateDetailsTable(isAllStores); // 全店舗は貸主→借主表示、店舗指定は貸出/借入表示
 
                     // ソート状態をリセット
                     sortDirection = {};
@@ -2672,7 +2679,7 @@
                     });
                 }
 
-                updateAllDataSummaryCards() {
+                updateAllDataSummaryCards(periodLabel = '全期間') {
                     const summaryCards = document.getElementById('summary-cards');
 
                     // カテゴリー別集計用オブジェクト
@@ -2786,10 +2793,10 @@
                 </div>
                 <div class="summary-card negative">
                     <h3>データ範囲</h3>
-                    <div class="value" style="font-size: 1.2rem;">全期間</div>
+                    <div class="value" style="font-size: 1.2rem;">${periodLabel}</div>
                     <div class="value" style="font-size: 1.2rem;">全店舗</div>
                     <div class="breakdown">
-                        完全なデータセット
+                        ${periodLabel === '全期間' ? '完全なデータセット' : '期間内の全取引'}
                     </div>
                 </div>
             `;
