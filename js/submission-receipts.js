@@ -69,6 +69,9 @@
     if (!response.ok || result?.idempotencyVersion !== 1) {
       throw outcomeError('二重登録防止のサーバー準備が完了していないため、送信前に停止しました。管理者にご連絡ください。', 'notSent');
     }
+    if (result?.similarityVersion !== 1) {
+      throw outcomeError('類似取引の重複確認に対応したサーバーではないため、送信前に停止しました。管理者にご連絡ください。', 'notSent');
+    }
   }
   function prepare(url, payloads) {
     const journal = read(url);
@@ -112,15 +115,31 @@
   }
   async function send(url, payload) {
     let result;
-    try {
-      ({ result } = await fetchJson(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        // ログインで発行されたトークンを添える（GASで確認し、行には書き込まない）。
-        body: JSON.stringify({ ...payload, sessionToken: root.LoanSession?.get()?.token || '' }), redirect: 'follow'
-      }));
-    } catch (error) {
-      throw outcomeError('通信が不安定なため、登録結果を確認できませんでした。', 'unknown', error.message);
+    let requestPayload = payload;
+    // CacheService の早期失効後にも新しいトークンで再確認できるよう、最大2回だけ承認を求める。
+    for (let approvalAttempts = 0; approvalAttempts < 3; approvalAttempts++) {
+      try {
+        ({ result } = await fetchJson(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          // ログインで発行されたトークンを添える（GASで確認し、行には書き込まない）。
+          body: JSON.stringify({ ...requestPayload, sessionToken: root.LoanSession?.get()?.token || '' }), redirect: 'follow'
+        }));
+      } catch (error) {
+        throw outcomeError('通信が不安定なため、登録結果を確認できませんでした。', 'unknown', error.message);
+      }
+      if (result?.code !== 'SIMILAR_TRANSACTION' || result.written !== false) break;
+      if (approvalAttempts >= 2) throw outcomeError('重複の確認に失敗したため登録を停止しました。', 'rejected');
+      if (typeof result.confirmationToken !== 'string' || !result.confirmationToken) {
+        throw outcomeError('重複確認の応答が不正なため登録を停止しました。', 'rejected');
+      }
+      if (!root.confirm('同じ日付・貸主・借主・品目・金額の取引が登録されています。\n' +
+        '本当に別の取引として登録しますか？キャンセルすると登録しません。')) {
+        throw outcomeError('同じ内容の取引があるため登録を取りやめました。', 'rejected');
+      }
+      // The server rejected before writing. Keep the same durable receipt ID
+      // when resending the explicitly approved transaction.
+      requestPayload = { ...payload, duplicateConfirmed: true, confirmationToken: result.confirmationToken };
     }
     if (result?.code === 'SESSION_REQUIRED') {
       root.LoanSession?.clear();

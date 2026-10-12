@@ -169,6 +169,41 @@ test('品目の年の書き方（2012 と 12）の違いは同じ品とみなす
   assert.ok(!D.similarItem('クロ・デュ・ジョゲイロン　２０１６', 'クロ・デュ・ジョゲイロン　１７'));
 });
 
+test('店名の別表記でも送信前に同じ取引を検出する', () => {
+  const rows = sheet([line('2026/10/12', '田中', 'マルゴ', '店舗B', '品A', 100, '2026/10/12 10:00:00')]);
+  const findings = D.findSimilarForNewEntries(rows, [
+    { date: '2026-10-12', name: '別の人', lender: 'MARUGO', borrower: '店舗B', item: '品A', amount: 100 }
+  ]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].sameTransaction.length, 1);
+});
+
+test('BISTRO CAVA の旧表記も送信前と修正元検索で同一店舗とする', () => {
+  for (const alias of ['BISTRO CAVA,CAVA', 'BISTRO CAVA CAVA', 'BISTROCAVACAVA', 'BISTRO CAVA・CAVA', 'BISTRO CAVA-CAVA']) {
+    const rows=sheet([line('2026/10/12', '田中', alias, '店舗B', '品A', 100, '2026/10/12 10:00:00')]);
+    const next={date:'2026-10-12',name:'田中',lender:'BISTRO CAVACAVA',borrower:'店舗B',item:'品A',amount:100};
+    assert.equal(D.findSimilarForNewEntries(rows,[next])[0]?.sameTransaction.length,1,alias);
+    assert.equal(D.findReverseForCorrection(rows,{...next,lender:'店舗B',borrower:'BISTRO CAVACAVA'})?.item,'品A',alias);
+  }
+});
+
+test('同じバッチ内の同一取引を送信前に見つける', () => {
+  const a = { date:'2026-10-12', lender:'マルゴ', borrower:'店舗B', item:'品A', amount:'100' };
+  const b = { ...a, lender:'MARUGO', item:'品Ａ', amount:'100.00' };
+  assert.deepEqual(D.findSimilarWithinBatch([a,b,{...a,item:'別の商品'}]), [{ firstIndex:0, duplicateIndex:1 }]);
+});
+
+test('逆取引検索は実在する未取消行だけを返す', () => {
+  const current = { date:'2026-10-12', lender:'店舗B', borrower:'MARUGO', item:'品A', amount:100 };
+  const original = line('2026/10/12', '田中', 'マルゴ', '店舗B', '品A', 100, '2026/10/12 10:00:00');
+  const other = line('2026/10/12', '田中', 'マルゴ', '店舗B', '別の商品', 100, '2026/10/12 10:00:00');
+  assert.equal(D.findReverseForCorrection(sheet([original,other]),current).item,'品A');
+  const cancelled = line('2026/10/12', '田中', '店舗B', 'マルゴ', '品A', 100, '2026/10/12 10:05:00', '✏️修正');
+  assert.equal(D.findReverseForCorrection(sheet([original,cancelled]),current),null);
+  assert.equal(D.findReverseForCorrection(sheet([other]),current),null);
+  assert.equal(D.findReverseForCorrection(sheet([line('2026/10/12', '田中', 'マルゴ', '店舗B', 'アサヒ シャンティ', 100, '2026/10/12 10:00:00')]),{...current,item:'シャンティ'}),null);
+});
+
 test('日付を打ち間違えた行は1回だけ数え、「日」が同じ登録を相手にする', () => {
   const rows = sheet([
     line('2026/08/27', '伊藤', '371BAR', '元祖どないや', 'Cremant', 2002, '2026/09/14 18:31:48'),
