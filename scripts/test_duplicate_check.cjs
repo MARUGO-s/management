@@ -34,6 +34,20 @@ test('修正データの日付が元データより1日前でも組になる（2
   assert.equal(D.findCorrectionPairs(rows).pairs.length, 1);
 });
 
+test('修正の修正（取消を取り消す修正）は前の修正と組になり、元データが集計に戻る', () => {
+  const rows = sheet([
+    line('2026/09/29', '伊藤', 'A', 'B', '品B', 100, '2026/09/29 11:00:00', '✏️修正'),
+    line('2026/09/29', '伊藤', 'B', 'A', '品B', 100, '2026/09/29 10:00:00', '✏️修正'),
+    line('2026/09/29', '伊藤', 'A', 'B', '品B', 100, '2026/09/29 09:00:00')
+  ]);
+  const { pairs, unmatched } = D.findCorrectionPairs(rows);
+  assert.equal(unmatched.length, 0);
+  assert.deepEqual(pairs.map(p => [p.correction.originalRowIndex, p.original.originalRowIndex]), [[2, 3]]);
+  const next = { date: '2026-09-29', name: '別の人', lender: 'A', borrower: 'B', item: '品B', amount: 100 };
+  assert.equal(D.findSimilarForNewEntries(rows, [next])[0]?.sameTransaction[0]?.originalRowIndex, 4);
+  assert.deepEqual(kinds(D.findSuspects(rows)), []);
+});
+
 test('同じ元データを二重に取り消した修正は、相手なしとして残る', () => {
   const rows = sheet([
     line('2026/04/26', '木津', '371BAR', 'GRANDE', 'ローランペリエ', 9900, '2026/04/03 17:56:03', '✏️修正'),

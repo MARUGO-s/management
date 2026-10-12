@@ -124,7 +124,10 @@ function receiptHash_(data) {
     ...fields.map(field => String(data[field] == null ? '' : data[field])),
     data.isCorrection === true,
     data.isCorrection ? (data.correctionMark || '✏️修正') : '',
-    data.originalCreatedAt || data.originalRowId || data.originalRowIndex || ''
+    data.originalCreatedAt || data.originalRowId || data.originalRowIndex || '',
+    // 入力日時だけでは同秒の元行を区別できない。元行の受付IDも送られた場合だけ内容に含め、
+    // 受付IDを送らない旧画面のハッシュは変えない。
+    ...(data.originalCreatedAt && data.originalRowId ? [String(data.originalRowId)] : [])
   ]);
   return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, canonical)
     .map(value => ('0' + ((value + 256) % 256).toString(16)).slice(-2)).join('');
@@ -210,34 +213,81 @@ function similarInputLabel_(value) {
     `${match[4].padStart(2, '0')}:${match[5]}:${match[6] || '00'}` : label;
 }
 
-// A correction cancels at most one older reverse row. Use the same two passes
-// (same day, then one-day historical offset) as the browser's correction pairing.
-function activeTransactionRows_(sheet) {
-  if (sheet.getLastRow() < 2) return [];
-  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues();
-  const used = new Set();
-  const corrections = rows.map((_, index) => index)
-    .filter(index => String(rows[index][10] || '').includes('✏️修正'))
-    .sort((a, b) => (similarInputTime_(rows[a][9]) || 0) - (similarInputTime_(rows[b][9]) || 0));
+// A correction cancels at most one older reverse row. Use the same passes as the
+// browser's DuplicateCheck.findCorrectionPairs: same day, then a one-day historical
+// offset, then a correction that reverses an already-paired correction (undo).
+// rows are A:K values from sheet row 2; returns { row, index } for live rows.
+function activeRowsFromValues_(rows) {
   const parts = rows.map(row => {
     const key = similarRowKey_(row);
     return key ? JSON.parse(key) : null;
   });
-  [0, 1].forEach(maxDays => corrections.forEach(index => {
-    if (used.has(index) || !parts[index]) return;
-    const current = parts[index];
-    const candidates = rows.map((_, i) => i).filter(i => i !== index && !used.has(i) && parts[i] &&
-      parts[i][1] === current[2] && parts[i][2] === current[1] &&
-      parts[i][3] === current[3] && String(rows[i][5] || '').trim() === String(rows[index][5] || '').trim() &&
-      parts[i][4] === current[4] &&
-      Math.abs(Date.parse(parts[i][0]) - Date.parse(current[0])) <= maxDays * 86400000 &&
-      !(similarInputTime_(rows[i][9]) > similarInputTime_(rows[index][9])))
-      .sort((a, b) => Math.abs(Date.parse(parts[a][0]) - Date.parse(current[0])) -
-        Math.abs(Date.parse(parts[b][0]) - Date.parse(current[0])) || Math.abs(a - index) - Math.abs(b - index));
-    if (candidates.length) { used.add(index); used.add(candidates[0]); }
+  const time = rows.map(row => similarInputTime_(row[9]));
+  const item = rows.map(row => String(row[5] || '').trim());
+  const correction = rows.map(row => String(row[10] || '').includes('✏️修正'));
+  const key = (i, reverse) => JSON.stringify([parts[i][reverse ? 2 : 1], parts[i][reverse ? 1 : 2], item[i], parts[i][4]]);
+  const byKey = new Map();
+  rows.forEach((_, i) => {
+    if (!parts[i]) return;
+    const k = key(i, false);
+    if (!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push(i);
+  });
+  const day = i => Date.parse(parts[i][0]);
+  const used = new Set();
+  const partner = new Map();
+  const pair = (a, b) => { used.add(a); used.add(b); partner.set(a, b); partner.set(b, a); };
+  const corrections = rows.map((_, i) => i).filter(i => correction[i])
+    .sort((a, b) => (time[a] || 0) - (time[b] || 0));
+  const closest = (c, list) => list.sort((a, b) => Math.abs(day(a) - day(c)) - Math.abs(day(b) - day(c)) ||
+    Math.abs(a - c) - Math.abs(b - c))[0];
+  const eligible = (c, i, maxDays) => i !== c && Math.abs(day(i) - day(c)) <= maxDays * 86400000 && !(time[i] > time[c]);
+  [0, 1].forEach(maxDays => corrections.forEach(c => {
+    if (used.has(c) || !parts[c]) return;
+    const found = closest(c, (byKey.get(key(c, true)) || []).filter(i => !used.has(i) && eligible(c, i, maxDays)));
+    if (found !== undefined) pair(c, found);
   }));
-  return rows.map((row, index) => ({ row, index: index + 2 }))
-    .filter(({row, index}) => !used.has(index - 2) && !String(row[10] || '').includes('✏️修正'));
+  // 修正の修正: 組になった修正を逆向きに取り消す修正は、その修正と組にし、元の行を集計に戻す。
+  corrections.forEach(c => {
+    if (used.has(c) || !parts[c]) return;
+    const found = closest(c, (byKey.get(key(c, true)) || []).filter(i => correction[i] && used.has(i) &&
+      !correction[partner.get(i)] && eligible(c, i, 1)));
+    if (found === undefined) return;
+    const revived = partner.get(found);
+    used.delete(revived);
+    partner.delete(revived);
+    pair(c, found);
+  });
+  return rows.map((row, i) => ({ row, index: i + 2 })).filter(({ index }) => !used.has(index - 2) && !correction[index - 2]);
+}
+
+function activeTransactionRows_(sheet) {
+  if (sheet.getLastRow() < 2) return [];
+  return activeRowsFromValues_(sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues());
+}
+
+// 修正行は内容で元行と組になるため、同じ内容の元行が複数あると、選んだ行ではない行を
+// 取り消したことになり得る（間に行が入ると、等距離の別の修正の相手が入れ替わることもある）。
+// 書き込み前に挿入後の組を計算し、「選んだ1行だけが集計から外れる」位置に挿入する。
+// 候補は元行の直前・直後・先頭（先頭なら既存の行どうしの距離は変わらない）。どれも駄目なら止める。
+function correctionInsertPosition_(sheet, data, targetRowIndex) {
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues();
+  const expected = new Set(activeRowsFromValues_(rows).map(({ index }) => index));
+  if (!expected.delete(targetRowIndex)) throw new Error('修正元の未取消取引が見つかりません。修正画面から選び直してください。');
+  // シートは先頭の ' を数式除けの書式として扱い、値には残さない。
+  const newRow = createRowDataArray(data, '✏️修正')
+    .map(value => typeof value === 'string' ? value.replace(/^'(?=[=+\-@])/, '') : value);
+  // 最終行の直後への追加（insertRowAfter）は、表の範囲外になり得るため最後の手段にする。
+  const lastRowIndex = rows.length + 1;
+  const positions = targetRowIndex < lastRowIndex
+    ? [targetRowIndex, targetRowIndex + 1, 2] : [targetRowIndex, 2, targetRowIndex + 1];
+  for (const position of positions) {
+    const at = position - 2;
+    const after = activeRowsFromValues_(rows.slice(0, at).concat([newRow], rows.slice(at)))
+      .map(({ index }) => index < position ? index : index - 1);
+    if (after.length === expected.size && after.every(index => expected.has(index))) return position;
+  }
+  throw new Error('同じ内容の取引が近くにあり、選んだ行だけを取り消せないため登録を停止しました。管理者にご連絡ください。');
 }
 
 function similarTransactionParts_(a, b, reverse, exactItem) {
@@ -271,26 +321,50 @@ function validateCorrectionOrigin_(sheet, data) {
 function hasSimilarTransaction_(sheet, data) {
   const target = similarTransactionKey_(data.date, data.lender, data.borrower, data.item, data.amount);
   if (!target) throw new Error('重複確認に必要な取引項目が不正です。');
-  const similar = activeTransactionRows_(sheet).some(({row}) => similarTransactionParts_(target,
-    similarRowKey_(row), false, false));
-  if (!similar) return false;
+  const kind = similarTransactionKind_(activeTransactionRows_(sheet), data, target, Date.now());
+  if (!kind) return '';
   const cache = CacheService.getScriptCache();
   const key = 'similar-confirm:' + data.receiptId;
   const challenge = cache.get(key);
   if (data.duplicateConfirmed === true && typeof data.confirmationToken === 'string' &&
       challenge === receiptHash_(data) + '|' + data.confirmationToken) {
     cache.remove(key);
-    return false;
+    return '';
   }
-  return true;
+  return kind;
 }
 
-function similarTransactionResponse_(data) {
+// 画面の送信前確認（DuplicateCheck.findSimilarForNewEntries）と同じ2条件:
+//   sameDay: 同じ日付・貸主・借主・金額で品目が同じ（表記ゆれを含む）
+//   redated: 同じ人が24時間以内に、日付だけ違う同じ内容を登録している
+function similarTransactionKind_(liveRows, data, target, now) {
+  const name = String(data.name || '').replace(/[\s　]/g, '');
+  let kind = '';
+  liveRows.some(({ row }) => {
+    const other = similarRowKey_(row);
+    if (similarTransactionParts_(target, other, false, false)) { kind = 'sameDay'; return true; }
+    if (!kind && name && String(row[1] || '').replace(/[\s　]/g, '') === name &&
+        now - similarInputTime_(row[9]) <= 86400000 && similarRedatedParts_(target, other)) kind = 'redated';
+    return false;
+  });
+  return kind;
+}
+
+function similarRedatedParts_(a, b) {
+  if (!a || !b) return false;
+  const x = JSON.parse(a), y = JSON.parse(b);
+  return x[0] !== y[0] && x[1] === y[1] && x[2] === y[2] && x[4] === y[4] &&
+    (x[3] === y[3] || (x[3].length >= 3 && y[3].length >= 3 && (x[3].includes(y[3]) || y[3].includes(x[3]))));
+}
+
+function similarTransactionResponse_(data, kind) {
   const token = Utilities.getUuid();
   CacheService.getScriptCache().put('similar-confirm:' + data.receiptId, receiptHash_(data) + '|' + token, 600);
   return createJsonResponse({ status: 'ERROR', written: false, code: 'SIMILAR_TRANSACTION',
-    confirmationToken: token,
-    message: '同じ日付・貸主・借主・品目・金額の取引が登録済みです。別の取引として登録する場合のみ確認してください。' });
+    confirmationToken: token, similarKind: kind,
+    message: kind === 'redated'
+      ? '同じ人が24時間以内に、日付だけ違う同じ内容（貸主・借主・品目・金額）を登録しています。別の取引として登録する場合のみ確認してください。'
+      : '同じ日付・貸主・借主・品目・金額の取引が登録済みです。別の取引として登録する場合のみ確認してください。' });
 }
 
 function finishReceiptNotifications_(data, isCorrection) {
@@ -391,19 +465,20 @@ function processCorrectionData(data) {
 
     const receipt = findReceipt_(sheet, data);
     if (receipt) return duplicateResponse_(data, receipt, true, lock);
-    const targetRowIndex = validateCorrectionOrigin_(sheet, data);
+    const insertRowIndex = correctionInsertPosition_(sheet, data, validateCorrectionOrigin_(sheet, data));
     const correctionMark = "✏️修正";
     const rowData = createRowDataArray(data, correctionMark).concat([data.receiptId, receiptHash_(data)]);
 
-    Logger.log(`📝 修正データを行 ${targetRowIndex} の直前に挿入します。`);
+    Logger.log(`📝 修正データを行 ${insertRowIndex} に挿入します。`);
 
-    // 指定行の直前に新しい行を挿入
+    // 元行の直前（必要なら直後）に新しい行を挿入
     markPendingNotifications_(data);
     writing = true; // ここから先の失敗は行の有無を確認してから応答する。
-    sheet.insertRowBefore(targetRowIndex);
+    if (insertRowIndex > sheet.getLastRow()) sheet.insertRowAfter(insertRowIndex - 1);
+    else sheet.insertRowBefore(insertRowIndex);
 
     // 新しく挿入された行にデータを書き込み
-    sheet.getRange(targetRowIndex, 1, 1, rowData.length).setValues([rowData]);
+    sheet.getRange(insertRowIndex, 1, 1, rowData.length).setValues([rowData]);
 
     SpreadsheetApp.flush(); // 取引と受付IDを同一行で確定する。
     if (lock.hasLock()) lock.releaseLock();
@@ -440,7 +515,8 @@ function processNormalData(data) {
     const receipt = findReceipt_(sheet, data);
     if (receipt) return duplicateResponse_(data, receipt, data.isCorrection === true, lock);
     if (data.isCorrection === true) throw new Error('修正データは修正画面から登録してください。');
-    if (hasSimilarTransaction_(sheet, data)) return similarTransactionResponse_(data);
+    const similarKind = hasSimilarTransaction_(sheet, data);
+    if (similarKind) return similarTransactionResponse_(data, similarKind);
     const correctionMark = data.isCorrection ? (data.correctionMark || "✏️修正") : "";
     const rowData = createRowDataArray(data, correctionMark).concat([data.receiptId, receiptHash_(data)]);
 
@@ -557,7 +633,7 @@ function doGet() {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(TARGET_SHEET_NAME);
     const ready = !!sheet && receiptColumnsAvailable_(sheet);
     return createJsonResponse({ status: 'SUCCESS', message: 'GAS動作確認OK (GET)',
-      idempotencyVersion: 1, similarityVersion: 1, receiptColumnsReady: ready });
+      idempotencyVersion: 1, similarityVersion: 1, duplicateRulesVersion: 2, receiptColumnsReady: ready });
   } catch (error) {
     return createJsonResponse({ status: 'ERROR', message: error.message, idempotencyVersion: 1,
       receiptColumnsReady: false });

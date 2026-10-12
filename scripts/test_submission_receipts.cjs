@@ -20,6 +20,7 @@ function server(file) {
     getMaxColumns: () => 13, getLastColumn: () => 13,
     getLastRow: () => rows.length, hideColumns() {},
     insertRowBefore(index) { rows.splice(index - 1, 0, Array(13).fill('')); },
+    insertRowAfter(index) { rows.splice(index, 0, Array(13).fill('')); },
     getRange(row, column, height = 1, width = 1) {
       return {
         getFormulas: () => Array.from({length:height},()=>Array(width).fill('')),
@@ -343,7 +344,136 @@ for (const file of ['docs/gas_scripts/gas_code_complete.gs','docs/gas_scripts/ga
     assert.equal(s.post({...payload('A'),receiptId:uuid(),receiptVersion:1}).status,'ERROR');
     assert.equal(s.rows.length,1);assert.equal(s.rows[0][11],'existing');
   });
+  const activeReceipts=s=>s.context.activeTransactionRows_(s.context.SpreadsheetApp.openById().getSheetByName())
+    .map(({index})=>s.rows[index-1][11]);
+  test(file+' correcting one of two identical originals cancels exactly the selected row',()=>{
+    const s=server(file), target={...payload('品C'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(target).status,'SUCCESS');
+    s.rows[1][9]='2026/09/29 10:00:00';
+    const other={...target,receiptId:uuid()};
+    const challenge=s.post(other);
+    assert.equal(s.post({...other,duplicateConfirmed:true,confirmationToken:challenge.confirmationToken}).status,'SUCCESS');
+    s.rows[1][9]='2026/09/29 11:00:00'; // other is above target, at the same distance as an inserted correction
+    const reverse={...target,lender:'B',borrower:'A',isCorrection:true,originalRowIndex:3,
+      originalCreatedAt:'2026/09/29 10:00:00',receiptId:uuid()};
+    assert.equal(s.post(reverse).status,'SUCCESS');
+    assert.deepEqual(activeReceipts(s),[other.receiptId]);
+    // The browser must show the same row as cancelled, so the target is no longer selectable.
+    const D=globalThis.DuplicateCheck;
+    const clientRows=D.rowsFromSheetValues(s.rows.map(row=>row.slice(0,12)));
+    assert.deepEqual(D.findCorrectionPairs(clientRows).pairs.map(pair=>pair.original.receiptId),[target.receiptId]);
+    const targetRow=s.rows.findIndex(row=>row[11]===target.receiptId)+1;
+    const again=s.post({...reverse,originalRowIndex:targetRow,receiptId:uuid()});
+    assert.equal(again.status,'ERROR');assert.equal(again.written,false);
+    assert.equal(s.rows.length,4);
+  });
+  test(file+' a one-day-shifted correction that would cancel a different row is rejected before writing',()=>{
+    const s=server(file), original={...payload('品A'),date:'2026-09-29',receiptId:uuid(),receiptVersion:1};
+    const sameDay={...original,date:'2026-09-30',receiptId:uuid()};
+    assert.equal(s.post(original).status,'SUCCESS');
+    s.rows[1][9]='2026/09/28 10:00:00';
+    assert.equal(s.post(sameDay).status,'SUCCESS');
+    s.rows[1][9]='2026/09/28 11:00:00';
+    const reverse={...original,date:'2026-09-30',lender:'B',borrower:'A',isCorrection:true,
+      originalRowIndex:3,originalCreatedAt:'2026/09/28 10:00:00',receiptId:uuid()};
+    const rejected=s.post(reverse);
+    assert.equal(rejected.status,'ERROR');assert.equal(rejected.written,false);
+    assert.equal(s.rows.length,3);
+    assert.deepEqual(activeReceipts(s).sort(),[original.receiptId,sameDay.receiptId].sort());
+    // A shifted correction without a competing same-day row keeps the historical behaviour.
+    const alone=server(file);
+    assert.equal(alone.post(original).status,'SUCCESS');
+    alone.rows[1][9]='2026/09/28 10:00:00';
+    assert.equal(alone.post({...reverse,originalRowIndex:2}).status,'SUCCESS');
+    assert.deepEqual(activeReceipts(alone),[]);
+  });
+  test(file+' a correction of a correction revives the original for duplicate checks',()=>{
+    const s=server(file), original={...payload('品B'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(original).status,'SUCCESS');
+    s.rows[1][9]='2026/09/29 09:00:00';
+    const undo=['2026/09/29','テスト','B','A','飲料','品B','1','100','100','2026/09/29 10:00:00','✏️修正','',''];
+    const redo=['2026/09/29','テスト','A','B','飲料','品B','1','100','100','2026/09/29 11:00:00','✏️修正','',''];
+    s.rows.splice(1,0,redo,undo);
+    assert.deepEqual(activeReceipts(s),[original.receiptId]);
+    const next=s.post({...original,receiptId:uuid()});
+    assert.equal(next.code,'SIMILAR_TRANSACTION');assert.equal(next.written,false);
+  });
+  test(file+' the same person re-entering the same item on another date within 24h needs approval',()=>{
+    const s=server(file), first={...payload('品A'),date:'2026-09-29',receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(first).status,'SUCCESS');
+    const redated={...first,date:'2026-09-30',receiptId:uuid()};
+    const challenge=s.post(redated);
+    assert.equal(challenge.code,'SIMILAR_TRANSACTION');assert.equal(challenge.written,false);
+    assert.match(challenge.message,/日付だけ違う/);
+    assert.equal(s.rows.length,2);
+    assert.equal(s.post({...redated,duplicateConfirmed:true,confirmationToken:challenge.confirmationToken}).status,'SUCCESS');
+    assert.equal(s.post({...first,date:'2026-10-01',name:'別の人',receiptId:uuid()}).status,'SUCCESS');
+    const older=server(file);
+    assert.equal(older.post(first).status,'SUCCESS');
+    older.rows[1][9]='2026/01/01 10:00:00';
+    assert.equal(older.post(redated).status,'SUCCESS');
+  });
+  test(file+' a correction placed between an older equidistant pair does not flip that pair',()=>{
+    const s=server(file);
+    const line=(date,lender,borrower,item,amount,time,mark='')=>[date,'伊藤',lender,borrower,'飲料',item,'1',amount,amount,time,mark,'',''];
+    s.rows.push(
+      line('2026/06/02','371BAR','本部','Echezeaux','54000','2026/07/03 12:06:39'),
+      line('2026/06/02','371BAR','本部','La Tache','234916','2026/07/03 12:06:26'),
+      line('2026/06/02','本部','371BAR','Echezeaux','54000','2026/07/31 17:05:53','✏️修正'),
+      line('2026/07/02','本部','371BAR','La Tache','234916','2026/07/31 17:06:22','✏️修正'),
+      line('2026/06/02','371BAR','本部','Echezeaux','54000','2026/07/03 12:05:29'),
+      line('2026/07/02','371BAR','本部','La Tache','234916','2026/07/03 12:05:19'));
+    const liveBefore=s.context.activeTransactionRows_(s.context.SpreadsheetApp.openById().getSheetByName()).map(({row})=>row[9]);
+    const reverse={date:'2026-06-02',name:'伊藤',lender:'本部',borrower:'371BAR',category:'飲料',item:'La Tache',
+      quantity:'1',unitPrice:'234916',amount:'234916',isCorrection:true,originalRowIndex:3,
+      originalCreatedAt:'2026/07/03 12:06:26',receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(reverse).status,'SUCCESS');
+    const liveAfter=s.context.activeTransactionRows_(s.context.SpreadsheetApp.openById().getSheetByName()).map(({row})=>row[9]);
+    assert.deepEqual(liveAfter,liveBefore.filter(time=>time!=='2026/07/03 12:06:26'));
+  });
+  test(file+' correction receipts bind the origin receipt ID into the content hash',()=>{
+    const s=server(file), first={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    const second={...first,receiptId:uuid()};
+    assert.equal(s.post(first).status,'SUCCESS');
+    const challenge=s.post(second);
+    assert.equal(s.post({...second,duplicateConfirmed:true,confirmationToken:challenge.confirmationToken}).status,'SUCCESS');
+    s.rows[1][9]=s.rows[2][9]='2026/09/29 09:00:00';
+    const reverse={...first,lender:'B',borrower:'A',isCorrection:true,originalRowIndex:3,
+      originalCreatedAt:'2026/09/29 09:00:00',originalRowId:first.receiptId,receiptId:uuid()};
+    assert.equal(s.post(reverse).status,'SUCCESS');
+    const changed=s.post({...reverse,originalRowId:second.receiptId});
+    assert.equal(changed.status,'ERROR');assert.match(changed.message,/内容が変更/);
+    assert.equal(s.post(reverse).duplicate,true);
+  });
 }
+require(path.join(root,'js/duplicate-check.js'));
+
+test('server and browser cancel exactly the same rows for random correction histories',()=>{
+  const D=globalThis.DuplicateCheck, s=server('docs/gas_scripts/gas_code_complete.gs');
+  let seed=20261013;
+  const random=n=>{ // mulberry32: low-bit LCGs alternate and never produce correction chains
+    seed=(seed+0x6D2B79F5)|0;let t=Math.imul(seed^(seed>>>15),1|seed);
+    t=(t+Math.imul(t^(t>>>7),61|t))^t;return (((t^(t>>>14))>>>0)/4294967296*n)|0;};
+  const pick=list=>list[random(list.length)];
+  let revived=0;
+  for(let round=0;round<3000;round++){
+    const rows=Array.from({length:2+random(8)},()=>{
+      const [lender,borrower]=pick([['A','B'],['B','A']]);
+      const minute=String(random(60)).padStart(2,'0');
+      return [pick(['2026/09/29','2026/09/30','2026/10/01']),pick(['伊藤','木津']),lender,borrower,'飲料',
+        pick(['品X','品Y']),'1','100',pick(['100','200']),`2026/10/01 1${random(3)}:${minute}:00`,
+        random(5)<2?'✏️修正':''];
+    });
+    const server=s.context.activeRowsFromValues_(rows).map(({index})=>index);
+    const parsed=D.rowsFromSheetValues([[],...rows]);
+    const {pairs}=D.findCorrectionPairs(parsed);
+    const cancelled=new Set(pairs.flatMap(pair=>[pair.correction,pair.original]));
+    const browser=parsed.filter(row=>!D.isCorrection(row)&&!cancelled.has(row)).map(row=>row.originalRowIndex);
+    assert.deepEqual(server,browser,JSON.stringify(rows));
+    if(pairs.some(pair=>D.isCorrection(pair.original)))revived++;
+  }
+  assert(revived>20,'random histories must include corrections of corrections: '+revived);
+});
 
 function browser(storage = new Map(), locks = new Set()) {
   let approve = false, writes = 0;
@@ -356,7 +486,7 @@ function browser(storage = new Map(), locks = new Set()) {
     navigator:{locks:{async request(key, options, callback) {
       if(locks.has(key))return callback(null);
       locks.add(key);try{return await callback({});}finally{locks.delete(key);}
-    }}},fetch:async()=>({ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})}),setTimeout:resolve=>resolve()};
+    }}},fetch:async()=>({ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})}),setTimeout:resolve=>resolve()};
   const context=vm.createContext({window,console});
   vm.runInContext(fs.readFileSync(path.join(root,'js/submission-receipts.js'),'utf8'),context);
   return {api:window.LoanReceipts, window, context, storage, approve(){approve=true;}, writes:()=>writes};
@@ -425,10 +555,58 @@ test('new client rejects old receipt-only GAS before any registration',async()=>
   assert.equal(posts,0);
 });
 
+test('new client rejects GAS without the date-shift and correction-placement rules',async()=>{
+  const b=browser();let posts=0;
+  b.window.fetch=async(_,options)=>{
+    if(options?.method)posts++;
+    return {ok:true,json:async()=>({status:'SUCCESS',idempotencyVersion:1,similarityVersion:1,receiptColumnsReady:true})};
+  };
+  await assert.rejects(()=>b.api.ensureServer('gas'),error=>error.receiptOutcome==='notSent' && /重複確認/.test(error.message));
+  assert.equal(posts,0);
+});
+
+test('after a partial batch, removing the registered identical line resends the unsent receipt',async()=>{
+  const b=browser(), s=server('docs/gas_scripts/gas_code_complete.gs'), p=payload('A');
+  const [one,two]=b.api.prepare('gas',[p,p]);
+  b.window.fetch=async(_,options)=>({ok:true,json:async()=>s.post(JSON.parse(options.body))});
+  assert.equal((await b.api.send('gas',one)).status,'SUCCESS');
+  let prompts=0;b.window.confirm=()=>{prompts++;return true;};
+  const [retry]=b.api.prepare('gas',[p]);
+  assert.equal(retry.receiptId,two.receiptId);
+  assert.equal(prompts,0);
+  const result=await b.api.send('gas',retry); // same-day challenge for a second identical row, then approved
+  assert.equal(result.status,'SUCCESS');assert.equal(result.duplicate,false);
+  assert.equal(s.rows.length,3);
+  const [again]=b.api.prepare('gas',[p]);
+  assert.notEqual(again.receiptId,one.receiptId); // both confirmed: the user chose to repeat (prompt approved)
+});
+
+test('correction receipts distinguish origins sharing an input time by their receipt IDs',()=>{
+  const b=browser(), correction={...payload('A'),lender:'B',borrower:'A',isCorrection:true,correctionMark:'✏️修正',
+    originalCreatedAt:'2026/09/29 09:00:00'};
+  const [first]=b.api.prepare('gas',[{...correction,originalRowIndex:2,originalRowId:'origin-1'}]);
+  const [second]=b.api.prepare('gas',[{...correction,originalRowIndex:3,originalRowId:'origin-2'}]);
+  assert.notEqual(first.receiptId,second.receiptId);
+  const [shifted]=b.api.prepare('gas',[{...correction,originalRowIndex:5,originalRowId:'origin-1'}]);
+  assert.equal(shifted.receiptId,first.receiptId);
+});
+
+test('the approval prompt shows why the server asked',async()=>{
+  const b=browser(), s=server('docs/gas_scripts/gas_code_complete.gs');
+  assert.equal(s.post({...payload('A'),date:'2026-09-29',receiptId:uuid(),receiptVersion:1}).status,'SUCCESS');
+  const [next]=b.api.prepare('gas',[{...payload('A'),date:'2026-09-30'}]);
+  let asked='';b.window.confirm=message=>{asked=message;return false;};
+  b.window.fetch=async(_,options)=>({ok:true,json:async()=>s.post(JSON.parse(options.body))});
+  await assert.rejects(()=>b.api.send('gas',next),error=>error.receiptOutcome==='rejected');
+  assert.match(asked,/日付だけ違う/);
+  assert.equal(s.rows.length,2);
+});
+
 test('read-only readiness check creates no registration or notification',()=>{
   const s=server('docs/gas_scripts/gas_code_complete.gs');
   assert.equal(s.context.doGet().idempotencyVersion,1);
   assert.equal(s.context.doGet().similarityVersion,1);
+  assert.equal(s.context.doGet().duplicateRulesVersion,2);
   assert.equal(s.context.doGet().receiptColumnsReady,true);
   assert.equal(s.rows.length,1);
   assert.deepEqual(s.stats(),{backups:0,emails:0,locked:false});
@@ -453,7 +631,7 @@ test('unreadable relay response (404 HTML) is re-read with the same receipt and 
   const html={ok:false,json:async()=>{throw new SyntaxError('The string did not match the expected pattern.');}};
   let gets=0,posts=0;
   b.window.fetch=async(_,options)=>{
-    if(!options?.method)return ++gets===1?html:{ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
+    if(!options?.method)return ++gets===1?html:{ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};
     const result=s.post(JSON.parse(options.body));
     return ++posts===1?html:{ok:true,json:async()=>result};
   };
@@ -542,7 +720,7 @@ for(const file of ['pages/js/main.js']) {
     b.context.postToGas=data=>b.api.send('gas',data);
     const requests=[];let fail=3;
     b.window.fetch=async(_,options)=>{
-      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
+      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};
       const data=JSON.parse(options.body);requests.push(data.receiptId);
       const result=s.post(data);
       if(fail>0 && data.item==='B'){fail--;throw new Error('response lost');}
@@ -568,7 +746,7 @@ for(const file of ['pages/js/main.js']) {
     b.context.postToGas=data=>b.api.send('gas',data);
     b.window.fetch=async(_,options)=>options?.method?
       {ok:true,json:async()=>({status:'ERROR',written:false,message:'他の処理が実行中'})}:
-      {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
+      {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};
     await b.context.submitData();
     assert.equal(ui.get('errorModal').dataset.tone,'error');
     assert.match(ui.get('errorModalBody').textContent,/登録されていません/);
@@ -582,7 +760,7 @@ for(const file of ['pages/js/main.js']) {
     const source=fs.readFileSync(path.join(root,file),'utf8');
     vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
     let posts=0;
-    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};};
     await b.context.submitData();
     assert.equal(ui.get('errorModal').dataset.tone,'error');
     assert.match(ui.get('errorModalBody').textContent,/別のタブで送信中/);
@@ -596,7 +774,7 @@ for(const file of ['pages/js/main.js']) {
     const source=fs.readFileSync(path.join(root,file),'utf8');
     vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
     let posts=0;
-    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};};
     b.context.convertToHalfWidthNumber=v=>v==='1'?'':String(v); // 数量「1」を空欄として扱う
     await b.context.submitData();
     assert.equal(posts,0);
@@ -615,20 +793,25 @@ for(const file of ['pages/js/main.js']) {
     b.context.callSheetsAPI=async()=>({values:[[]]});
     let asked='',posts=0;
     b.context.confirm=message=>{asked=message;return false;};
-    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};};
     await b.context.submitData();
     assert.match(asked,/同じ送信内/);
     assert.equal(posts,0);
   });
-  for (const options of [{}, { skipSimilarCheck: true }, { malformed: true }]) test(file+' unavailable sheet preflight stops before any registration (mode='+JSON.stringify(options)+')',async()=>{
+  for (const options of [{}, { skipSimilarCheck: true }, { malformed: true }, { errorWithEmptyValues: true }, { noHeader: true }]) test(file+' unavailable sheet preflight stops before any registration (mode='+JSON.stringify(options)+')',async()=>{
     const b=browser(),ui=formContext(b);
     const source=fs.readFileSync(path.join(root,file),'utf8');
     vm.runInContext(fs.readFileSync(path.join(root,'js/duplicate-check.js'),'utf8'),b.context);
     vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
-    b.context.callSheetsAPI=async()=>{if (options.malformed) return {error:'read unavailable'}; throw new Error('read unavailable');};
+    b.context.callSheetsAPI=async()=>{
+      if (options.malformed) return {error:'read unavailable'};
+      if (options.errorWithEmptyValues) return {error:'read unavailable',values:[]};
+      if (options.noHeader) return {values:[]};
+      throw new Error('read unavailable');
+    };
     b.context.postToGas=data=>b.api.send('gas',data);
     let posts=0;
-    b.window.fetch=async(_,options)=>{if(options?.method){posts++;return {ok:true,json:async()=>({status:'SUCCESS',idempotencyVersion:1,receiptId:JSON.parse(options.body).receiptId})};}return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
+    b.window.fetch=async(_,options)=>{if(options?.method){posts++;return {ok:true,json:async()=>({status:'SUCCESS',idempotencyVersion:1,receiptId:JSON.parse(options.body).receiptId})};}return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};};
     await b.context.submitData(options);
     assert.equal(posts,0);
     assert.equal(ui.get('errorModal').dataset.tone,'error');
@@ -643,7 +826,7 @@ for(const file of ['pages/js/main.js']) {
     b.context.callSheetsAPI=async()=>({values:[['›'],[a.date,'別の人',a.lender,a.borrower,a.category,a.item,'1','100','100','2026/09/29 18:00:00','']]});
     let asked='';b.context.confirm=message=>{asked=message;return false;};
     let posts=0;
-    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};};
     await b.context.submitData();
     assert.match(asked,/同じ取引がすでに登録されています/);
     assert.equal(posts,0);
@@ -653,6 +836,26 @@ for(const file of ['pages/js/main.js']) {
 }
 
 for(const file of ['pages/js/correction.js']) {
+  test(file+' actual correction sends the selected origin receipt ID',async()=>{
+    const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
+    const origin={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(origin).status,'SUCCESS');
+    Object.assign(b.context.originalData,{inputDate:s.rows[1][9],receiptId:origin.receiptId});
+    ui.get('lender').value='B';ui.get('borrower').value='A';
+    const source=fs.readFileSync(path.join(root,file),'utf8');
+    vm.runInContext(source.slice(source.indexOf('async function submitCorrectionData('),
+      source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitCorrectionData('))),b.context);
+    const bodies=[];
+    b.window.fetch=async(_,options)=>{
+      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};
+      bodies.push(JSON.parse(options.body));
+      return {ok:true,json:async()=>s.post(JSON.parse(options.body))};
+    };
+    await b.context.submitCorrectionData();
+    assert.equal(bodies.length,1);
+    assert.equal(bodies[0].originalRowId,origin.receiptId);
+    assert.equal(s.rows.length,3);
+  });
   test(file+' actual correction accepts a Date-valued origin shown without zero padding',async()=>{
     const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
     assert.equal(s.post({...payload('A'),receiptId:uuid(),receiptVersion:1}).status,'SUCCESS');
@@ -664,7 +867,7 @@ for(const file of ['pages/js/correction.js']) {
       source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitCorrectionData('))),b.context);
     let posts=0;
     b.window.fetch=async(_,options)=>{
-      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
+      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};
       posts++;
       return {ok:true,json:async()=>s.post(JSON.parse(options.body))};
     };
@@ -682,7 +885,7 @@ for(const file of ['pages/js/correction.js']) {
     vm.runInContext(source.slice(source.indexOf('async function submitCorrectionData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitCorrectionData('))),b.context);
     const requests=[];let fail=3;
     b.window.fetch=async(_,options)=>{
-      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
+      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2})};
       const data=JSON.parse(options.body);requests.push(data.receiptId);const result=s.post(data);
       if(fail>0){fail--;throw new Error('response lost');}
       return {ok:true,json:async()=>result};

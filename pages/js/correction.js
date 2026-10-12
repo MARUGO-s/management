@@ -748,7 +748,9 @@ async function submitCorrectionData(receiptLocked = false) {
       correctionMark: "✏️修正",
       sendType: "CORRECTION",
       originalRowIndex: originalData.originalRowIndex,
-      originalCreatedAt: originalData.inputDate || originalData.originalCreatedAt || ''
+      originalCreatedAt: originalData.inputDate || originalData.originalCreatedAt || '',
+      // 元行の受付ID（あれば）。同じ入力日時の別の行と取り違えないよう、GASは受付IDで元行を特定する。
+      ...(originalData.receiptId ? { originalRowId: String(originalData.receiptId) } : {})
     };
 
     addDebugLog('送信データ準備完了', data);

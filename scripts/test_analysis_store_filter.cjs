@@ -162,3 +162,16 @@ test('M-martの貸借向き補正と旧店舗名を選択店舗の集計・CSV�
   assert.deepEqual(exported.map(store => store.店舗名), ['BISTRO CAVACAVA']);
   assert.equal(exported[0].借入金額, 250);
 });
+
+test('解析画面の行は元行の受付ID（L列）を持ち、修正画面へ渡せる', async () => {
+  const { analyzer } = page('');
+  analyzer.debugLog = () => {};
+  analyzer.stores = new Set();
+  await analyzer.processSheetData([
+    ['›', '名前', '貸主', '借主', 'カテゴリー', '品目', '個/本', '単価', '金額', '入力日時', '修正', '__receipt_id_v1'],
+    ['2026/09/29', '田中', 'A', 'B', '飲料', '品A', '1', '100', '100', '2026/09/29 09:00:00', '', 'origin-receipt'],
+    ['2026/09/29', '田中', 'A', 'B', '飲料', '品B', '1', '100', '100', '2026/09/29 09:00:00', '']
+  ]);
+  assert.deepEqual(analyzer.data.map(row => row.receiptId), ['origin-receipt', '']);
+  assert.deepEqual(analyzer.data.map(row => row.name), ['田中', '田中']);
+});

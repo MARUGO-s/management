@@ -43,7 +43,8 @@ class UnifiedDataLoader {
 
         try {
             // 1回のAPI呼び出しで貸借表の全データを取得
-            const mainSheetData = await callSheetsAPI('貸借表!A:K', 'GET');
+            // L列の受付IDは修正画面で元行を一意に特定するために使う（表示はしない）
+            const mainSheetData = await callSheetsAPI('貸借表!A:L', 'GET');
 
             console.log('📊 貸借表データ取得完了:', mainSheetData.values?.length || 0, '行');
 
