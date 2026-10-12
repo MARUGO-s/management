@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { authorizeLoanSession } from '../_shared/session.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-loan-session',
 }
 
 serve(async (req) => {
@@ -12,6 +13,8 @@ serve(async (req) => {
   }
 
   try {
+    const auth = await authorizeLoanSession(req, 'admin')
+    if (auth.error) return auth.error
     console.log('📧 Alert email function called')
 
     const body = await req.json()

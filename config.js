@@ -124,7 +124,8 @@ async function checkAPILimit() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+            'x-loan-session': window.LoanSession?.get()?.token || ''
       },
       body: JSON.stringify({
         action: 'get'
@@ -241,7 +242,8 @@ async function recordAPIUsage(range, method, caller = 'unknown') {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+            'x-loan-session': window.LoanSession?.get()?.token || ''
         },
         body: JSON.stringify({
           action: 'record',
@@ -532,7 +534,8 @@ window.recordDataSubmission = async function(operation, method, description) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+            'x-loan-session': window.LoanSession?.get()?.token || ''
         },
         body: JSON.stringify({
           action: 'record',
@@ -634,7 +637,8 @@ window.showCumulativeAPIUsage = async function() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+            'x-loan-session': window.LoanSession?.get()?.token || ''
       },
       body: JSON.stringify({
         action: 'get'

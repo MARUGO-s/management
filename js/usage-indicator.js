@@ -152,7 +152,8 @@ class UsageIndicator {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                    'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`,
+            'x-loan-session': window.LoanSession?.get()?.token || ''
                 },
                 body: JSON.stringify({
                     action: 'get'
@@ -340,7 +341,8 @@ class UsageIndicator {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`
+                        'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`,
+            'x-loan-session': window.LoanSession?.get()?.token || ''
                     },
                     body: JSON.stringify({ action: 'get' })
                 });

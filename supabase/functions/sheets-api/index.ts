@@ -67,12 +67,9 @@ serve(async (req) => {
   }
 
   try {
-    // ログインで発行したトークンがなければ読ませない。
-    // 移行期間（SHEETS_REQUIRE_SESSION 未設定）だけ、トークンなしの旧画面を許可する。
-    const sessionHeader = req.headers.get('x-loan-session')
-    const session = await verifySessionToken(sessionHeader)
-    const requireSession = Deno.env.get('SHEETS_REQUIRE_SESSION') === 'true'
-    if (!session && (requireSession || sessionHeader)) {
+    // Private spreadsheet reads always require a valid signed login session.
+    const session = await verifySessionToken(req.headers.get('x-loan-session'))
+    if (!session || !['system', 'admin'].includes(session.typ)) {
       return json({ ok: false, code: 'SESSION_REQUIRED', error: 'ログインが必要です。' }, 401)
     }
 
