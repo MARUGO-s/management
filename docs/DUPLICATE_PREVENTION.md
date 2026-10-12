@@ -2,7 +2,7 @@
 
 ## 状態と目的
 
-2026-09-29、本番GASの既存デプロイをバージョン70 → 71に更新し、受付ID方式を導入。2026-10-12、別受付IDの類似取引確認を**同じ公開デプロイIDのv79 → v80**に更新し、GitHub Pagesにも反映した。v80の不変コードを検証済み候補と照合し、公開GETで `status: SUCCESS, idempotencyVersion: 1, similarityVersion: 1, receiptColumnsReady: true` を確認。Pagesの公開HTML参照とJS本体もマージ済みコードと照合した。リポジトリ内の `.gs` の編集だけではGASに反映されないため、実コードを別途更新した。
+2026-09-29、本番GASの既存デプロイをバージョン70 → 71に更新し、受付ID方式を導入。2026-10-12、別受付IDの類似取引確認を**同じ公開デプロイIDのv79 → v80**に更新し、GitHub Pagesにも反映した。v80の不変コードを検証済み候補と照合し、公開GETで `status: SUCCESS, idempotencyVersion: 1, similarityVersion: 1, receiptColumnsReady: true` を確認。Pagesの公開HTML参照とJS本体もマージ済みコードと照合した。2026-10-13、修正元の取り違え・修正の修正・日付違いの再入力などの抜け穴を塞ぐため、同じデプロイIDを**v80 → v81**に更新し、公開GETで `duplicateRulesVersion: 2` を確認した。リポジトリ内の `.gs` の編集だけではGASに反映されないため、実コードを別途更新した。
 
 本番スクリプトID: `1YehnHnX_AUqTU8aiP21lKVIHKP8n-OjE7PRh36YrlANaLVKifOQ7v5jU`。公開URL・実行者・既存アクセス設定は維持した。本番貸借行のテスト挿入・メール送信・過去データ削除は行っていない。
 
