@@ -23,4 +23,5 @@ jobs:
           node --check js/duplicate-check.js
           node --check pages/js/main.js
           node --check pages/js/correction.js
+          node --check js/unified-data-loader.js
           git diff --check

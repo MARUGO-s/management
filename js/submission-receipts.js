@@ -9,6 +9,8 @@
       payload.isCorrection === true,
       payload.isCorrection ? (payload.correctionMark || '✏️修正') : '',
       payload.originalCreatedAt || payload.originalRowId || payload.originalRowIndex || '',
+      // 入力日時が同じ秒の別の元行を、元行の受付IDで区別する（GASの内容ハッシュと同じ規則）。
+      ...(payload.originalCreatedAt && payload.originalRowId ? [String(payload.originalRowId)] : []),
       occurrence
     ]);
   }
@@ -72,16 +74,31 @@
     if (result?.similarityVersion !== 1) {
       throw outcomeError('類似取引の重複確認に対応したサーバーではないため、送信前に停止しました。管理者にご連絡ください。', 'notSent');
     }
+    if (!(result?.duplicateRulesVersion >= 2)) {
+      throw outcomeError('日付違いの再入力・修正元の確認に対応したサーバーではないため、送信前に停止しました（重複確認の更新待ち）。管理者にご連絡ください。', 'notSent');
+    }
   }
   function prepare(url, payloads) {
     const journal = read(url);
-    const occurrences = new Map();
+    // 同じ内容の行には、結果が未確認（pending）の受付を先に割り当てる。一部だけ登録できた後に
+    // 登録済みの行を画面から消して再送しても、未送信の行に登録済みの受付IDを取り違えない。
+    const slots = new Map();
     const entries = payloads.map(payload => {
       const base = keyOf(payload, 0);
-      const occurrence = occurrences.get(base) || 0;
-      occurrences.set(base, occurrence + 1);
-      const key = keyOf(payload, occurrence);
-      return { key, entry: journal[key] || null };
+      if (!slots.has(base)) {
+        const existing = [];
+        for (let occurrence = 0; journal[keyOf(payload, occurrence)]; occurrence++) {
+          existing.push({ key: keyOf(payload, occurrence), entry: journal[keyOf(payload, occurrence)] });
+        }
+        const ordered = existing.filter(slot => slot.entry.state === 'pending')
+          .concat(existing.filter(slot => slot.entry.state !== 'pending'));
+        slots.set(base, { ordered, next: 0 });
+      }
+      const slot = slots.get(base);
+      // 既存の受付を使い切ったら、続きの出現番号で新しい受付を作る。
+      const assigned = slot.ordered[slot.next] || { key: keyOf(payload, slot.next), entry: null };
+      slot.next++;
+      return assigned;
     });
     // Pending receipts are always reused: never offer a new ID for an uncertain write.
     const alreadyComplete = entries.length > 0 && entries.every(({ entry }) => entry?.state === 'confirmed');
@@ -133,8 +150,10 @@
       if (typeof result.confirmationToken !== 'string' || !result.confirmationToken) {
         throw outcomeError('重複確認の応答が不正なため登録を停止しました。', 'rejected');
       }
-      if (!root.confirm('同じ日付・貸主・借主・品目・金額の取引が登録されています。\n' +
-        '本当に別の取引として登録しますか？キャンセルすると登録しません。')) {
+      const reason = result.similarKind === 'redated'
+        ? '同じ人が24時間以内に、日付だけ違う同じ内容（貸主・借主・品目・金額）を登録しています。'
+        : '同じ日付・貸主・借主・品目・金額の取引が登録されています。';
+      if (!root.confirm(`${reason}\n本当に別の取引として登録しますか？キャンセルすると登録しません。`)) {
         throw outcomeError('同じ内容の取引があるため登録を取りやめました。', 'rejected');
       }
       // The server rejected before writing. Keep the same durable receipt ID

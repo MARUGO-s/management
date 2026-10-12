@@ -11,7 +11,7 @@
     <!-- シンプル認証システム -->
     <script src="../js/simple-auth.js?v=2026101201"></script>
     <!-- 統合データローダー（API呼び出し最適化） -->
-    <script src="../js/unified-data-loader.js"></script>
+    <script src="../js/unified-data-loader.js?v=2026101301"></script>
     <!-- シンプル最適化システム -->
     <script src="../js/simple-optimization.js"></script>
     <!-- API使用量監視・アラートシステム（ポップアップのみ） -->
@@ -19,7 +19,7 @@
     <!-- API使用量インジケーター -->
     <script src="../js/usage-indicator.js?v=2026101201"></script>
     <!-- 重複・入力ミスの疑いの判定（入力画面・月次チェックと共通） -->
-    <script src="../js/duplicate-check.js?v=2026101202"></script>
+    <script src="../js/duplicate-check.js?v=2026101301"></script>
     <script defer="" src="js/scripts.js"></script>
     <script>
         function showSummary() {
@@ -913,6 +913,8 @@
                         const amountIndex = getColumnIndex(['金額', 'amount']);
                         const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']);
                         const correctionIndex = getColumnIndex(['修正', 'correction']);
+                        // 元行の受付ID（L列）。修正画面が同じ入力日時の別の行と取り違えないように渡す
+                        const receiptIndex = headers.indexOf('__receipt_id_v1');
 
                         console.log('🔍 列インデックス:', { amountIndex, dateIndex, lenderIndex, borrowerIndex });
 
@@ -951,6 +953,7 @@
                                 originalAmount: amountValue,
                                 inputDate: getValue(inputDateIndex),
                                 correction: getValue(correctionIndex),
+                                receiptId: String(getValue(receiptIndex)).trim(),
                                 originalRowIndex: index + 2
                             };
                         });
@@ -1015,6 +1018,7 @@
                     const amountIndex = getColumnIndex(['金額', 'amount']); // I列
                     const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']); // J列
                     const correctionIndex = getColumnIndex(['修正', 'correction']); // K列
+                    const receiptIndex = headers.indexOf('__receipt_id_v1'); // L列（元行の受付ID）
 
                     this.debugLog('フィールドインデックス', {
                         dateIndex, nameIndex, lenderIndex, borrowerIndex,
@@ -1046,6 +1050,7 @@
                             originalAmount: getValue(amountIndex),
                             inputDate: getValue(inputDateIndex),
                             correction: getValue(correctionIndex), // 修正フラグを追加
+                            receiptId: String(getValue(receiptIndex)).trim(),
                             originalRowIndex: index + 2 // 🔥 追加: スプレッドシートの実際の行番号
                         };
 

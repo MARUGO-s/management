@@ -2406,7 +2406,10 @@ async function confirmNoSimilarEntries(payloads) {
   let rows;
   try {
     const data = await callSheetsAPI('貸借表!A:L', 'GET');
-    if (!Array.isArray(data?.values)) throw new Error('貸借表の読み取り結果が不正です。');
+    // エラー応答に空の values が付いていても空の貸借表とはみなさない（見出し行は常にある）。
+    if (data?.error || data?.success === false || !Array.isArray(data?.values) || data.values.length === 0) {
+      throw new Error('貸借表の読み取り結果が不正です。');
+    }
     const ownReceipts = new Set(payloads.map(payload => payload.receiptId).filter(Boolean));
     rows = checker.rowsFromSheetValues(data.values).filter(row => !ownReceipts.has(row.receiptId));
   } catch (error) {

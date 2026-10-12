@@ -99,6 +99,10 @@
   //   - 日付が同じ行を優先し、無ければ1日違いまで許す（2025年の修正画面は日付が1日前にずれていた）
   //   - 候補が複数なら日付が近く、シート上の位置が近いもの。修正の修正にも対応するため、
   //     修正データは入力の古い順に処理し、相手が修正データでもよい
+  //   - 最後に、相手のない修正が「組になった修正」を逆向きに取り消していれば（修正の修正）、
+  //     その修正と組にして元データを集計に戻す（3行の合計は元の取引1件分）
+  // GAS（activeRowsFromValues_）も同じ規則で判定する。修正の登録時、GASは「選んだ元行だけが
+  // 取り消される」位置に修正行を挿入し、そうできなければ登録しない。
   // rows は { lender, borrower, item, amount, date(YYYY-MM-DD), inputDate, correction } を持つ行の配列（シートの並び順）
   function findCorrectionPairs(rows) {
     const keyOf = (lender, borrower, row) => `${lender}|${borrower}|${row.item}|${Math.round(row.amount * 100)}`;
@@ -115,25 +119,50 @@
       .sort((a, b) => (parseInputTime(rows[a].inputDate) || 0) - (parseInputTime(rows[b].inputDate) || 0));
 
     const used = new Set();
-    const pairs = [];
+    const partner = new Map();
+    const pairOf = new Map(); // 修正の行番号 → 取り消した行の行番号（組になった順）
+    const pair = (correctionIndex, originalIndex) => {
+      used.add(correctionIndex);
+      used.add(originalIndex);
+      partner.set(correctionIndex, originalIndex);
+      partner.set(originalIndex, correctionIndex);
+      pairOf.set(correctionIndex, originalIndex);
+    };
+    const candidatesFor = correctionIndex => {
+      const correction = rows[correctionIndex];
+      return (rowsByKey.get(keyOf(correction.borrower, correction.lender, correction)) || []).slice();
+    };
+    const eligible = (correctionIndex, index, maxDays) => index !== correctionIndex &&
+      dayDiff(rows[index].date, rows[correctionIndex].date) <= maxDays &&
+      !(parseInputTime(rows[index].inputDate) > parseInputTime(rows[correctionIndex].inputDate));
+    const closest = (correctionIndex, list) => list.sort((a, b) =>
+      dayDiff(rows[a].date, rows[correctionIndex].date) - dayDiff(rows[b].date, rows[correctionIndex].date) ||
+      Math.abs(a - correctionIndex) - Math.abs(b - correctionIndex))[0];
     [0, 1].forEach(maxDays => {
       corrections.forEach(correctionIndex => {
         if (used.has(correctionIndex)) return;
-        const correction = rows[correctionIndex];
-        const correctionTime = parseInputTime(correction.inputDate);
-        const candidates = (rowsByKey.get(keyOf(correction.borrower, correction.lender, correction)) || [])
-          .filter(index => index !== correctionIndex && !used.has(index) &&
-            dayDiff(rows[index].date, correction.date) <= maxDays &&
-            !(parseInputTime(rows[index].inputDate) > correctionTime))
-          .sort((a, b) => dayDiff(rows[a].date, correction.date) - dayDiff(rows[b].date, correction.date) ||
-            Math.abs(a - correctionIndex) - Math.abs(b - correctionIndex));
-        if (candidates.length === 0) return;
-        used.add(correctionIndex);
-        used.add(candidates[0]);
-        pairs.push({ correction, original: rows[candidates[0]] });
+        const found = closest(correctionIndex, candidatesFor(correctionIndex)
+          .filter(index => !used.has(index) && eligible(correctionIndex, index, maxDays)));
+        if (found !== undefined) pair(correctionIndex, found);
       });
     });
+    // 修正の修正: 組になった修正を逆向きに取り消す修正は、その修正と組にし、元の行を集計に戻す
+    // （3行の合計は元の取引1件分になる）。GAS の activeRowsFromValues_ と同じ規則。
+    corrections.forEach(correctionIndex => {
+      if (used.has(correctionIndex)) return;
+      const found = closest(correctionIndex, candidatesFor(correctionIndex).filter(index =>
+        isCorrection(rows[index]) && used.has(index) && !isCorrection(rows[partner.get(index)]) &&
+        eligible(correctionIndex, index, 1)));
+      if (found === undefined) return;
+      const revived = partner.get(found);
+      used.delete(revived);
+      partner.delete(revived);
+      pairOf.delete(found);
+      pair(correctionIndex, found);
+    });
 
+    const pairs = [...pairOf].map(([correctionIndex, originalIndex]) =>
+      ({ correction: rows[correctionIndex], original: rows[originalIndex] }));
     const unmatched = corrections.filter(index => !used.has(index)).map(index => rows[index]);
     return { pairs, unmatched };
   }
