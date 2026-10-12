@@ -85,13 +85,28 @@ class SimpleAuth {
     }
 
     // パスワード設定（Supabaseベース）
-    async setSystemPassword(password) {
+    async setSystemPassword(password, adminPassword) {
         try {
-            const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+            const verifyResponse = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+                },
+                body: JSON.stringify({
+                    action: 'verify',
+                    passwordType: 'admin',
+                    currentPassword: adminPassword
+                })
+            });
+            const result = await verifyResponse.json();
+            if (!result.success || !result.isValid || !result.token) return false;
+            const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+                    'x-loan-session': result.token
                 },
                 body: JSON.stringify({
                     action: 'change',
@@ -100,12 +115,12 @@ class SimpleAuth {
                 })
             });
             
-            const result = await response.json();
-            if (result.success) {
+            const changeResult = await response.json();
+            if (changeResult.success) {
                 console.log('✅ システムパスワードが設定されました（Supabase）');
                 return true;
             } else {
-                console.error('❌ パスワード設定失敗:', result.error);
+                console.error('❌ パスワード設定失敗:', changeResult.error);
                 return false;
             }
         } catch (error) {
@@ -217,12 +232,13 @@ class SimpleAuth {
 
     // パスワード設定処理
     async handlePasswordSetup() {
+        const adminPassword = document.getElementById('setup-admin-password').value;
         const newPassword = document.getElementById('new-password').value;
         const confirmPassword = document.getElementById('confirm-password').value;
         const setupBtn = document.getElementById('setup-btn');
         const setupError = document.getElementById('setup-error');
 
-        if (!newPassword || !confirmPassword) {
+        if (!adminPassword || !newPassword || !confirmPassword) {
             this.showSetupError('すべてのフィールドを入力してください');
             return;
         }
@@ -241,7 +257,7 @@ class SimpleAuth {
         setupBtn.textContent = '🔄 設定中...';
 
         try {
-            const success = await this.setSystemPassword(newPassword);
+            const success = await this.setSystemPassword(newPassword, adminPassword);
             
             if (success) {
                 this.showSetupSuccess('パスワードが設定されました。ログインしてください。');
@@ -253,6 +269,7 @@ class SimpleAuth {
                 // フォームをクリア
                 document.getElementById('new-password').value = '';
                 document.getElementById('confirm-password').value = '';
+                document.getElementById('setup-admin-password').value = '';
                 
                 // パスワード入力欄にフォーカス
                 setTimeout(() => {
@@ -260,7 +277,7 @@ class SimpleAuth {
                     if (passwordInput) passwordInput.focus();
                 }, 100);
             } else {
-                this.showSetupError('パスワード設定に失敗しました');
+                this.showSetupError('管理者パスワードを確認できないか、パスワード設定に失敗しました');
             }
 
         } catch (error) {

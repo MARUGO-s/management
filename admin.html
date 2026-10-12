@@ -1420,11 +1420,45 @@
     </div>
 </div>
 
-    <script src="config.js?v=2026093005"></script>
-    <script src="js/quota-alert-system.js?v=2025011606"></script>
+    <script src="config.js?v=2026101201"></script>
+    <script src="js/quota-alert-system.js?v=2026101201"></script>
     <script src="js/simple-optimization.js?v=2025011606"></script>
     
     <script>
+        // Supabase anon key is public; admin actions use a separately signed session.
+        const AdminSession = {
+            key: 'loanAdminSession',
+            get() {
+                try {
+                    const session = JSON.parse(sessionStorage.getItem(this.key) || 'null');
+                    return session?.token && session.expiresAt > Date.now() ? session : null;
+                } catch (_) { return null; }
+            },
+            set(token, expiresAt) {
+                sessionStorage.setItem(this.key, JSON.stringify({ token, expiresAt }));
+            },
+            clear() { sessionStorage.removeItem(this.key); }
+        };
+        window.AdminSession = AdminSession;
+
+        async function adminFetch(url, options = {}) {
+            const session = AdminSession.get();
+            if (!session) throw new Error('管理者セッションの期限が切れました。再ログインしてください。');
+            const response = await fetch(url, {
+                ...options,
+                headers: { ...options.headers, 'x-loan-session': session.token }
+            });
+            // Password mismatch also returns 401; only authorization failures
+            // mean the signed session should be discarded.
+            if (response.status === 401 || response.status === 403) {
+                const failure = await response.clone().json().catch(() => ({}));
+                if (failure.code === 'SESSION_REQUIRED' || failure.code === 'ADMIN_REQUIRED') {
+                    window.adminAuth?.logout();
+                }
+            }
+            return response;
+        }
+
         // 管理者認証システム
         class AdminAuth {
             constructor() {
@@ -1507,7 +1541,8 @@
                     
                     const result = await response.json();
                     
-                    if (result.success && result.isValid) {
+                    if (result.success && result.isValid && result.token && result.expiresAt) {
+                        AdminSession.set(result.token, result.expiresAt);
                         this.setAuthenticated();
 
                         const baseline = await fetchTotalApiInteractions();
@@ -1547,6 +1582,7 @@
             }
 
             isAuthenticated() {
+                if (!AdminSession.get()) return false;
                 const session = localStorage.getItem(this.SESSION_KEY);
                 if (!session) return false;
 
@@ -1592,6 +1628,7 @@
 
             logout() {
                 localStorage.removeItem(this.SESSION_KEY);
+                AdminSession.clear();
                 if (window._accessLogRefresh) {
                     clearInterval(window._accessLogRefresh);
                     window._accessLogRefresh = null;
@@ -1649,7 +1686,7 @@
 
         async function fetchTotalApiInteractions() {
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1919,7 +1956,7 @@
 
         async function updateAccessLogAcknowledgement(logId, acknowledged) {
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1962,7 +1999,7 @@ ${error.message || ''}`);
             }
 
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2070,7 +2107,7 @@ ${error.message || ''}`);
             }
 
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2101,7 +2138,7 @@ ${error.message || ''}`);
                     ? Math.max(0, Math.round(apiCallCount))
                     : 0;
 
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/access-logs`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2188,7 +2225,7 @@ ${error.message || ''}`);
         // 月次チャートデータを取得
         async function getMonthlyChartData(targetMonth) {
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2535,7 +2572,7 @@ ${error.message || ''}`);
                 } else {
                     
                     // 直接Supabaseから取得
-                    const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -2671,7 +2708,7 @@ ${error.message || ''}`);
                 // 🚀 自動パスワード変更
                 showPasswordStatus('🔄 新しいシステムパスワードを設定中...', 'info');
                 
-                const changeResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                const changeResponse = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2755,7 +2792,7 @@ ${error.message || ''}`);
                 // 🚀 自動パスワード変更
                 showPasswordStatus('🔄 新しい管理者パスワードを設定中...', 'info');
                 
-                const changeResponse = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                const changeResponse = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2794,7 +2831,7 @@ ${error.message || ''}`);
             showPasswordStatus('🔍 現在のシステムパスワードを確認中...', 'info');
             
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2827,7 +2864,7 @@ ${error.message || ''}`);
             showPasswordStatus('🔍 現在の管理者パスワードを確認中...', 'info');
             
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/password-manager`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2967,7 +3004,7 @@ ${error.message || ''}`);
                 };
 
                 // Supabase Function経由でメール送信
-                const response = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/send-alert-email`, {
+                const response = await adminFetch(`${SUPABASE_CONFIG.url}/functions/v1/send-alert-email`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3037,7 +3074,7 @@ ${error.message || ''}`);
             if (confirm('使用量統計をすべてリセットしますか？\n（アラート履歴も含めてすべて削除されます）')) {
                 try {
                     // Supabaseの統計データをリセット
-                    const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                    const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -3295,7 +3332,7 @@ ${error.message || ''}`);
                     red: redThreshold
                 };
 
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3331,7 +3368,7 @@ ${error.message || ''}`);
 
         async function loadIndicatorSettings(showAlertOnFailure = false) {
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3367,7 +3404,7 @@ ${error.message || ''}`);
 
         async function resetIndicatorSettings() {
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/indicator-settings`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3487,7 +3524,7 @@ ${error.message || ''}`);
         async function updateLimitStatus(settings) {
             try {
                 // 現在の使用量を取得
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3559,7 +3596,7 @@ ${error.message || ''}`);
                 container.innerHTML = '<div class="data-mismatch-placeholder">読み込み中...</div>';
                 
                 // Supabaseからデータ不一致レポートを取得
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3660,7 +3697,7 @@ ${error.message || ''}`);
             }
 
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3692,7 +3729,7 @@ ${error.message || ''}`);
         async function viewReportDetails(reportId) {
             try {
                 // レポートデータを取得
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/data-mismatch-reports`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3899,7 +3936,7 @@ ${error.message || ''}`);
             }
             
             try {
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3933,7 +3970,7 @@ ${error.message || ''}`);
                 statusDiv.innerHTML = '<div style="color: rgba(31, 42, 61, 0.55);">読み込み中...</div>';
                 
                 // データ保持状況を取得
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -4070,7 +4107,7 @@ ${error.message || ''}`);
                 statusDiv.style.color = '#3c6ee8';
                 statusDiv.innerHTML = '🗑️ 古いデータを削除中...';
                 
-                const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
+                const response = await adminFetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

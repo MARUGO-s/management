@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { issueSessionToken, verifySessionToken } from '../_shared/session.ts'
+import { issueSessionToken, verifySessionToken, authorizeLoanSession } from '../_shared/session.ts'
 
 // パスワード管理用のEdge Function（データベースベース）
 serve(async (req) => {
@@ -10,7 +10,7 @@ serve(async (req) => {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-loan-session',
       },
     })
   }
@@ -88,12 +88,19 @@ serve(async (req) => {
         })
 
       case 'change':
-        // まず現在のパスワードを検証
+        {
+        const auth = await authorizeLoanSession(req, 'admin')
+        if (auth.error) return auth.error
+        if (!['system', 'admin'].includes(passwordType) || typeof newPassword !== 'string' || newPassword.length < 6) {
+          return new Response(JSON.stringify({ success: false, error: 'Invalid password change' }), { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } })
+        }
+        // An admin may initialize a missing system password, but changing an
+        // existing password still requires its current value.
         const { data: currentPasswordData, error: currentFetchError } = await supabase
           .from('password_management')
           .select('password_hash')
           .eq('password_type', passwordType)
-          .single()
+          .maybeSingle()
         
         if (currentFetchError) {
           return new Response(JSON.stringify({
@@ -103,8 +110,11 @@ serve(async (req) => {
         }
         
         // 現在のパスワードを検証
-        const currentInputHash = await hashPassword(currentPassword)
-        if (currentInputHash !== currentPasswordData.password_hash) {
+        if (!currentPasswordData && passwordType !== 'system') {
+          return new Response(JSON.stringify({ success: false, error: '管理者パスワードが未設定です' }), { status: 409, headers: { 'Access-Control-Allow-Origin': '*' } })
+        }
+        const currentInputHash = typeof currentPassword === 'string' ? await hashPassword(currentPassword) : null
+        if (currentPasswordData && currentInputHash !== currentPasswordData.password_hash) {
           return new Response(JSON.stringify({
             success: false,
             error: '現在のパスワードが正しくありません'
@@ -113,13 +123,10 @@ serve(async (req) => {
         
         // 新しいパスワードをハッシュ化して更新
         const newPasswordHash = await hashPassword(newPassword)
-        const { error: updateError } = await supabase
-          .from('password_management')
-          .update({ 
-            password_hash: newPasswordHash,
-            updated_at: new Date().toISOString()
-          })
-          .eq('password_type', passwordType)
+        const passwordTable = supabase.from('password_management')
+        const { error: updateError } = currentPasswordData
+          ? await passwordTable.update({ password_hash: newPasswordHash, updated_at: new Date().toISOString() }).eq('password_type', passwordType)
+          : await passwordTable.insert({ password_type: passwordType, password_hash: newPasswordHash })
         
         if (updateError) {
           console.error('パスワード更新エラー:', updateError)
@@ -141,7 +148,22 @@ serve(async (req) => {
           },
         })
 
+        }
+
       case 'get':
+        {
+        // The login screen needs only the system-password setup flag.
+        // Do not expose admin timestamps or password metadata to anonymous users.
+        if (passwordType === 'system' && !req.headers.get('x-loan-session')) {
+          const { data, error } = await supabase.from('password_management')
+            .select('password_type').eq('password_type', 'system').maybeSingle()
+          if (error) throw error
+          return new Response(JSON.stringify({ success: true, passwords: { system: { status: data ? '設定済み' : '未設定' } } }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          })
+        }
+        const auth = await authorizeLoanSession(req, 'admin')
+        if (auth.error) return auth.error
         // データベースからパスワード状況を取得
         const { data: allPasswords, error: getAllError } = await supabase
           .from('password_management')
@@ -171,6 +193,7 @@ serve(async (req) => {
             'Access-Control-Allow-Origin': '*',
           },
         })
+        }
 
       default:
         return new Response(JSON.stringify({

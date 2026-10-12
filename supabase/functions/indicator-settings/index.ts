@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { authorizeLoanSession } from '../_shared/session.ts'
 
 type IndicatorSettingsPayload = {
   action?: 'get' | 'save' | 'reset'
@@ -22,7 +23,7 @@ type IndicatorSettingsRow = {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-loan-session',
 }
 
 const DEFAULT_SETTINGS = {
@@ -89,6 +90,15 @@ serve(async (req) => {
   }
 
   try {
+    let payload: IndicatorSettingsPayload
+    try {
+      payload = await req.json()
+    } catch (_error) {
+      payload = {}
+    }
+    const action = payload.action ?? 'get'
+    const auth = await authorizeLoanSession(req, action === 'get' ? 'any' : 'admin')
+    if (auth.error) return auth.error
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
 
     if (!serviceRoleKey) {
@@ -99,15 +109,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       serviceRoleKey
     )
-
-    let payload: IndicatorSettingsPayload
-    try {
-      payload = await req.json()
-    } catch (_error) {
-      payload = {}
-    }
-
-    const action = payload.action ?? 'get'
 
     if (action === 'get') {
       const { data, error } = await supabase

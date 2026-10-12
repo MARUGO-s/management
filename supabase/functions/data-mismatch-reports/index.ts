@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { authorizeLoanSession } from '../_shared/session.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-loan-session',
 }
 
 serve(async (req) => {
@@ -13,13 +14,14 @@ serve(async (req) => {
   }
 
   try {
+    const { action, reportData } = await req.json()
+    const auth = await authorizeLoanSession(req, action === 'create' ? 'any' : 'admin')
+    if (auth.error) return auth.error
     // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
-
-    const { action, reportData } = await req.json()
 
     if (action === 'create') {
       // レポートIDを生成（例：DM-20250116-001）

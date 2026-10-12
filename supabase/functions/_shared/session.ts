@@ -44,3 +44,20 @@ export async function verifySessionToken(token: string | null | undefined): Prom
     return null
   }
 }
+
+// A public Supabase anon JWT only passes the gateway. Application access requires
+// the separately signed loan-session header, with an explicit role check.
+export async function authorizeLoanSession(req: Request, role: 'any' | 'admin'):
+  Promise<{ session: { typ: string, exp: number } | null, error: Response | null }> {
+  const session = await verifySessionToken(req.headers.get('x-loan-session'))
+  const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+  if (!session || !['system', 'admin'].includes(session.typ)) {
+    return { session: null, error: new Response(JSON.stringify({ code: 'SESSION_REQUIRED', error: 'ログインが必要です。' }),
+      { status: 401, headers }) }
+  }
+  if (role === 'admin' && session.typ !== 'admin') {
+    return { session: null, error: new Response(JSON.stringify({ code: 'ADMIN_REQUIRED', error: '管理者権限が必要です。' }),
+      { status: 403, headers }) }
+  }
+  return { session, error: null }
+}
