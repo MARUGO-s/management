@@ -10,7 +10,17 @@
 
   // ハイフン類は入力画面の店舗リストと同じ「‑」(U+2011) にそろえる
   function normalizeStore(name) {
-    return String(name || '').trim().replace(/[-‐‒–−－]/g, '‑');
+    const cleaned = String(name || '').trim().normalize('NFKC').replace(/[-‐‒–−－]/g, '‑');
+    const aliases = {
+      'マルゴ': 'MARUGO', 'マルゴセカンド': 'MARUGO2',
+      'クラウディア2': 'Claudia2',
+      'BISTRO CAVA,CAVA': 'BISTRO CAVACAVA',
+      'BISTRO CAVA CAVA': 'BISTRO CAVACAVA',
+      'BISTROCAVACAVA': 'BISTRO CAVACAVA',
+      'BISTRO CAVA・CAVA': 'BISTRO CAVACAVA',
+      'BISTRO CAVA‑CAVA': 'BISTRO CAVACAVA'
+    };
+    return aliases[cleaned] || cleaned;
   }
 
   function parseAmount(value) {
@@ -63,7 +73,7 @@
     return Math.abs(a - b) < 0.01;
   }
 
-  // 貸借表 A:K の値（1行目は見出し）を判定用の行に変換する
+  // 貸借表 A:L の値（1行目は見出し）を判定用の行に変換する
   function rowsFromSheetValues(values) {
     return (values || []).slice(1).map((r, index) => ({
       originalRowIndex: index + 2,
@@ -77,7 +87,8 @@
       unitPrice: String(r[7] || '').trim(),
       amount: parseAmount(r[8]),
       inputDate: String(r[9] || '').trim(),
-      correction: String(r[10] || '').trim()
+      correction: String(r[10] || '').trim(),
+      receiptId: String(r[11] || '').trim()
     }));
   }
 
@@ -361,9 +372,39 @@
     return results;
   }
 
+  // まだサーバーに送っていない行同士も確認する。異なる正当な取引は確認後に登録できる。
+  function findSimilarWithinBatch(entries) {
+    const duplicates = [];
+    entries.forEach((entry, duplicateIndex) => {
+      for (let firstIndex = 0; firstIndex < duplicateIndex; firstIndex++) {
+        const first = entries[firstIndex];
+        if (parseDate(first.date) === parseDate(entry.date) &&
+          normalizeStore(first.lender) === normalizeStore(entry.lender) &&
+          normalizeStore(first.borrower) === normalizeStore(entry.borrower) &&
+          sameAmount(parseAmount(first.amount), parseAmount(entry.amount)) &&
+          similarItem(first.item, entry.item)) {
+          duplicates.push({ firstIndex, duplicateIndex });
+          break;
+        }
+      }
+    });
+    return duplicates;
+  }
+
+  function findReverseForCorrection(rows, entry) {
+    const date = parseDate(entry.date);
+    const lender = normalizeStore(entry.lender);
+    const borrower = normalizeStore(entry.borrower);
+    const amount = parseAmount(entry.amount);
+    return liveRows(rows, findCorrectionPairs(rows)).find(row =>
+      row.date === date && row.lender === borrower && row.borrower === lender &&
+      Math.round(row.amount * 100) === Math.round(amount * 100) &&
+      row.item === String(entry.item || '').trim()) || null;
+  }
+
   root.DuplicateCheck = {
     normalizeStore, parseAmount, parseDate, parseInputTime, isCorrection, similarItem,
     rowsFromSheetValues, findCorrectionPairs, findSuspects, filterGroupsByPeriod, summarize,
-    findSimilarForNewEntries
+    findSimilarForNewEntries, findSimilarWithinBatch, findReverseForCorrection
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

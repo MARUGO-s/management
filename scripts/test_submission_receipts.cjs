@@ -14,6 +14,7 @@ function server(file) {
   let locked = false, busy = false, failFlush = false;
   let backups = 0, emails = 0, notificationFailure = false;
   const properties = new Map(), sessionCache = new Map();
+  const challengeCache = new Map();
   let sessionChecks = 0;
   const sheet = {
     getMaxColumns: () => 13, getLastColumn: () => 13,
@@ -45,16 +46,25 @@ function server(file) {
     LockService:{getScriptLock:()=>({tryLock(){if (busy) return false;assert(!locked);locked=true;return true;},
       releaseLock(){locked=false;},hasLock:()=>locked})},
     ContentService:{MimeType:{JSON:'json'},createTextOutput:s=>({setMimeType:()=>JSON.parse(s)})},
-    Utilities:{DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,s)=>Array.from(crypto.createHash('sha256').update(s).digest()),
+    Utilities:{formatDate:(date,timezone,pattern)=>{
+      const values=Object.fromEntries(new Intl.DateTimeFormat('en-US',{
+        timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',
+        minute:'2-digit',second:'2-digit',hourCycle:'h23'
+      }).formatToParts(date).map(({type,value})=>[type,value]));
+      const day=`${values.year}/${values.month}/${values.day}`;
+      return pattern==='yyyy-MM-dd'?day.replaceAll('/','-'):`${day} ${values.hour}:${values.minute}:${values.second}`;
+    },DigestAlgorithm:{SHA_256:'sha256'},getUuid:uuid,computeDigest:(_,s)=>Array.from(crypto.createHash('sha256').update(s).digest()),
       base64EncodeWebSafe:bytes=>Buffer.from(bytes.map(b=>(b+256)%256)).toString('base64url')},
-    CacheService:{getScriptCache:()=>({get:k=>sessionCache.get(k)??null,put(k,v){sessionCache.set(k,v);}})},
+    CacheService:{getScriptCache:()=>({get:k=>sessionCache.get(k)??challengeCache.get(k)??null,
+      put(k,v){(k.startsWith('similar-confirm:')?challengeCache:sessionCache).set(k,v);},
+      remove(k){challengeCache.delete(k);}})},
     UrlFetchApp:{fetch(_,options){sessionChecks++;const token=JSON.parse(options.payload).token;
       return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({success:true,valid:token==='valid-token'})};}}
   });
   vm.runInContext(fs.readFileSync(path.resolve(root,file),'utf8'),context);
   context.createBackup=()=>{backups++;if(notificationFailure)throw new Error('backup');};
   context.sendBorrowerEmail_=()=>{emails++;if(notificationFailure)throw new Error('email');};
-  return { rows, context, properties, stats:()=>({backups,emails,locked}),
+  return { rows, context, properties, clearChallenges(){challengeCache.clear();}, stats:()=>({backups,emails,locked}),
     busy(value){busy=value;}, failFlush(){failFlush=true;}, failNotifications(){notificationFailure=true;},
     sessionChecks:()=>sessionChecks,
     // 画面からの送信と同じく、既定で有効なログイントークンを添える。
@@ -74,7 +84,11 @@ for (const file of ['docs/gas_scripts/gas_code_complete.gs','docs/gas_scripts/ga
     assert.equal(s.rows.length,2);
     s.failNotifications();
     const second={...data,receiptId:uuid()};
-    const saved=s.post(second);
+    const blocked=s.post(second);
+    assert.equal(blocked.code,'SIMILAR_TRANSACTION');
+    assert.equal(blocked.written,false);
+    assert.equal(s.rows.length,2);
+    const saved=s.post({...second,duplicateConfirmed:true,confirmationToken:blocked.confirmationToken});
     assert.equal(saved.status,'SUCCESS');
     assert.deepEqual(saved.notifications,{backup:'failed',email:'failed'});
     assert.equal(s.post(second).duplicate,true);
@@ -82,6 +96,177 @@ for (const file of ['docs/gas_scripts/gas_code_complete.gs','docs/gas_scripts/ga
     s.busy(true);
     assert.equal(s.post({...data,receiptId:uuid()}).status,'ERROR');
     assert.equal(s.rows.length,3);
+  });
+  test(file+' distinct receipts from different browsers or one batch need explicit approval',()=>{
+    const s=server(file), first={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    const second={...first,receiptId:uuid()};
+    assert.equal(s.post(first).status,'SUCCESS');
+    assert.equal(s.post({...second,duplicateConfirmed:true}).code,'SIMILAR_TRANSACTION');
+    const challenge=s.post(second);
+    assert.equal(challenge.code,'SIMILAR_TRANSACTION');
+    assert.equal(typeof challenge.confirmationToken,'string');
+    assert.equal(s.rows.length,2);
+    assert.equal(s.post({...second,duplicateConfirmed:true,confirmationToken:challenge.confirmationToken}).status,'SUCCESS');
+    assert.equal(s.post(second).duplicate,true);
+    assert.equal(s.rows.length,3);
+    assert.equal(s.post({...first,item:'B',receiptId:uuid()}).status,'SUCCESS');
+  });
+  test(file+' similarity challenge is bound to receipt and content; expired cache stops writing',()=>{
+    const s=server(file), first={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(first).status,'SUCCESS');
+    const second={...first,receiptId:uuid()};
+    const challenge=s.post(second);
+    assert.equal(challenge.code,'SIMILAR_TRANSACTION');
+    assert.equal(s.post({...second,receiptId:uuid(),duplicateConfirmed:true,confirmationToken:challenge.confirmationToken}).code,'SIMILAR_TRANSACTION');
+    assert.equal(s.post({...second,name:'他の人',duplicateConfirmed:true,confirmationToken:challenge.confirmationToken}).code,'SIMILAR_TRANSACTION');
+    s.clearChallenges();
+    assert.equal(s.post({...second,duplicateConfirmed:true,confirmationToken:challenge.confirmationToken}).code,'SIMILAR_TRANSACTION');
+    assert.equal(s.rows.length,2);
+  });
+  test(file+' correction flag without a real origin is rejected, not used to bypass similarity',()=>{
+    const s=server(file), data={...payload('シャンティ'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const bypass=s.post({...data,receiptId:uuid(),isCorrection:true});
+    assert.equal(bypass.status,'ERROR');
+    assert.equal(bypass.written,false);
+    assert.equal(s.rows.length,2);
+  });
+  test(file+' similar item spelling and full-width amount challenge a second receipt',()=>{
+    const s=server(file), data={...payload('アサヒ シャンティ'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const next={...data,item:'シャンティ',amount:'１００',receiptId:uuid()};
+    assert.equal(s.post(next).code,'SIMILAR_TRANSACTION');
+    assert.equal(s.rows.length,2);
+  });
+  test(file+' correction cannot reverse the same original twice',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const reverse={...data,lender:'B',borrower:'A',isCorrection:true,originalRowIndex:2,receiptId:uuid()};
+    assert.equal(s.post(reverse).status,'SUCCESS');
+    const duplicate=s.post({...reverse,receiptId:uuid()});
+    assert.equal(duplicate.status,'ERROR');
+    assert.equal(duplicate.written,false);
+    assert.equal(s.rows.length,3);
+  });
+  test(file+' correction marker cannot be omitted with a client-supplied alternative',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const forged=s.post({...data,lender:'B',borrower:'A',isCorrection:true,correctionMark:'other',originalRowIndex:2,receiptId:uuid()});
+    assert.equal(forged.status,'ERROR');
+    assert.equal(forged.written,false);
+    assert.equal(s.rows.length,2);
+  });
+  test(file+' correction origin must match a live reverse entry',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const invalid=s.post({...data,lender:'B',borrower:'A',item:'different',isCorrection:true,originalRowIndex:2,receiptId:uuid()});
+    assert.equal(invalid.status,'ERROR');
+    assert.equal(invalid.written,false);
+    assert.equal(s.rows.length,2);
+  });
+  test(file+' correction origin index must resolve to the selected live row',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const reverse={...data,lender:'B',borrower:'A',isCorrection:true,originalRowIndex:9999,receiptId:uuid()};
+    assert.equal(s.post(reverse).status,'ERROR');
+    assert.equal(s.rows.length,2);
+    const originalTime=s.rows[1][9];
+    assert.equal(s.post({...reverse,originalCreatedAt:originalTime}).status,'SUCCESS');
+    assert.equal(s.rows.length,3);
+  });
+  test(file+' correction origin receipt ID is checked against the matched live row',()=>{
+    const s=server(file), original={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(original).status,'SUCCESS');
+    assert.equal(s.post({...payload('B'),receiptId:uuid(),receiptVersion:1}).status,'SUCCESS');
+    const reverse={...original,lender:'B',borrower:'A',isCorrection:true,originalRowIndex:2,
+      originalRowId:uuid(),receiptId:uuid()};
+    assert.equal(s.post(reverse).status,'ERROR');
+    assert.equal(s.rows.length,3);
+    assert.equal(s.post({...reverse,originalRowId:original.receiptId}).status,'SUCCESS');
+    assert.equal(s.rows.length,4);
+    assert.equal(s.rows[2][10],'✏️修正');
+  });
+  test(file+' blank transaction date falls back to input date for correction origin',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    s.rows[1][0]='';s.rows[1][9]='2026/09/29 11:00:00';
+    const reverse={...data,lender:'B',borrower:'A',isCorrection:true,originalRowIndex:2,originalCreatedAt:s.rows[1][9],receiptId:uuid()};
+    assert.equal(s.post(reverse).status,'SUCCESS');
+  });
+  test(file+' historical store casing must not cancel a different client-visible origin',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const correction=[data.date,'テスト','b','a',data.category,data.item,'1','100','100',s.rows[1][9],'✏️修正','',''];
+    s.rows.push(correction);
+    const next=s.post({...data,receiptId:uuid()});
+    assert.equal(next.code,'SIMILAR_TRANSACTION');assert.equal(next.written,false);
+  });
+  test(file+' historical BISTRO CAVA alias challenges a second receipt and validates its correction origin',()=>{
+    const s=server(file),data={...payload('A'),lender:'BISTRO CAVA,CAVA',receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const next=s.post({...data,lender:'BISTRO CAVACAVA',receiptId:uuid()});
+    assert.equal(next.code,'SIMILAR_TRANSACTION');assert.equal(next.written,false);
+    const correction={...data,lender:'B',borrower:'BISTRO CAVACAVA',isCorrection:true,originalRowIndex:2,receiptId:uuid()};
+    assert.equal(s.post(correction).status,'SUCCESS');
+  });
+  test(file+' Date-valued J cells pair the chronologically older correction origin',()=>{
+    const s=server(file),data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const live=s.rows[1];live[9]=new Date('2026-09-29T11:00:00+09:00');
+    const correction=[...live];correction[2]='B';correction[3]='A';correction[9]=new Date('2026-09-29T10:00:00+09:00');correction[10]='✏️修正';correction[11]='';
+    const canceled=[...live];canceled[9]=new Date('2026-09-29T09:00:00+09:00');canceled[11]='';
+    s.rows.push(correction,canceled);
+    const next=s.post({...data,receiptId:uuid()});
+    assert.equal(next.code,'SIMILAR_TRANSACTION');assert.equal(next.written,false);
+    const reverse={...data,lender:'B',borrower:'A',isCorrection:true,originalRowIndex:2,
+      originalCreatedAt:'2026/09/29 11:00:00',receiptId:uuid()};
+    assert.equal(s.post({...reverse,originalCreatedAt:'2026/09/29 12:00:00'}).status,'ERROR');
+    assert.equal(s.rows.length,4);
+    const result=s.post(reverse);
+    assert.equal(result.status,'SUCCESS',JSON.stringify(result));
+  });
+  test(file+' Date-valued origin accepts its unpadded displayed timestamp',()=>{
+    const s=server(file),data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    s.rows[1][9]=new Date('2026-09-29T11:00:00+09:00');
+    const reverse={...data,lender:'B',borrower:'A',isCorrection:true,originalRowIndex:2,
+      originalCreatedAt:'2026/9/29 11:00:00',receiptId:uuid()};
+    assert.equal(s.post({...reverse,originalCreatedAt:'2026/9/29 11:01:00'}).status,'ERROR');
+    assert.equal(s.rows.length,2);
+    assert.equal(s.post(reverse).status,'SUCCESS');
+    assert.equal(s.rows.length,3);
+  });
+  test(file+' BISTRO CAVA-CAVA alias challenges a second receipt and validates its correction origin',()=>{
+    const s=server(file),data={...payload('A'),lender:'BISTRO CAVA-CAVA',receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const next=s.post({...data,lender:'BISTRO CAVACAVA',receiptId:uuid()});
+    assert.equal(next.code,'SIMILAR_TRANSACTION');
+    assert.equal(next.written,false);
+    const correction={...data,lender:'B',borrower:'BISTRO CAVACAVA',isCorrection:true,
+      originalRowIndex:2,receiptId:uuid()};
+    assert.equal(s.post(correction).status,'SUCCESS');
+  });
+  test(file+' unpadded historical input dates pair corrections chronologically',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    s.rows[1][0]='2026/09/30';s.rows[1][9]='2026/9/30 09:00:00';
+    const correction=['2026/10/01','テスト','B','A','飲料','A','1','100','100','2026/10/1 10:00:00','✏️修正','',''];
+    s.rows.push(correction);
+    assert.equal(s.post({...data,date:'2026/09/30',receiptId:uuid()}).status,'SUCCESS');
+  });
+  test(file+' correction cancels the original without warning on a later fresh transaction',()=>{
+    const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    assert.equal(s.post({...data,lender:'B',borrower:'A',isCorrection:true,originalRowIndex:2,receiptId:uuid()}).status,'SUCCESS');
+    assert.equal(s.post({...data,receiptId:uuid()}).status,'SUCCESS');
+    assert.equal(s.rows.length,4);
+  });
+  test(file+' correction spelling must match the original so cancellation is real',()=>{
+    const s=server(file), data={...payload('品Ａ'),receiptId:uuid(),receiptVersion:1};
+    assert.equal(s.post(data).status,'SUCCESS');
+    const wrong={...data,lender:'B',borrower:'A',item:'品A',isCorrection:true,originalRowIndex:2,receiptId:uuid()};
+    assert.equal(s.post(wrong).status,'ERROR');
+    assert.equal(s.rows.length,2);
   });
   test(file+' correction retry and lost response after write',()=>{
     const s=server(file), data={...payload('A'),receiptId:uuid(),receiptVersion:1};
@@ -93,7 +278,7 @@ for (const file of ['docs/gas_scripts/gas_code_complete.gs','docs/gas_scripts/ga
     assert.equal(s.post(data).duplicate,true);
     assert.equal(s.rows.length,2);
     assert.equal(s.properties.size,0);
-    const correction={...data,receiptId:uuid(),isCorrection:true,originalRowIndex:2};
+    const correction={...data,receiptId:uuid(),lender:'B',borrower:'A',isCorrection:true,originalRowIndex:2};
     assert.equal(s.post(correction).status,'SUCCESS');
     assert.equal(s.post(correction).duplicate,true);
     assert.equal(s.rows.length,3);
@@ -171,11 +356,44 @@ function browser(storage = new Map(), locks = new Set()) {
     navigator:{locks:{async request(key, options, callback) {
       if(locks.has(key))return callback(null);
       locks.add(key);try{return await callback({});}finally{locks.delete(key);}
-    }}},fetch:async()=>({ok:true,json:async()=>({idempotencyVersion:1})}),setTimeout:resolve=>resolve()};
+    }}},fetch:async()=>({ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})}),setTimeout:resolve=>resolve()};
   const context=vm.createContext({window,console});
   vm.runInContext(fs.readFileSync(path.join(root,'js/submission-receipts.js'),'utf8'),context);
   return {api:window.LoanReceipts, window, context, storage, approve(){approve=true;}, writes:()=>writes};
 }
+
+test('server similarity challenge asks before retrying the same receipt',async()=>{
+  const b=browser(), s=server('docs/gas_scripts/gas_code_complete.gs');
+  const first={...payload('A'),receiptId:uuid(),receiptVersion:1};
+  assert.equal(s.post(first).status,'SUCCESS');
+  const [next]=b.api.prepare('gas',[payload('A')]);
+  let posts=0;
+  b.window.fetch=async(_,options)=>{posts++;return {ok:true,json:async()=>s.post(JSON.parse(options.body))};};
+  await assert.rejects(()=>b.api.send('gas',next),error=>error.receiptOutcome==='rejected');
+  assert.equal(posts,1);
+  assert.equal(s.rows.length,2);
+  b.approve();
+  const result=await b.api.send('gas',next);
+  assert.equal(result.status,'SUCCESS');
+  assert.equal(posts,3); // one rejected attempt, then same ID challenge and confirmed resend
+  assert.equal(s.rows.length,3);
+  assert.equal(s.rows[1][11],next.receiptId);
+});
+
+test('cache eviction during approval re-prompts and only writes after renewed confirmation',async()=>{
+  const b=browser(),s=server('docs/gas_scripts/gas_code_complete.gs');
+  assert.equal(s.post({...payload('A'),receiptId:uuid(),receiptVersion:1}).status,'SUCCESS');
+  const [next]=b.api.prepare('gas',[payload('A')]);
+  let posts=0,approvals=0;
+  b.window.confirm=()=>{approvals++;return true;};
+  b.window.fetch=async(_,options)=>{
+    posts++;
+    if(posts===2)s.clearChallenges();
+    return {ok:true,json:async()=>s.post(JSON.parse(options.body))};
+  };
+  assert.equal((await b.api.send('gas',next)).status,'SUCCESS');
+  assert.equal(posts,3);assert.equal(approvals,2);assert.equal(s.rows.length,3);
+});
 
 test('receipt survives reload, reorder, partial batch retry, confirmed repeat and intentional repeat',async()=>{
   const b=browser(), p=[payload('A'),payload('B')];
@@ -197,9 +415,20 @@ test('receipt survives reload, reorder, partial batch retry, confirmed repeat an
   assert.notEqual(intentional[1].receiptId,first[1].receiptId);
 });
 
+test('new client rejects old receipt-only GAS before any registration',async()=>{
+  const b=browser();let posts=0;
+  b.window.fetch=async(_,options)=>{
+    if(options?.method)posts++;
+    return {ok:true,json:async()=>({status:'SUCCESS',idempotencyVersion:1,receiptColumnsReady:true})};
+  };
+  await assert.rejects(()=>b.api.ensureServer('gas'),error=>error.receiptOutcome==='notSent' && /類似取引|重複/.test(error.message));
+  assert.equal(posts,0);
+});
+
 test('read-only readiness check creates no registration or notification',()=>{
   const s=server('docs/gas_scripts/gas_code_complete.gs');
   assert.equal(s.context.doGet().idempotencyVersion,1);
+  assert.equal(s.context.doGet().similarityVersion,1);
   assert.equal(s.context.doGet().receiptColumnsReady,true);
   assert.equal(s.rows.length,1);
   assert.deepEqual(s.stats(),{backups:0,emails:0,locked:false});
@@ -224,7 +453,7 @@ test('unreadable relay response (404 HTML) is re-read with the same receipt and 
   const html={ok:false,json:async()=>{throw new SyntaxError('The string did not match the expected pattern.');}};
   let gets=0,posts=0;
   b.window.fetch=async(_,options)=>{
-    if(!options?.method)return ++gets===1?html:{ok:true,json:async()=>({idempotencyVersion:1})};
+    if(!options?.method)return ++gets===1?html:{ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
     const result=s.post(JSON.parse(options.body));
     return ++posts===1?html:{ok:true,json:async()=>result};
   };
@@ -298,18 +527,22 @@ function formContext(b) {
     showCustomAlertDialog(){},showProgressError(){},progressTimer:null,
     originalData:{originalRowIndex:2,inputDate:'2026/09/29 19:00:00'},
     showRegisteredDataConfirmation:async()=>{}});
-  return {get,button};
+  return {get,button,rows};
 }
 
 for(const file of ['pages/js/main.js']) {
   test(file+' actual submitData recovers partial batch without inserting its saved rows again',async()=>{
     const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
     const source=fs.readFileSync(path.join(root,file),'utf8');
+    vm.runInContext(fs.readFileSync(path.join(root,'js/duplicate-check.js'),'utf8'),b.context);
+    let preflightConfirmations=0;
+    b.context.confirm=()=>{preflightConfirmations++;return false;};
+    b.context.callSheetsAPI=async()=>({values:s.rows.map(row=>row.slice(0,12))});
     vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
     b.context.postToGas=data=>b.api.send('gas',data);
     const requests=[];let fail=3;
     b.window.fetch=async(_,options)=>{
-      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1})};
+      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
       const data=JSON.parse(options.body);requests.push(data.receiptId);
       const result=s.post(data);
       if(fail>0 && data.item==='B'){fail--;throw new Error('response lost');}
@@ -322,6 +555,8 @@ for(const file of ['pages/js/main.js']) {
     await b.context.submitData();
     assert.equal(s.rows.length,3);
     assert.equal(new Set(requests).size,2);
+    assert.equal(requests.length,6);
+    assert.equal(preflightConfirmations,0);
   });
 }
 
@@ -333,7 +568,7 @@ for(const file of ['pages/js/main.js']) {
     b.context.postToGas=data=>b.api.send('gas',data);
     b.window.fetch=async(_,options)=>options?.method?
       {ok:true,json:async()=>({status:'ERROR',written:false,message:'他の処理が実行中'})}:
-      {ok:true,json:async()=>({idempotencyVersion:1})};
+      {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
     await b.context.submitData();
     assert.equal(ui.get('errorModal').dataset.tone,'error');
     assert.match(ui.get('errorModalBody').textContent,/登録されていません/);
@@ -347,7 +582,7 @@ for(const file of ['pages/js/main.js']) {
     const source=fs.readFileSync(path.join(root,file),'utf8');
     vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
     let posts=0;
-    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1})};};
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
     await b.context.submitData();
     assert.equal(ui.get('errorModal').dataset.tone,'error');
     assert.match(ui.get('errorModalBody').textContent,/別のタブで送信中/);
@@ -361,7 +596,7 @@ for(const file of ['pages/js/main.js']) {
     const source=fs.readFileSync(path.join(root,file),'utf8');
     vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
     let posts=0;
-    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1})};};
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
     b.context.convertToHalfWidthNumber=v=>v==='1'?'':String(v); // 数量「1」を空欄として扱う
     await b.context.submitData();
     assert.equal(posts,0);
@@ -372,6 +607,33 @@ for(const file of ['pages/js/main.js']) {
 }
 
 for(const file of ['pages/js/main.js']) {
+  test(file+' repeated items within a new batch prompt before the first POST',async()=>{
+    const b=browser(),ui=formContext(b),source=fs.readFileSync(path.join(root,file),'utf8');
+    ui.rows[1].querySelector('.item').value='A';
+    vm.runInContext(fs.readFileSync(path.join(root,'js/duplicate-check.js'),'utf8'),b.context);
+    vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
+    b.context.callSheetsAPI=async()=>({values:[[]]});
+    let asked='',posts=0;
+    b.context.confirm=message=>{asked=message;return false;};
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
+    await b.context.submitData();
+    assert.match(asked,/同じ送信内/);
+    assert.equal(posts,0);
+  });
+  for (const options of [{}, { skipSimilarCheck: true }, { malformed: true }]) test(file+' unavailable sheet preflight stops before any registration (mode='+JSON.stringify(options)+')',async()=>{
+    const b=browser(),ui=formContext(b);
+    const source=fs.readFileSync(path.join(root,file),'utf8');
+    vm.runInContext(fs.readFileSync(path.join(root,'js/duplicate-check.js'),'utf8'),b.context);
+    vm.runInContext(source.slice(source.indexOf('async function submitData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitData('))),b.context);
+    b.context.callSheetsAPI=async()=>{if (options.malformed) return {error:'read unavailable'}; throw new Error('read unavailable');};
+    b.context.postToGas=data=>b.api.send('gas',data);
+    let posts=0;
+    b.window.fetch=async(_,options)=>{if(options?.method){posts++;return {ok:true,json:async()=>({status:'SUCCESS',idempotencyVersion:1,receiptId:JSON.parse(options.body).receiptId})};}return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
+    await b.context.submitData(options);
+    assert.equal(posts,0);
+    assert.equal(ui.get('errorModal').dataset.tone,'error');
+    assert.match(ui.get('errorModalBody').textContent,/重複確認/);
+  });
   test(file+' similar existing entry asks before sending, and cancel sends nothing',async()=>{
     const b=browser(),ui=formContext(b);
     const source=fs.readFileSync(path.join(root,file),'utf8');
@@ -381,7 +643,7 @@ for(const file of ['pages/js/main.js']) {
     b.context.callSheetsAPI=async()=>({values:[['›'],[a.date,'別の人',a.lender,a.borrower,a.category,a.item,'1','100','100','2026/09/29 18:00:00','']]});
     let asked='';b.context.confirm=message=>{asked=message;return false;};
     let posts=0;
-    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1})};};
+    b.window.fetch=async(_,options)=>{if(options?.method)posts++;return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};};
     await b.context.submitData();
     assert.match(asked,/同じ取引がすでに登録されています/);
     assert.equal(posts,0);
@@ -391,14 +653,36 @@ for(const file of ['pages/js/main.js']) {
 }
 
 for(const file of ['pages/js/correction.js']) {
+  test(file+' actual correction accepts a Date-valued origin shown without zero padding',async()=>{
+    const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
+    assert.equal(s.post({...payload('A'),receiptId:uuid(),receiptVersion:1}).status,'SUCCESS');
+    s.rows[1][9]=new Date('2026-09-29T11:00:00+09:00');
+    b.context.originalData.inputDate='2026/9/29 11:00:00';
+    ui.get('lender').value='B';ui.get('borrower').value='A';
+    const source=fs.readFileSync(path.join(root,file),'utf8');
+    vm.runInContext(source.slice(source.indexOf('async function submitCorrectionData('),
+      source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitCorrectionData('))),b.context);
+    let posts=0;
+    b.window.fetch=async(_,options)=>{
+      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
+      posts++;
+      return {ok:true,json:async()=>s.post(JSON.parse(options.body))};
+    };
+    await b.context.submitCorrectionData();
+    assert.equal(posts,1);
+    assert.equal(s.rows.length,3);
+    assert.match(ui.get('successMessage').textContent,/修正データの送信が完了/);
+  });
   test(file+' actual correction retry uses same receipt after its original row shifts',async()=>{
     const b=browser(),ui=formContext(b),s=server('docs/gas_scripts/gas_code_complete.gs');
-    s.rows.push(Array(13).fill(''));
+    assert.equal(s.post({...payload('A'),receiptId:uuid(),receiptVersion:1}).status,'SUCCESS');
+    b.context.originalData.inputDate=s.rows[1][9];
+    ui.get('lender').value='B';ui.get('borrower').value='A';
     const source=fs.readFileSync(path.join(root,file),'utf8');
     vm.runInContext(source.slice(source.indexOf('async function submitCorrectionData('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function submitCorrectionData('))),b.context);
     const requests=[];let fail=3;
     b.window.fetch=async(_,options)=>{
-      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1})};
+      if(!options?.method)return {ok:true,json:async()=>({idempotencyVersion:1,similarityVersion:1})};
       const data=JSON.parse(options.body);requests.push(data.receiptId);const result=s.post(data);
       if(fail>0){fail--;throw new Error('response lost');}
       return {ok:true,json:async()=>result};

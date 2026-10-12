@@ -1139,118 +1139,66 @@ async function searchReverseTransaction() {
   const searchResultContent = document.getElementById('search-result-content');
   const btnText = searchBtn.querySelector('.btn-text');
   const originalText = btnText.textContent;
-
   const currentData = {
-    date: document.getElementById("date").value,
-    name: document.getElementById("name").value,
-    lender: document.getElementById("lender").value,
-    borrower: document.getElementById("borrower").value,
-    category: document.getElementById("category").value,
-    item: document.getElementById("item").value,
-    amount: convertToHalfWidthNumber(document.getElementById("amount").value)
+    date: document.getElementById('date').value,
+    name: document.getElementById('name').value,
+    lender: document.getElementById('lender').value,
+    borrower: document.getElementById('borrower').value,
+    category: document.getElementById('category').value,
+    item: document.getElementById('item').value,
+    quantity: convertToHalfWidthNumber(document.getElementById('quantity').value),
+    unitPrice: convertToHalfWidthNumber(document.getElementById('unitPrice').value),
+    amount: convertToHalfWidthNumber(document.getElementById('amount').value)
   };
-
-  if (!currentData.date || !currentData.lender || !currentData.borrower || !currentData.category || !currentData.item || !currentData.amount) {
-    searchResultContent.innerHTML = `<div class="search-error">❌ すべての項目を入力してから検索してください</div>`;
+  delete searchResultContent.dataset.searchInput;
+  if (!currentData.date || !currentData.lender || !currentData.borrower ||
+      !currentData.category || !currentData.item || !currentData.amount) {
+    searchResultContent.innerHTML = '<div class="search-error">❌ すべての項目を入力してから検索してください</div>';
     searchResult.classList.add('show');
     return;
   }
-
   if (currentData.lender === currentData.borrower) {
-    searchResultContent.innerHTML = `<div class="search-error">❌ 貸主と借主が同じため検索できません</div>`;
+    searchResultContent.innerHTML = '<div class="search-error">❌ 貸主と借主が同じため検索できません</div>';
     searchResult.classList.add('show');
     return;
   }
-
   searchBtn.disabled = true;
   searchBtn.classList.add('loading');
   btnText.textContent = '検索中...';
   searchResult.classList.remove('show');
-
   try {
-    const reverseData = {
-      ...currentData,
-      lender: currentData.borrower,
-      borrower: currentData.lender,
-      searchMode: true
-    };
-
-    console.log('検索データ:', reverseData);
-
-    const response = await fetch(GAS_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reverseData)
-    });
-
-    await delay(800);
-
-    const searchSuccess = Math.random() > 0.4;
-
-    if (searchSuccess) {
-      const matchData = {
-        date: currentData.date,
-        name: "システム検索結果",
-        lender: currentData.borrower,
-        borrower: currentData.lender,
-        category: currentData.category,
-        item: currentData.item,
-        // 追加：数量と単価（数値化して保持）
-        quantity: currentData.quantity || '0',
-        unitPrice: Number(String(currentData.unitPrice || '').replace(/[^\d.]/g, '')) || 0,
-        // 金額は既存がなければ数量×単価で補完
-        amount:
-          Number(String(currentData.amount || '').replace(/[^\d.]/g, '')) ||
-          Math.round((parseFloat(currentData.quantity) || 0) * (Number(currentData.unitPrice) || 0)),
-        inputDate: "2024-12-27 10:30:00",
-        correction: ""
-      };
-    
+    const checker = globalThis.DuplicateCheck;
+    if (!checker?.findReverseForCorrection) throw new Error('検索機能を読み込めませんでした。再読み込みしてください。');
+    const data = await callSheetsAPI('貸借表!A:K', 'GET');
+    const match = checker.findReverseForCorrection(checker.rowsFromSheetValues(data.values || []), currentData);
+    const escape = value => String(value ?? '').replace(/[&<>"']/g, char =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+    if (match) {
+      searchResultContent.dataset.searchInput = JSON.stringify(currentData);
       searchResultContent.innerHTML = `
         <div class="search-match">✅ 逆取引データが見つかりました
           <div class="match-details">
-            <div class="match-details-row"><span class="match-details-label">📅 日付：</span><span class="match-details-value">${matchData.date}</span></div>
-            <div class="match-details-row"><span class="match-details-label">👤 入力者：</span><span class="match-details-value">${matchData.name}</span></div>
-            <div class="match-details-row"><span class="match-details-label">↔︎ 貸主：</span><span class="match-details-value">${matchData.lender}</span></div>
-            <div class="match-details-row"><span class="match-details-label">↔︎ 借主：</span><span class="match-details-value">${matchData.borrower}</span></div>
-            <div class="match-details-row"><span class="match-details-label">📂 カテゴリー：</span><span class="match-details-value">${matchData.category}</span></div>
-            <div class="match-details-row"><span class="match-details-label">📦 品目：</span><span class="match-details-value">${matchData.item}</span></div>
-    
-            <div class="match-details-row"><span class="match-details-label">🔢 個/本/kg：</span>
-              <span class="match-details-value">${typeof matchData.quantity === 'number' ? matchData.quantity.toLocaleString('ja-JP', { minimumFractionDigits: 0, maximumFractionDigits: 10 }) : matchData.quantity}</span></div>
-            <div class="match-details-row"><span class="match-details-label">＠ 単価：</span>
-              <span class="match-details-value">¥${matchData.unitPrice.toLocaleString('ja-JP')}</span></div>
-    
-            <div class="match-details-row"><span class="match-details-label">💴 金額：</span>
-              <span class="match-details-value">¥${matchData.amount.toLocaleString('ja-JP')}</span></div>
+            <div class="match-details-row">📅 日付：${escape(match.date)}</div>
+            <div class="match-details-row">👤 入力者：${escape(match.name)}</div>
+            <div class="match-details-row">↔︎ 貸主：${escape(match.lender)}</div>
+            <div class="match-details-row">↔︎ 借主：${escape(match.borrower)}</div>
+            <div class="match-details-row">📦 品目：${escape(match.item)}</div>
+            <div class="match-details-row">💴 金額：¥${match.amount.toLocaleString('ja-JP')}</div>
           </div>
           <div class="match-actions"><button class="correction-action-btn" id="correction-from-search">✍️ このデータを修正元にして送信</button></div>
         </div>`;
+      if (searchResultContent.dataset.listenerAdded) {
+        searchResultContent.removeEventListener('click', handleSearchResultButtonClick);
+      }
+      searchResultContent.addEventListener('click', handleSearchResultButtonClick);
+      searchResultContent.dataset.listenerAdded = 'true';
     } else {
-      searchResultContent.innerHTML = `
-        <div class="search-no-match">🚫 逆取引データは見つかりませんでした
-          <div style="margin-top:10px; font-size:14px; font-weight:normal;">
-            以下の条件に一致するデータはありません：<br>
-            📅 ${currentData.date}｜👥 ${currentData.borrower} → ${currentData.lender}<br>
-            📂 ${currentData.category}｜📦 ${currentData.item}｜
-            🔢 ${currentData.quantity || '0'}｜
-            ＠ ¥${Number(String(currentData.unitPrice || '').replace(/[^\d.]/g, '') || 0).toLocaleString('ja-JP')}｜
-            💴 ¥${Number(String(currentData.amount || '').replace(/[^\d.]/g, '') || 0).toLocaleString('ja-JP')}
-          </div>
-          <div class="match-actions"><button class="correction-action-btn" id="correction-from-search-new">✍️ 新規修正として送信</button></div>
-        </div>`;
+      searchResultContent.innerHTML = '<div class="search-no-match">🚫 該当する未取消の逆取引は見つかりませんでした。入力内容を確認してください。</div>';
     }
     searchResult.classList.add('show');
-    const existingListener = searchResultContent.dataset.listenerAdded;
-    if (existingListener) {
-        searchResultContent.removeEventListener('click', handleSearchResultButtonClick);
-    }
-    searchResultContent.addEventListener('click', handleSearchResultButtonClick);
-    searchResultContent.dataset.listenerAdded = 'true';
   } catch (error) {
     console.error('検索エラー:', error);
-    searchResultContent.innerHTML = `<div class="search-error">❌ 検索中にエラーが発生しました<br><small>${error.message}</small></div>`;
+    searchResultContent.innerHTML = '<div class="search-error">❌ 逆取引の検索中にエラーが発生しました。再試行してください。</div>';
     searchResult.classList.add('show');
   } finally {
     searchBtn.disabled = false;
@@ -1258,7 +1206,6 @@ async function searchReverseTransaction() {
     btnText.textContent = originalText;
   }
 }
-
 // 送信完了後: 実際にスプレッドシートに登録された最新データを取得して確認表示
 async function showRegisteredDataConfirmation(allPayloads) {
   try {
@@ -1836,11 +1783,25 @@ async function reportDataMismatch(comparison, originalPayloads) {
 }
 
 async function handleSearchResultButtonClick(event) {
-    if (event.target.id === 'correction-from-search') {
-        await handleCorrectionFromSearch('found');
-    } else if (event.target.id === 'correction-from-search-new') {
-        await handleCorrectionFromSearch('not_found');
-    }
+  if (event.target.id !== 'correction-from-search') return;
+  const saved = document.getElementById('search-result-content').dataset.searchInput;
+  const current = {
+    date: document.getElementById('date').value,
+    name: document.getElementById('name').value,
+    lender: document.getElementById('lender').value,
+    borrower: document.getElementById('borrower').value,
+    category: document.getElementById('category').value,
+    item: document.getElementById('item').value,
+    quantity: convertToHalfWidthNumber(document.getElementById('quantity').value),
+    unitPrice: convertToHalfWidthNumber(document.getElementById('unitPrice').value),
+    amount: convertToHalfWidthNumber(document.getElementById('amount').value)
+  };
+  if (!saved || saved !== JSON.stringify(current)) {
+    alert('検索後に入力内容が変わりました。逆取引をもう一度検索してください。');
+    document.getElementById('search-result').classList.remove('show');
+    return;
+  }
+  await handleCorrectionFromSearch('found');
 }
 
 async function handleCorrectionFromSearch(type = 'found') {
@@ -1897,7 +1858,7 @@ async function submitData(options = {}) {
   }
   submitData._isRunning = true;
   
-  const { isCorrection = false, correctionOnly = false, correctionMark = "", skipSimilarCheck = false } = options;
+  const { isCorrection = false, correctionOnly = false, correctionMark = "" } = options;
   console.log('🚀 submitData開始:', { isCorrection, correctionOnly, correctionMark });
   
   const popupOverlay = document.getElementById('status-popup-overlay');
@@ -2192,8 +2153,11 @@ async function submitData(options = {}) {
       return;
     }
 
+    // 既に書き込まれた受付IDを送信前照合から除くため、再送時も同じIDを先に復元する。
+    await window.LoanReceipts.ensureServer(GAS_URL);
+    allPayloads = window.LoanReceipts.prepare(GAS_URL, allPayloads);
     // 似た登録がすでに集計に残っていれば、別の取引かを確認する（別の端末・別の人の入力も対象）
-    if (!isCorrection && !skipSimilarCheck && !(await confirmNoSimilarEntries(allPayloads))) {
+    if (!isCorrection && !(await confirmNoSimilarEntries(allPayloads))) {
       submitBtn.disabled = false;
       submitBtn.classList.remove('loading');
       btnText.textContent = originalText;
@@ -2201,8 +2165,6 @@ async function submitData(options = {}) {
       return;
     }
 
-    await window.LoanReceipts.ensureServer(GAS_URL);
-    allPayloads = window.LoanReceipts.prepare(GAS_URL, allPayloads);
     const registrationResults = [];
 
     // ここから送信UI表示（回転アニメ前にバリデーション済み）
@@ -2378,7 +2340,7 @@ async function submitData(options = {}) {
     if (errorModal && errorModalBody) {
       const failure = window.LoanReceipts.describeFailure(error, error.registeredCount || 0, error.totalCount || 1, true);
       window.LoanReceipts.presentFailure(errorModal, errorModalBody, failure,
-        () => submitData({ ...options, receiptLocked: false, skipSimilarCheck: true }));
+        () => submitData({ ...options, receiptLocked: false }));
       errorModal.classList.add('show');
       // フォーカス制御を削除（シンプルな状態に戻す）
       if (errorModalCloseBtn) {
@@ -2437,21 +2399,25 @@ async function submitData(options = {}) {
 // 送信前の重複確認: これから登録する内容と似た登録が、すでに集計に残っていないかを調べる
 // （判定は js/duplicate-check.js。同じ日付・貸主・借主・金額で品目が同じもの、
 //   同じ人が24時間以内に日付だけ違う同じ内容を登録したもの）。
-// 確認できなかった場合（通信エラー等）は送信を止めない。キャンセルされたら false を返す
+// 読み取りに失敗した場合は二重登録を避けるため送信前に止める。
 async function confirmNoSimilarEntries(payloads) {
   const checker = globalThis.DuplicateCheck;
-  if (!checker) return true;
+  if (!checker) throw Object.assign(new Error('重複確認の機能を読み込めませんでした。再読み込みしてください。'), { receiptOutcome: 'notSent' });
   let rows;
   try {
-    const data = await callSheetsAPI('貸借表!A:K', 'GET');
-    rows = checker.rowsFromSheetValues(data.values || []);
+    const data = await callSheetsAPI('貸借表!A:L', 'GET');
+    if (!Array.isArray(data?.values)) throw new Error('貸借表の読み取り結果が不正です。');
+    const ownReceipts = new Set(payloads.map(payload => payload.receiptId).filter(Boolean));
+    rows = checker.rowsFromSheetValues(data.values).filter(row => !ownReceipts.has(row.receiptId));
   } catch (error) {
-    console.warn('⚠️ 重複確認用のデータを取得できなかったため、確認せずに送信します:', error);
-    return true;
+    console.warn('⚠️ 重複確認用のデータを取得できなかったため送信を停止します:', error);
+    throw Object.assign(new Error('重複確認用のデータを取得できませんでした。送信前に停止しました。時間をおいて再試行してください。'),
+      { receiptOutcome: 'notSent' });
   }
 
   const findings = checker.findSimilarForNewEntries(rows, payloads);
-  if (findings.length === 0) return true;
+  const withinBatch = checker.findSimilarWithinBatch(payloads);
+  if (findings.length === 0 && withinBatch.length === 0) return true;
 
   const unique = list => [...new Set(list)];
   const describe = row => `・${row.date} ${row.lender}→${row.borrower} ${row.item} ¥${row.amount.toLocaleString()}（${row.name} ${row.inputDate} 入力）`;
@@ -2462,6 +2428,14 @@ async function confirmNoSimilarEntries(payloads) {
   const sameTransaction = unique(findings.flatMap(finding => finding.sameTransaction));
   const redated = unique(findings.flatMap(finding => finding.redated));
   const lines = [];
+  if (withinBatch.length > 0) {
+    lines.push(`同じ送信内に同じ取引と思われる行が${withinBatch.length}組あります。`);
+    withinBatch.slice(0, 5).forEach(({ firstIndex, duplicateIndex }) => {
+      lines.push(`・${firstIndex + 1}行目と${duplicateIndex + 1}行目: ${payloads[duplicateIndex].item}`);
+    });
+    if (withinBatch.length > 5) lines.push(`・ほか${withinBatch.length - 5}組`);
+    lines.push('');
+  }
   if (sameTransaction.length > 0) {
     lines.push('同じ取引がすでに登録されています。');
     listRows(sameTransaction, lines);
