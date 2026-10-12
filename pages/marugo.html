@@ -1417,8 +1417,10 @@
 
                         const startDate = document.getElementById('start-date').value;
                         const endDate = document.getElementById('end-date').value;
+                        const storeName = document.getElementById('store-name').value;
+                        this.balanceStoreName = storeName;
 
-                        // 指定期間内のデータをフィルタリング
+                        // 指定期間内かつ選択店舗が関係するデータだけを集計する
                         let results = this.data.filter(row => {
                             // 日付フィルター（より厳密な判定）
                             const rowDateStr = this.extractDateFromDateTime(row.date);
@@ -1433,6 +1435,10 @@
                                 return false;
                             }
 
+                            if (storeName) {
+                                const { lender, borrower } = this.getEffectiveParties(row);
+                                return lender === storeName || borrower === storeName;
+                            }
                             return true;
                         });
 
@@ -1522,13 +1528,16 @@
                     }
                     const startDate = document.getElementById('start-date').value;
                     const endDate = document.getElementById('end-date').value;
+                    const storeName = document.getElementById('store-name').value;
                     const { groups } = window.DuplicateCheck.findSuspects(this.data, { correctionResult: this.getCorrectionResult() });
                     const periodGroups = window.DuplicateCheck.filterGroupsByPeriod(groups, startDate, endDate);
-                    this.duplicateGroups = periodGroups;
+                    const visibleGroups = storeName ? periodGroups.filter(group => group.rows.some(row =>
+                        row.lender === storeName || row.borrower === storeName)) : periodGroups;
+                    this.duplicateGroups = visibleGroups;
                     // 行をクリックして逆取引修正に進めるよう、表示する行を検索結果として持つ
-                    this.searchResults = [...new Set([].concat(...periodGroups.map(group => group.rows)))];
-                    this.log(`重複チェック完了: ${periodGroups.length}グループ`, 'success');
-                    this.displayDuplicateCheck(periodGroups, startDate, endDate);
+                    this.searchResults = [...new Set([].concat(...visibleGroups.map(group => group.rows)))];
+                    this.log(`重複チェック完了: ${visibleGroups.length}グループ`, 'success');
+                    this.displayDuplicateCheck(visibleGroups, startDate, endDate);
                 }
 
                 duplicateRoleOf(group, row) {
@@ -2114,8 +2123,10 @@
                         }
                     });
 
-                    // 残高を計算してソート（残高の絶対値で降順）
-                    const sortedStores = Object.values(storeData).map(store => {
+                    // 残高を計算してソート（店舗指定時は相手店舗の集計行を表示しない）
+                    const storeName = this.balanceStoreName;
+                    const sortedStores = Object.values(storeData).filter(store =>
+                        !storeName || store.storeName === storeName).map(store => {
                         store.balance = store.lentAmount - store.borrowedAmount;
                         store.totalTransactions = store.lentCount + store.borrowedCount;
                         return store;
@@ -2383,6 +2394,7 @@
                 // 店舗別貸借り合計サマリーカード更新（店舗別残高のカードを除く）
                 updateStoreBalanceSummaryCardsWithoutStoreDetails(sortedStores) {
                     const summaryCards = document.getElementById('summary-cards');
+                    const scopeLabel = this.balanceStoreName ? '選択店舗合計' : '全店舗合計';
 
                     // 総計を計算
                     let totalLent = 0;
@@ -2412,7 +2424,7 @@
                 <div class="summary-card positive">
                     <h3>総貸出金額</h3>
                     <div class="value">¥${totalLent.toLocaleString()}</div>
-                    <p>全店舗合計</p>
+                    <p>${scopeLabel}</p>
                     <div class="breakdown">
                         指定期間内の貸出総額
                     </div>
@@ -2420,7 +2432,7 @@
                 <div class="summary-card negative">
                     <h3>総借入金額</h3>
                     <div class="value">¥${totalBorrowed.toLocaleString()}</div>
-                    <p>全店舗合計</p>
+                    <p>${scopeLabel}</p>
                     <div class="breakdown">
                         指定期間内の借入総額
                     </div>
@@ -2428,7 +2440,7 @@
                 <div class="summary-card ${totalBalance >= 0 ? 'positive' : 'negative'}">
                     <h3>総残高</h3>
                     <div class="value">${totalBalance >= 0 ? '+' : ''}¥${totalBalance.toLocaleString()}</div>
-                    <p>全店舗合計</p>
+                    <p>${scopeLabel}</p>
                     <div class="breakdown">
                         貸出 - 借入
                     </div>
@@ -3706,8 +3718,9 @@
                             }
                         });
 
-                        // 残高を計算してソート（残高の絶対値で降順）
-                        const sortedStores = Object.values(storeData).map(store => {
+                        // 残高を計算してソート（画面で表示している店舗だけを出力）
+                        const sortedStores = Object.values(storeData).filter(store =>
+                            !this.balanceStoreName || store.店舗名 === this.balanceStoreName).map(store => {
                             store.残高 = store.貸出金額 - store.借入金額;
                             return store;
                         }).sort((a, b) => Math.abs(b.残高) - Math.abs(a.残高));
