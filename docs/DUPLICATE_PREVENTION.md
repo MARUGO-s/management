@@ -48,11 +48,23 @@
 
 今回の類似確認追加では、旧画面は `SIMILAR_TRANSACTION` を解釈できず疑わしい別受付IDではエラー表示・送信停止となる。新版画面は旧GASのGETに `similarityVersion: 1` がないため送信前に停止する。GASを先に反映し、公開バージョンを確認してから画面を更新する。旧画面の開きっぱなしや別ブラウザが残る期間は短くし、必要な利用者へ再読み込みを案内する。
 
+## 重複チェックの確認状態（「問題なし」として非表示）— 未反映
+
+店舗別貸借分析の「🔁 重複チェック」で、確認して問題ないと分かった候補を**全員の画面から隠せる**。表示を隠すだけで、重複の判定・月次報告の件数と参考額からは消さない（月次報告では【確認済み】と表示）。取引データ（貸借表）は変更しない。
+
+- 画面: 各候補の見出しに「✓ 問題なし（非表示）」。確認者の名前（必須・40文字以内。前回の名前を `localStorage.duplicateReviewer` から初期表示）と任意のメモ（200文字以内）を入力し、確認ダイアログの後に保存する。保存後はデータを読み直さずに表示を更新する。失敗時は表示を変えない。集計カードは未確認の候補だけを数え、「問題なしとして非表示: Nグループ（判定は残っています）」と「非表示にした候補も表示／非表示の候補を隠す」を表示する。非表示の候補は灰色で「確認済み：確認者・日時・メモ」と「表示に戻す」を出す。CSVは非表示の候補も含め、確認状態・確認者・確認日時・確認メモ列を付ける（先頭が `= + - @` の値は `'` を付けて数式にしない）。確認状態を読めないときは全候補を表示し、その旨を表示する。
+- 確認キー: `DuplicateCheck.groupKey(group)` = `dr1_` + 16進28桁（cyrb53 を2つのシードで計算。TextEncoder・crypto 不要でGASと同じ値）。元にするのは `[確度, 種類, 構成行の並べ替え済み一覧]`。構成行は `[取引日, 空白を除いた名前, 店舗名（normalizeStore→大文字、BISTRO+CAVA は統一）, 同・借主, 品目（trim+NFKC）, 金額（銭単位の整数）, 入力日時（ミリ秒。読めなければ文字列）, 修正フラグ]`。行番号（行の挿入でずれる）と受付ID（月次報告は読まない）は使わない。重複行が増えるなど構成が変わるとキーが変わり、未確認として再表示される。
+- 保存先: 同じスプレッドシートの「重複確認」シート（無ければ初回保存時に作成）。列は `記録日時 | 確認キー | 状態（非表示／表示に戻す） | 確認者 | メモ | 確度 | 種類 | 対象の要約`。追記のみで、キーごとに最後の行が有効。要約に入力者名は入れない。確認者はログイン（共有パスワード）では識別できないため、画面で入力された名前をそのまま記録する（本人確認ではない）。
+- GAS: `doPost` のログイン確認の直後、受付ID検証・登録処理より前に `action: 'listDuplicateReviews'`（`{status, duplicateReviewVersion: 1, reviews: {キー: {hidden, reviewer, reviewedAt(JST yyyy/MM/dd HH:mm), note}}}`）と `action: 'setDuplicateReview'`（キー形式・hidden真偽値・確認者・メモ・確度を検証、`sheetText_` で数式化を防止、ScriptLock内で追記）を処理する。貸借表・受付列・バックアップ・メールには触れない。`latestDuplicateReviews_()` は月次報告からも使う。GETに `duplicateReviewVersion: 1` を追加。
+- 画面側: `js/duplicate-review.js`（`window.DuplicateReview.list() / set()`、入力画面と同じ `/exec` へ `text/plain` でセッショントークン付きPOST）。応答が読めないとき（通信断・Googleの404 HTML）だけ1回送り直す（保存は最後の記録が有効なので送り直しても状態は同じ）。`SESSION_REQUIRED` ではログイン情報を消してログインを促す。旧GASは確認状態の要求を登録として扱い、受付ID検証で**書き込まずに**エラーを返すため、画面は「未対応のサーバー」と表示して全候補を表示する。
+- **反映には GAS（`コード.js`・`DuplicateCheck.js`）の更新と、既存デプロイID `AKfycbxxrH8Z…W58w3HTW` の新バージョンへの redeploy が必要**（HEADの更新だけでは `/exec` は旧版のまま）。GASを先に反映し、GETで `duplicateReviewVersion: 1` を確認してから画面を公開する。
+
 ## テスト
 
 ```sh
 node --test scripts/test_submission_receipts.cjs
 node --test scripts/test_duplicate_check.cjs scripts/test_reverse_search.cjs scripts/test_monthly_duplicate_report.cjs
+node --test scripts/test_duplicate_review.cjs
 ```
 
 GAS2種類のモックと実クライアントの登録関数を使い、同ID再送、内容衝突、修正、保存後の応答消失、途中成功・再送、複数タブ、並び替え、保存エラー、意図した別取引、同じ内容の元行が複数ある修正、修正の修正、日付違いの再入力を検証する。画面とGASの修正の組はランダムな履歴3,000件で一致を確認する。`node --test scripts/test_*.cjs` で144件が成功（2026-10-13）。本番APIへの登録POST・メール送信には接続しないため、本番での類似確認ゲートの実行結果を示すテストではない。

@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>店舗別貸借分析システム</title>
-    <link href="css/styles.css?v=2026100701" rel="stylesheet" />
+    <link href="css/styles.css?v=2026101401" rel="stylesheet" />
     <script src="../config.js?v=2026101201"></script>
     <!-- シンプル認証システム -->
     <script src="../js/simple-auth.js?v=2026101201"></script>
@@ -19,7 +19,9 @@
     <!-- API使用量インジケーター -->
     <script src="../js/usage-indicator.js?v=2026101201"></script>
     <!-- 重複・入力ミスの疑いの判定（入力画面・月次チェックと共通） -->
-    <script src="../js/duplicate-check.js?v=2026101301"></script>
+    <script src="../js/duplicate-check.js?v=2026101401"></script>
+    <!-- 重複チェックの確認状態（「問題なし」として非表示。全員共通） -->
+    <script src="../js/duplicate-review.js?v=2026101401"></script>
     <script defer="" src="js/scripts.js"></script>
     <script>
         function showSummary() {
@@ -574,7 +576,7 @@
 
                 if (rows.length === 0) return;
                 // 重複チェックの一覧はグループ単位で並べているので並べ替えない
-                if (tbody.querySelector('.dup-group-row')) return;
+                if (tbody.querySelector('.dup-group-row') || tbody.querySelector('.dup-review-bar')) return;
 
                 // ソート方向を決定
                 if (sortDirection[columnIndex] === 'asc') {
@@ -1526,6 +1528,8 @@
 
                 // 重複チェック: 重複・入力ミスの疑いを確度別に一覧表示する（判定は js/duplicate-check.js）
                 // 開始日・終了日を入れると、その期間の日付を含むグループだけを表示する
+                // 「問題なし」として非表示にした候補（js/duplicate-review.js、全員共通）は既定で隠す。
+                // 表示を隠すだけで判定は残る（月次報告では【確認済み】として載る）。
                 checkDuplicates() {
                     if (!this.data || this.data.length === 0) {
                         this.log('データを先に読み込んでください。', 'error');
@@ -1536,13 +1540,57 @@
                     const storeName = document.getElementById('store-name').value;
                     const { groups } = window.DuplicateCheck.findSuspects(this.data, { correctionResult: this.getCorrectionResult() });
                     const periodGroups = window.DuplicateCheck.filterGroupsByPeriod(groups, startDate, endDate);
-                    const visibleGroups = storeName ? periodGroups.filter(group => group.rows.some(row =>
+                    const storeGroups = storeName ? periodGroups.filter(group => group.rows.some(row =>
                         row.lender === storeName || row.borrower === storeName)) : periodGroups;
-                    this.duplicateGroups = visibleGroups;
+                    this.duplicateCheckView = {
+                        startDate, endDate,
+                        groups: storeGroups.map(group => ({ group, key: window.DuplicateCheck.groupKey(group) }))
+                    };
+                    this.showHiddenDuplicates = false;
+
+                    const api = window.DuplicateReview;
+                    if (!api || typeof api.list !== 'function') {
+                        this.duplicateReviewState = { status: 'error', reviews: {}, message: '確認状態の読み込み機能が見つかりません' };
+                        this.renderDuplicateCheck();
+                        return Promise.resolve();
+                    }
+                    const request = (this.duplicateReviewRequest || 0) + 1;
+                    this.duplicateReviewRequest = request;
+                    this.log('重複チェック: 確認状態を読み込み中...', 'loading');
+                    return api.list().then(reviews => ({ status: 'ok', reviews: reviews || {} }), error => {
+                        console.warn('重複チェックの確認状態を読み込めませんでした:', error);
+                        return { status: 'error', reviews: {}, message: (error && error.message) || '' };
+                    }).then(state => {
+                        if (request !== this.duplicateReviewRequest) return; // 後から始めたチェックを優先
+                        this.duplicateReviewState = state;
+                        this.renderDuplicateCheck();
+                    });
+                }
+
+                // 読み込み済みの判定結果と確認状態から表示し直す（データの再読み込み・再判定はしない）
+                renderDuplicateCheck() {
+                    const view = this.duplicateCheckView;
+                    if (!view) return;
+                    const state = this.duplicateReviewState || { status: 'error', reviews: {} };
+                    const reviews = state.reviews || {};
+                    const entries = view.groups.map(({ group, key }) => {
+                        const review = reviews[key];
+                        return { group, key, review: review && review.hidden === true ? review : null };
+                    });
+                    const active = entries.filter(entry => !entry.review);
+                    const hidden = entries.filter(entry => entry.review);
+                    // CSV は表示の切替に関係なく全候補（未確認 → 確認済みの順。画面の番号と同じ）
+                    this.duplicateEntries = active.concat(hidden);
+                    const shown = this.showHiddenDuplicates ? active.concat(hidden) : active;
+                    this.duplicateGroups = shown.map(entry => entry.group);
                     // 行をクリックして逆取引修正に進めるよう、表示する行を検索結果として持つ
-                    this.searchResults = [...new Set([].concat(...visibleGroups.map(group => group.rows)))];
-                    this.log(`重複チェック完了: ${visibleGroups.length}グループ`, 'success');
-                    this.displayDuplicateCheck(visibleGroups, startDate, endDate);
+                    this.searchResults = [...new Set([].concat(...shown.map(entry => entry.group.rows)))];
+                    if (state.status === 'ok') {
+                        this.log(`重複チェック完了: ${active.length}グループ${hidden.length ? `（問題なしとして非表示 ${hidden.length}グループ）` : ''}`, 'success');
+                    } else {
+                        this.log(`重複チェック完了: ${entries.length}グループ（確認状態を読み込めなかったため全候補を表示）`, 'error');
+                    }
+                    this.displayDuplicateCheck(shown, { active, hidden, state }, view.startDate, view.endDate);
                 }
 
                 duplicateRoleOf(group, row) {
@@ -1552,19 +1600,32 @@
                     return group.duplicateRows.length > 0 ? '残す候補' : '確認';
                 }
 
-                displayDuplicateCheck(groups, startDate, endDate) {
+                // 確認シートに残す候補の要約（入力者名は入れない）
+                duplicateGroupSummary(group) {
+                    const row = group.rows[0] || {};
+                    const amount = Math.round(Number(row.amount) || 0).toLocaleString();
+                    return `${row.date || ''} ${row.lender || ''}→${row.borrower || ''} ${String(row.item || '').trim()} ¥${amount}` +
+                        (group.rows.length > 1 ? ` ×${group.rows.length}` : '');
+                }
+
+                displayDuplicateCheck(shown, info, startDate, endDate) {
                     const resultsSection = document.getElementById('results-section');
                     resultsSection.style.display = 'block';
+                    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
                     document.getElementById('details-title').textContent = '重複チェック - 重複・入力ミスの疑い';
                     document.getElementById('details-subtitle').innerHTML = `
                 <small style="color: white; font-size: 12px;">
                     高 = 重複の疑いが強い、中 = 重複の可能性、要確認 = 入力ミスの可能性<br>
-                    ▶ 重複と確認できた行をクリックすると、逆取引修正で取り消せます（行は削除しません）
+                    ▶ 重複と確認できた行をクリックすると、逆取引修正で取り消せます（行は削除しません）<br>
+                    ▶ 問題ないと確認できた候補は「✓ 問題なし（非表示）」で全員の画面から隠せます（判定は残ります）
                 </small>
             `;
 
-                    const summary = window.DuplicateCheck.summarize(groups);
+                    // 集計は未確認の候補だけ（非表示にした候補を表示しても変えない）
+                    const summary = window.DuplicateCheck.summarize(info.active.map(entry => entry.group));
+                    const hiddenLine = info.hidden.length > 0
+                        ? `<br><strong>問題なしとして非表示: ${info.hidden.length}グループ（判定は残っています）</strong>` : '';
                     const formatDate = (dateStr) => (dateStr || '').replace(/-/g, '/');
                     const periodLabel = startDate || endDate ? `${formatDate(startDate)} 〜<br>${formatDate(endDate)}` : '全期間';
                     document.getElementById('summary-cards').innerHTML = `
@@ -1589,35 +1650,57 @@
                 <div class="summary-card positive">
                     <h3>チェック範囲</h3>
                     <div class="value" style="font-size: 1.2rem;">${periodLabel}</div>
-                    <div class="breakdown">修正で取り消し済みの行は対象外</div>
+                    <div class="breakdown">修正で取り消し済みの行は対象外${hiddenLine}</div>
                 </div>
             `;
                     showSummary();
 
+                    const buttonStyle = 'margin-left: 8px; padding: 2px 10px; font-size: 12px; font-weight: normal; border: 1px solid #5a7c5a; background: #fff; color: #3f5f3f; border-radius: 4px; cursor: pointer;';
+                    const notices = [];
+                    if (info.state.status !== 'ok') {
+                        notices.push(`<span style="color: #a94442;">⚠ 確認状態を読み込めませんでした。非表示にした候補も含めて全候補を表示しています${info.state.message ? `（${escapeHtml(info.state.message)}）` : ''}。</span>`);
+                    }
+                    if (info.hidden.length > 0) {
+                        notices.push(`問題なしとして非表示: ${info.hidden.length}グループ（判定は残っています）
+                            <button type="button" class="dup-toggle-hidden" style="${buttonStyle}">${this.showHiddenDuplicates ? '非表示の候補を隠す' : '非表示にした候補も表示'}</button>`);
+                    }
+                    const noticeRow = notices.length
+                        ? `<tr class="dup-review-bar"><td colspan="10" style="background: #fff8e1; color: #5c4a1a;">${notices.join('<br>')}</td></tr>` : '';
+
                     const detailsTable = document.getElementById('details-table');
-                    if (groups.length === 0) {
-                        detailsTable.innerHTML = '<tr><td colspan="10" class="no-results">重複・入力ミスの疑いは見つかりませんでした</td></tr>';
+                    if (shown.length === 0) {
+                        const empty = info.hidden.length > 0
+                            ? '表示中の候補はありません（問題なしとして非表示の候補は「非表示にした候補も表示」で確認できます）'
+                            : '重複・入力ミスの疑いは見つかりませんでした';
+                        detailsTable.innerHTML = noticeRow + `<tr><td colspan="10" class="no-results">${empty}</td></tr>`;
                         currentTableData = [];
+                        this.bindDuplicateReviewButtons();
                         return;
                     }
 
-                    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
                     const levelLabel = { high: '高', medium: '中', check: '要確認' };
                     const levelColor = { high: '#a94442', medium: '#8a6a2a', check: '#4a5a6b' };
                     const roleClass = { '重複の疑い': 'type-借入', 'どちらか一方が重複': 'type-借入', '残す候補': 'type-貸出' };
-                    detailsTable.innerHTML = groups.map((group, index) => {
+                    detailsTable.innerHTML = noticeRow + shown.map((entry, index) => {
+                        const { group, key, review } = entry;
+                        const muted = review ? ' opacity: 0.6;' : '';
+                        const reviewHtml = review
+                            ? `<div style="font-weight: normal; color: #555; margin-top: 4px;">確認済み：${escapeHtml(review.reviewer)}・${escapeHtml(review.reviewedAt)}${review.note ? `・${escapeHtml(review.note)}` : ''}
+                                <button type="button" class="dup-review-btn" data-review-action="show" data-group-key="${escapeHtml(key)}" style="${buttonStyle}">表示に戻す</button></div>`
+                            : `<button type="button" class="dup-review-btn" data-review-action="hide" data-group-key="${escapeHtml(key)}" style="${buttonStyle}" title="表示を隠すだけで、判定や月次報告からは消えません">✓ 問題なし（非表示）</button>`;
                         const header = `
-                    <tr class="dup-group-row" style="background: #f1f3f5;">
+                    <tr class="dup-group-row${review ? ' dup-group-reviewed' : ''}" style="background: ${review ? '#e9ecef' : '#f1f3f5'};${muted}">
                         <td colspan="10" style="font-weight: bold; color: ${levelColor[group.level]};">
                             ${index + 1}. 【${levelLabel[group.level]}】${escapeHtml(group.kind)}
                             <span style="font-weight: normal; color: #555;">— ${escapeHtml(group.note)}${group.extraAmount ? `・重複分 ¥${group.extraAmount.toLocaleString()}` : ''}</span>
+                            ${reviewHtml}
                         </td>
                     </tr>`;
                         const rows = group.rows.map(row => {
                             const role = this.duplicateRoleOf(group, row);
                             const unitPriceDisplay = row.unitPrice ? '¥' + this.parseAmount(row.unitPrice).toLocaleString() : '';
                             return `
-                    <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;" title="クリックして逆取引修正（シート${row.originalRowIndex}行目）">
+                    <tr class="data-row" data-original-row-index="${row.originalRowIndex}" style="cursor: pointer;${muted}" title="クリックして逆取引修正（シート${row.originalRowIndex}行目）">
                         <td>${escapeHtml(row.date)}</td>
                         <td><span class="type-tag ${roleClass[role] || 'type-貸借'}">${role}</span></td>
                         <td>${escapeHtml(row.lender)} → ${escapeHtml(row.borrower)}</td>
@@ -1639,6 +1722,97 @@
                         header.classList.remove('sort-asc', 'sort-desc');
                     });
                     this.addRowClickEvents();
+                    this.bindDuplicateReviewButtons();
+                }
+
+                // 見出し行のボタン。行のクリック（逆取引修正）には伝えない
+                bindDuplicateReviewButtons() {
+                    document.querySelectorAll('.dup-review-btn').forEach(button => {
+                        button.addEventListener('click', event => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            return this.reviewDuplicateGroup(button.dataset.groupKey, button.dataset.reviewAction === 'hide');
+                        });
+                    });
+                    document.querySelectorAll('.dup-toggle-hidden').forEach(button => {
+                        button.addEventListener('click', event => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            this.toggleHiddenDuplicates();
+                        });
+                    });
+                }
+
+                toggleHiddenDuplicates() {
+                    this.showHiddenDuplicates = !this.showHiddenDuplicates;
+                    this.renderDuplicateCheck();
+                }
+
+                // hidden: true =「問題なし」として非表示、false = 表示に戻す（全員共通・確認者と日時を記録）
+                async reviewDuplicateGroup(key, hidden) {
+                    const entry = (this.duplicateEntries || []).find(item => item.key === key);
+                    if (!entry || this.duplicateReviewSaving) return;
+                    if (!this.duplicateReviewState || this.duplicateReviewState.status !== 'ok') {
+                        // 確認状態を読めていない間に保存すると、その候補だけが隠れて「全候補を表示中」の案内と食い違う
+                        this.showCustomAlertDialog('確認状態を読み込めていないため、保存できません。もう一度「重複チェック」を押してから操作してください。');
+                        return;
+                    }
+                    if (!window.DuplicateReview || typeof window.DuplicateReview.set !== 'function') {
+                        this.showCustomAlertDialog('確認状態を保存する機能が読み込まれていません。ページを再読み込みしてください。');
+                        return;
+                    }
+                    let savedName = '';
+                    try { savedName = localStorage.getItem('duplicateReviewer') || ''; } catch (_) { savedName = ''; }
+                    const nameInput = window.prompt(hidden
+                        ? '「問題なし」として非表示にします。確認した人の名前を入力してください（必須・40文字以内）'
+                        : '表示に戻します。操作する人の名前を入力してください（必須・40文字以内）', savedName);
+                    if (nameInput === null || nameInput === undefined) return;
+                    const reviewer = String(nameInput).trim();
+                    if (!reviewer || reviewer.length > 40) {
+                        this.showCustomAlertDialog(reviewer ? '名前は40文字以内で入力してください。保存していません。' : '名前を入力してください。保存していません。');
+                        return;
+                    }
+                    let note = '';
+                    if (hidden) {
+                        const noteInput = window.prompt('メモ（任意・200文字以内）例: 両店で別々の正当な取引', '');
+                        if (noteInput === null || noteInput === undefined) return;
+                        note = String(noteInput).trim();
+                        if (note.length > 200) {
+                            this.showCustomAlertDialog('メモは200文字以内で入力してください。保存していません。');
+                            return;
+                        }
+                    }
+                    const message = hidden
+                        ? `この候補を「問題なし」として非表示にします。\n\n` +
+                          `・画面の表示を隠すだけです。重複の判定は残り、月次報告にも「確認済み」として載ります。\n` +
+                          `・取引データ（貸借表）は変更しません。\n` +
+                          `・全員の画面で非表示になります。「非表示にした候補も表示」からいつでも表示に戻せます。\n\n` +
+                          `確認者: ${reviewer}${note ? `\nメモ: ${note}` : ''}\n\nよろしいですか？`
+                        : `この候補を表示に戻します（未確認の候補として全員の画面に表示されます）。\n` +
+                          `取引データ（貸借表）は変更しません。\n\n操作した人: ${reviewer}\n\nよろしいですか？`;
+                    if (!window.confirm(message)) return;
+                    try { localStorage.setItem('duplicateReviewer', reviewer); } catch (_) { /* 保存できなくても続ける */ }
+
+                    this.duplicateReviewSaving = true;
+                    this.log(hidden ? '確認状態を保存中（非表示）...' : '確認状態を保存中（表示に戻す）...', 'loading');
+                    try {
+                        const review = await window.DuplicateReview.set({
+                            key, hidden, reviewer, note,
+                            level: entry.group.level, kind: entry.group.kind,
+                            summary: this.duplicateGroupSummary(entry.group)
+                        });
+                        const state = this.duplicateReviewState || { status: 'error', reviews: {} };
+                        state.reviews = Object.assign({}, state.reviews, { [key]: review });
+                        this.duplicateReviewState = state;
+                        this.renderDuplicateCheck();
+                        this.log(hidden ? '問題なしとして非表示にしました（判定は残っています）' : '表示に戻しました', 'success');
+                    } catch (error) {
+                        const reason = (error && error.message) || '不明なエラー';
+                        this.log(`確認状態を保存できませんでした: ${reason}`, 'error');
+                        this.showCustomAlertDialog(`保存できませんでした（表示は変えていません）: ${reason}`);
+                    } finally {
+                        this.duplicateReviewSaving = false;
+                    }
                 }
 
                 // 店舗別検索機能
@@ -3260,17 +3434,23 @@
                     console.log('📊 exportResults() が呼ばれました');
                     console.log('検索結果数:', this.searchResults.length);
 
+                    // 重複チェックは「問題なし」として非表示にした候補もCSVに出す（表示中が0件でも出せる）
+                    const detailsTitle = document.getElementById('details-title')?.textContent || '';
+                    if (detailsTitle.includes('重複チェック')) {
+                        if (!(this.duplicateEntries || []).length && this.searchResults.length === 0) {
+                            this.showCustomAlertDialog('エクスポートするデータがありません');
+                            return;
+                        }
+                        this.exportDuplicateCheck();
+                        return;
+                    }
+
                     if (this.searchResults.length === 0) {
                         this.showCustomAlertDialog('エクスポートするデータがありません');
                         return;
                     }
 
                     // 店舗別貸借り合計・M-mart分析の集計CSVは、画面と同じく相殺ペアを除いた行で直接エクスポート
-                    const detailsTitle = document.getElementById('details-title')?.textContent || '';
-                    if (detailsTitle.includes('重複チェック')) {
-                        this.exportDuplicateCheck();
-                        return;
-                    }
                     if (detailsTitle.includes('店舗別貸借り合計') || detailsTitle.includes('残高一覧') || detailsTitle.includes('M-mart分析')) {
                         console.log('集計表示のため、画面と同じ行で直接エクスポートします');
                         this.performExport(this.getAggregationRows(this.searchResults).effectiveRows, 'include', []);
@@ -3854,11 +4034,19 @@
                     this.log('CSV出力完了', 'success');
                 }
 
-                // 重複チェックの一覧をCSVに（グループごとに全行、判定とメモ付き）
+                // 重複チェックの一覧をCSVに（グループごとに全行、判定とメモ付き）。
+                // 「問題なし」として非表示にした候補も含め、確認状態・確認者・確認日時・確認メモを付ける
                 exportDuplicateCheck() {
                     const levelLabel = { high: '高', medium: '中', check: '要確認' };
                     const lines = [];
-                    (this.duplicateGroups || []).forEach((group, index) => {
+                    const reviewLoaded = (this.duplicateReviewState || {}).status === 'ok';
+                    // 他の人が入力した名前・メモが表計算ソフトで数式として動かないようにする
+                    const csvText = value => {
+                        const text = String(value ?? '');
+                        return /^[=+\-@\t\r]/.test(text) ? "'" + text : text;
+                    };
+                    const entries = this.duplicateEntries || (this.duplicateGroups || []).map(group => ({ group, review: null }));
+                    entries.forEach(({ group, review }, index) => {
                         group.rows.forEach(row => {
                             lines.push({
                                 グループ: index + 1,
@@ -3877,7 +4065,11 @@
                                 入力者: row.name,
                                 入力日時: row.inputDate,
                                 修正: row.correction || '',
-                                メモ: group.note + (group.extraAmount ? `・重複分 ¥${group.extraAmount.toLocaleString()}` : '')
+                                メモ: group.note + (group.extraAmount ? `・重複分 ¥${group.extraAmount.toLocaleString()}` : ''),
+                                確認状態: review ? '確認済み（非表示）' : (reviewLoaded ? '未確認' : '不明（確認状態を読み込めず）'),
+                                確認者: csvText(review ? review.reviewer : ''),
+                                確認日時: csvText(review ? review.reviewedAt : ''),
+                                確認メモ: csvText(review ? review.note : '')
                             });
                         });
                     });

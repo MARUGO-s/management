@@ -710,7 +710,9 @@ tr:hover {
 #results-table td:nth-child(8) {
     text-align: right;
     white-space: nowrap; 
-    font-family: 'Courier New', monospace;
+    /* 集計カードと同じ書体（¥ の字形をそろえる）。桁は等幅数字でそろえる */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-variant-numeric: tabular-nums;
     font-weight: bold;
 }
 
@@ -720,7 +722,8 @@ tr:hover {
 .amount {
     text-align: right !important;
     font-weight: bold !important;
-    font-family: 'Courier New', monospace !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    font-variant-numeric: tabular-nums;
 }
 
 .amount.positive {

@@ -57,6 +57,11 @@ function doPost(e) {
       return createJsonResponse({ status: 'ERROR', written: false, code: 'SESSION_REQUIRED',
         message: 'ログインの有効期限が切れました。ログインし直してから送信してください。' }, 401);
     }
+    // 重複チェックの確認状態（画面で「問題なし」として非表示）。取引の登録・修正とは別の処理で、
+    // 貸借表・受付ID・バックアップ・メールには触れない。
+    if (data.action === 'listDuplicateReviews') return listDuplicateReviewsResponse_();
+    if (data.action === 'setDuplicateReview') return setDuplicateReview_(data);
+
     Logger.log("✅ 受信データ: " + JSON.stringify({receiptId: data.receiptId, action: data.action || 'registration', isCorrection: data.isCorrection === true}));
 
     // CSVアップロード処理
@@ -663,12 +668,119 @@ function createJsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 }
 
+// --- 重複チェックの確認状態（「問題なし」として非表示） ---
+// 同じスプレッドシートの「重複確認」シートに追記だけする（行は消さない）。確認キーごとに最後の行が有効。
+// 表示を隠す記録で、重複の判定・月次報告の件数からは消さない。確認者は画面で入力された名前
+// （ログインは共有パスワードで個人を識別しない）。月次報告には確認者名を載せない。
+const DUPLICATE_REVIEW_SHEET_NAME = '重複確認';
+const DUPLICATE_REVIEW_HEADER = ['記録日時', '確認キー', '状態', '確認者', 'メモ', '確度', '種類', '対象の要約'];
+const DUPLICATE_REVIEW_KEY_PATTERN = /^dr1_[0-9a-f]{28}$/; // DuplicateCheck.groupKey と同じ形式
+const DUPLICATE_REVIEW_HIDDEN = '非表示';
+const DUPLICATE_REVIEW_SHOWN = '表示に戻す';
+const DUPLICATE_REVIEW_LEVELS = ['high', 'medium', 'check'];
+
+function duplicateReviewText_(value) {
+  // sheetText_ で付けた先頭の ' を外して元の文字に戻す
+  return String(value == null ? '' : value).replace(/^'(?=[=+\-@])/, '');
+}
+
+function duplicateReviewTime_(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+  }
+  const match = String(value || '').match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  return match ? `${match[1]}/${match[2].padStart(2, '0')}/${match[3].padStart(2, '0')} ${match[4].padStart(2, '0')}:${match[5]}`
+    : String(value || '').trim();
+}
+
+// 確認キー → { hidden, reviewer, reviewedAt, note }。シートが無ければ {}（月次報告からも使う）
+function latestDuplicateReviews_() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(DUPLICATE_REVIEW_SHEET_NAME);
+  const reviews = {};
+  if (!sheet || sheet.getLastRow() < 2) return reviews;
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, DUPLICATE_REVIEW_HEADER.length).getValues().forEach(row => {
+    const key = String(row[1] || '').trim();
+    const state = String(row[2] || '').trim();
+    if (!DUPLICATE_REVIEW_KEY_PATTERN.test(key)) return;
+    if (state !== DUPLICATE_REVIEW_HIDDEN && state !== DUPLICATE_REVIEW_SHOWN) return;
+    reviews[key] = {
+      hidden: state === DUPLICATE_REVIEW_HIDDEN,
+      reviewer: duplicateReviewText_(row[3]),
+      reviewedAt: duplicateReviewTime_(row[0]),
+      note: duplicateReviewText_(row[4])
+    };
+  });
+  return reviews;
+}
+
+function listDuplicateReviewsResponse_() {
+  try {
+    return createJsonResponse({ status: 'SUCCESS', duplicateReviewVersion: 1, reviews: latestDuplicateReviews_() });
+  } catch (error) {
+    Logger.log('❌ 重複確認の読み取りエラー: ' + error.toString());
+    return createJsonResponse({ status: 'ERROR', duplicateReviewVersion: 1, written: false,
+      message: '確認状態を読み取れませんでした: ' + error.message });
+  }
+}
+
+function duplicateReviewInvalid_(message) {
+  return createJsonResponse({ status: 'ERROR', duplicateReviewVersion: 1, written: false,
+    code: 'INVALID_DUPLICATE_REVIEW', message: message });
+}
+
+function setDuplicateReview_(data) {
+  const singleLine = value => String(value).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+  const key = typeof data.key === 'string' ? data.key : '';
+  if (!DUPLICATE_REVIEW_KEY_PATTERN.test(key)) return duplicateReviewInvalid_('確認キーが不正です。画面を再読み込みしてください。');
+  if (typeof data.hidden !== 'boolean') return duplicateReviewInvalid_('非表示・表示の指定が不正です。');
+  if (typeof data.reviewer !== 'string') return duplicateReviewInvalid_('確認者の名前を入力してください。');
+  const reviewer = singleLine(data.reviewer);
+  if (!reviewer) return duplicateReviewInvalid_('確認者の名前を入力してください。');
+  if (reviewer.length > 40) return duplicateReviewInvalid_('確認者の名前は40文字以内にしてください。');
+  const note = data.note == null ? '' : singleLine(data.note);
+  if (note.length > 200) return duplicateReviewInvalid_('メモは200文字以内にしてください。');
+  if (DUPLICATE_REVIEW_LEVELS.indexOf(data.level) < 0) return duplicateReviewInvalid_('確度が不正です。');
+  const kind = singleLine(data.kind == null ? '' : data.kind).slice(0, 120);
+  const summary = singleLine(data.summary == null ? '' : data.summary).slice(0, 300);
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) {
+    return createJsonResponse({ status: 'ERROR', duplicateReviewVersion: 1, written: false,
+      message: '他の処理が実行中のため保存できませんでした。数秒後に再度お試しください。' });
+  }
+  try {
+    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = spreadsheet.getSheetByName(DUPLICATE_REVIEW_SHEET_NAME);
+    if (!sheet) {
+      sheet = spreadsheet.insertSheet(DUPLICATE_REVIEW_SHEET_NAME);
+      sheet.getRange(1, 1, 1, DUPLICATE_REVIEW_HEADER.length).setValues([DUPLICATE_REVIEW_HEADER]);
+    }
+    const now = new Date();
+    const recordedAt = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss');
+    const row = [recordedAt, key, data.hidden ? DUPLICATE_REVIEW_HIDDEN : DUPLICATE_REVIEW_SHOWN,
+      reviewer, note, data.level, kind, summary].map(sheetText_);
+    const target = sheet.getRange(Math.max(sheet.getLastRow(), 1) + 1, 1, 1, row.length);
+    // 名前「0012」やメモ「1/2」が数値・日付に変換されないよう、書式なしテキストで書く
+    if (typeof target.setNumberFormat === 'function') target.setNumberFormat('@');
+    target.setValues([row]);
+    SpreadsheetApp.flush();
+    return createJsonResponse({ status: 'SUCCESS', duplicateReviewVersion: 1, key: key,
+      review: { hidden: data.hidden, reviewer: reviewer, reviewedAt: duplicateReviewTime_(recordedAt), note: note } });
+  } catch (error) {
+    Logger.log('❌ 重複確認の保存エラー: ' + error.toString());
+    return createJsonResponse({ status: 'ERROR', duplicateReviewVersion: 1, written: 'unknown',
+      message: '確認状態を保存できませんでした: ' + error.message });
+  } finally {
+    if (lock.hasLock()) lock.releaseLock();
+  }
+}
+
 function doGet() {
   try {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(TARGET_SHEET_NAME);
     const ready = !!sheet && receiptColumnsAvailable_(sheet);
     return createJsonResponse({ status: 'SUCCESS', message: 'GAS動作確認OK (GET)',
-      idempotencyVersion: 1, similarityVersion: 1, duplicateRulesVersion: 2, receiptColumnsReady: ready });
+      idempotencyVersion: 1, similarityVersion: 1, duplicateRulesVersion: 2, duplicateReviewVersion: 1, receiptColumnsReady: ready });
   } catch (error) {
     return createJsonResponse({ status: 'ERROR', message: error.message, idempotencyVersion: 1,
       receiptColumnsReady: false });
