@@ -4,7 +4,8 @@
 // 毎月1日 6時台（日本時間）に前月を主対象として報告し、前々月の追加・未確認候補を別枠で補足する。
 // LINE Report の mtalk-loan-report へ送る（管理アプリのSupabaseとは別プロジェクト）。
 // M-talk の「貸借管理 報告」Bot として、全権管理者との1対1と Bot を招待したルームに届く。
-// 入力者名は送らない（日付・店舗・品目・金額・件数だけ）。
+// 入力者名・確認者名は送らない（日付・店舗・品目・金額・件数だけ）。画面で「問題なし」として非表示にされた候補は
+// 件数に残したまま【確認済み】を付ける（コード.js の latestDuplicateReviews_ で「重複確認」シートを読む）。
 //
 // スクリプトプロパティ:
 //   LOAN_MTALK_TOKEN  LINE Report の secret と同じ値（32文字以上）。コード・ログには書かない
@@ -46,7 +47,7 @@ function sendDuplicateReport_(dryRun) {
 
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(TARGET_SHEET_NAME);
   const values = sheet.getRange(1, 1, sheet.getLastRow(), 11).getDisplayValues();
-  const payload = buildDuplicateReportPayload_(DuplicateCheck.rowsFromSheetValues(values), new Date(), formatJst_);
+  const payload = buildDuplicateReportPayload_(DuplicateCheck.rowsFromSheetValues(values), new Date(), formatJst_, readDuplicateReviews_());
   payload.dry_run = dryRun === true;
 
   const body = JSON.stringify(payload);
@@ -68,6 +69,18 @@ function sendDuplicateReport_(dryRun) {
   // 失敗は例外にして、予約の失敗通知（GAS の通知メール）で気付けるようにする。同じ月をやり直しても二重には届かない
   if (status !== 200) throw new Error('重複チェック報告を送れませんでした（' + status + '）');
   return JSON.parse(text);
+}
+
+// 画面で「問題なし」として非表示にされた候補（コード.js の latestDuplicateReviews_、「重複確認」シート）。
+// 読めなくても報告は止めず null を返す（その回は【確認済み】を付けず、読めなかったことを要点に書く）。
+function readDuplicateReviews_() {
+  try {
+    if (typeof latestDuplicateReviews_ !== 'function') return null;
+    return latestDuplicateReviews_() || {};
+  } catch (error) {
+    console.warn('重複チェックの確認状態を読めませんでした: ' + error.message);
+    return null;
+  }
 }
 
 function formatJst_(date, pattern) {
@@ -120,8 +133,11 @@ function duplicateReportPeriod_(now, format) {
 
 // 前月優先の報告（M-talk のカードに載せる見出し・項目・要点）を組み立てる。
 // rows は DuplicateCheck.rowsFromSheetValues の結果、format(date, pattern) は日本時間の書式化。
-// 月をまたぐグループは前月を優先して1回だけ載せる。確認済みの状態は持たない。
-function buildDuplicateReportPayload_(rows, now, format) {
+// 月をまたぐグループは前月を優先して1回だけ載せる。
+// reviews は確認キー（DuplicateCheck.groupKey）→ { hidden, ... }。hidden の候補は件数・参考額に残したまま
+// 要点に【確認済み】を付け、未確認の候補を先に載せる。確認者名・メモは載せない。
+// null / 省略は「確認状態を読めなかった」扱い（目印を付けず、要点にその旨を書く）。
+function buildDuplicateReportPayload_(rows, now, format, reviews) {
   const period = duplicateReportPeriod_(now, format);
   const start = period.start;
   const end = period.end;
@@ -134,19 +150,31 @@ function buildDuplicateReportPayload_(rows, now, format) {
     .filter(group => inPeriod.indexOf(group) < 0);
   const supplementarySummary = DuplicateCheck.summarize(supplementary);
   const isNew = group => group.rows.some(row => DuplicateCheck.parseInputTime(row.inputDate) >= previousReportTime);
+  // 判定が旧版（groupKey なし）なら確認状態は使えない
+  const reviewsAvailable = !!reviews && typeof reviews === 'object' && typeof DuplicateCheck.groupKey === 'function';
+  const isConfirmed = group => {
+    if (!reviewsAvailable) return false;
+    const review = reviews[DuplicateCheck.groupKey(group)];
+    return !!review && review.hidden === true;
+  };
+  const confirmedCount = groups => groups.filter(isConfirmed).length;
+  const confirmedField = groups => confirmedCount(groups) > 0
+    ? [{ label: 'うち確認済み', value: confirmedCount(groups) + 'グループ' }] : [];
 
   const yen = value => '¥' + Math.round(value).toLocaleString('ja-JP');
   const safe = text => !looksLikePersonalInfo_(text);
   const describe = (group, isSupplementary) => {
     const row = group.rows[0];
-    const mark = isSupplementary && isNew(group) ? '【追加】' : '';
+    // 目印の順: 【追加】【確認済み】
+    const mark = (isSupplementary && isNew(group) ? '【追加】' : '') + (isConfirmed(group) ? '【確認済み】' : '');
     if (group.level === 'check') return mark + row.date + ' ' + row.lender + '→' + row.borrower + ' ' + row.item + ' 要確認：' + group.kind;
     if (group.eitherSide) return mark + group.kind + '・' + group.duplicateRows.length + '品 ' + yen(group.extraAmount);
     return mark + row.date + ' ' + row.lender + '→' + row.borrower + ' ' + row.item + ' ' + yen(row.amount) +
       (group.rows.length > 1 ? ' ×' + group.rows.length : '');
   };
   const topItems = (groups, count, isSupplementary) => groups.slice()
-    .sort((a, b) => b.extraAmount - a.extraAmount || String(b.rows[0].date).localeCompare(String(a.rows[0].date)))
+    .sort((a, b) => (isConfirmed(a) ? 1 : 0) - (isConfirmed(b) ? 1 : 0) ||
+      b.extraAmount - a.extraAmount || String(b.rows[0].date).localeCompare(String(a.rows[0].date)))
     .map(group => describe(group, isSupplementary)).filter(safe).slice(0, count)
     .map(text => text.length > 200 ? text.slice(0, 199) + '…' : text);
   const levelGroups = level => inPeriod.filter(group => group.level === level);
@@ -158,7 +186,7 @@ function buildDuplicateReportPayload_(rows, now, format) {
       fields: [
         { label: '候補行', value: summary.high.duplicateRows + '件（' + summary.high.groups + 'グループ）' },
         { label: '参考候補額', value: yen(summary.high.extraAmount) }
-      ],
+      ].concat(confirmedField(levelGroups('high'))),
       items: topItems(levelGroups('high'), 5)
     });
   }
@@ -168,16 +196,18 @@ function buildDuplicateReportPayload_(rows, now, format) {
       fields: [
         { label: '候補行', value: summary.medium.duplicateRows + '件（' + summary.medium.groups + 'グループ）' },
         { label: '参考候補額', value: yen(summary.medium.extraAmount) }
-      ],
+      ].concat(confirmedField(levelGroups('medium'))),
       items: topItems(levelGroups('medium'), 3)
     });
   }
   if (summary.check.groups > 0) {
     const kinds = {};
     levelGroups('check').forEach(group => { kinds[group.kind] = (kinds[group.kind] || 0) + 1; });
+    const checkConfirmed = confirmedField(levelGroups('check'));
     sections.push({
       heading: '前月：要確認（入力ミスの可能性）',
-      fields: Object.keys(kinds).slice(0, 8).map(kind => ({ label: kind.replace(/（.*$/, '').slice(0, 24), value: kinds[kind] + '件' })),
+      fields: Object.keys(kinds).slice(0, 8 - checkConfirmed.length)
+        .map(kind => ({ label: kind.replace(/（.*$/, '').slice(0, 24), value: kinds[kind] + '件' })).concat(checkConfirmed),
       items: []
     });
   }
@@ -192,7 +222,7 @@ function buildDuplicateReportPayload_(rows, now, format) {
         { label: '可能性の候補', value: supplementarySummary.medium.duplicateRows + '件（' + supplementarySummary.medium.groups + 'グループ）・参考' + yen(supplementarySummary.medium.extraAmount) },
         { label: '要確認候補', value: supplementarySummary.check.groups + 'グループ' },
         { label: '追加の目安', value: supplementary.filter(isNew).length + 'グループ' }
-      ],
+      ].concat(confirmedField(supplementary)),
       items: topItems(supplementary, 5, true)
     });
   }
@@ -202,7 +232,9 @@ function buildDuplicateReportPayload_(rows, now, format) {
     title: '重複チェック（' + period.label + '）',
     subtitle: start.replace(/-/g, '/') + '〜' + end.replace(/-/g, '/') + ' · ' + format(now, 'M/d HH:mm') + ' 作成',
     sections: sections.slice(0, 4),
-    note: '主対象は前月、前々月は別枠の補足です。【追加】は前月1日6:00以降の入力を含む候補（前回の実送信との差分ではありません）。確認済み状態は管理していないため、補足は未取消の候補です。参考候補額は確定損失ではありません。重複と確認できた行だけ「店舗別貸借分析」→「重複チェック」で選び、逆取引修正で取り消してください（行は削除しません）。',
+    note: '主対象は前月、前々月は別枠の補足です。【追加】は前月1日6:00以降の入力を含む候補（前回の実送信との差分ではありません）。' + (reviewsAvailable
+      ? '【確認済み】は画面で問題なしとして非表示にされた候補で、判定は残し件数・参考候補額にも含めます。'
+      : '今回は確認状態を読み取れなかったため【確認済み】の目印はありません。') + '参考候補額は確定損失ではありません。重複と確認できた行だけ「店舗別貸借分析」→「重複チェック」で選び、逆取引修正で取り消してください（行は削除しません）。',
     links: [{ label: '重複チェックを開く', url: LOAN_REPORT_APP_URL }]
   };
 }

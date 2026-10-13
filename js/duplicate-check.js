@@ -431,9 +431,59 @@
       row.item === String(entry.item || '').trim()) || null;
   }
 
+  // 候補グループの「確認キー」（画面で「問題なし」として非表示にした記録を結び付ける）。
+  // シートの行番号は行の挿入でずれ、受付ID（L列）は月次報告が読まないため、どちらも使わない。
+  // 行の内容だけから作り、GAS（getDisplayValues → rowsFromSheetValues）と解析画面の行
+  // （名前・品目が未トリム、数量の書式違い）で同じ値になる。グループに行が加わる・減るなど
+  // 構成が変わればキーも変わり、候補は未確認として再び表示される。
+  function storeIdentity(name) {
+    const store = normalizeStore(name).toUpperCase();
+    // 解析画面の normalizeStoreName は大文字小文字を問わず BISTRO と CAVA を含む名前をそろえる
+    return store.includes('BISTRO') && store.includes('CAVA') ? 'BISTRO CAVACAVA' : store;
+  }
+
+  function groupMemberIdentity(row) {
+    const time = parseInputTime(row.inputDate);
+    return [
+      String(row.date || ''),
+      compactName(row.name),
+      storeIdentity(row.lender),
+      storeIdentity(row.borrower),
+      String(row.item || '').trim().normalize('NFKC'),
+      Math.round((Number(row.amount) || 0) * 100),
+      Number.isFinite(time) ? time : String(row.inputDate || '').trim(),
+      isCorrection(row)
+    ];
+  }
+
+  // cyrb53（53ビットの非暗号ハッシュ）。TextEncoder・crypto を使わず GAS でも同じ値になる
+  function cyrb53(text, seed) {
+    let h1 = 0xdeadbeef ^ seed;
+    let h2 = 0x41c6ce57 ^ seed;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  }
+
+  // 'dr1_' + 16進28桁。確度・種類・構成行（順不同）が同じなら同じキー
+  function groupKey(group) {
+    const members = (group.rows || []).map(row => JSON.stringify(groupMemberIdentity(row))).sort();
+    const canonical = JSON.stringify([String(group.level || ''), String(group.kind || ''), members]);
+    const hex = seed => cyrb53(canonical, seed).toString(16).padStart(14, '0');
+    return 'dr1_' + hex(0x2d9b) + hex(0x6a1f);
+  }
+
   root.DuplicateCheck = {
     normalizeStore, parseAmount, parseDate, parseInputTime, isCorrection, similarItem,
     rowsFromSheetValues, findCorrectionPairs, findSuspects, filterGroupsByPeriod, summarize,
-    findSimilarForNewEntries, findSimilarWithinBatch, findReverseForCorrection
+    findSimilarForNewEntries, findSimilarWithinBatch, findReverseForCorrection,
+    groupKey, groupMemberIdentity
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -154,7 +154,8 @@ test('前月の候補を先に表示し、前々月は別枠だけに載せ、�
   ]);
   assert.deepEqual(payload.sections[3].items, ['2026-08-05 MITAN→鮨こるり ホールケーキ ¥7,677 ×2']);
   assert.match(payload.note, /参考候補額は確定損失ではありません/);
-  assert.match(payload.note, /確認済み状態は管理していない/);
+  assert.match(payload.note, /確認状態を読み取れなかった|【確認済み】/);
+  assert.doesNotMatch(payload.note, /確認済み状態は管理していない/);
   assert.ok(!JSON.stringify(payload).includes('未処理'));
   assert.ok(!JSON.stringify(payload).includes('瀬戸田レモン'));
   assert.equal(payload.links[0].url, 'https://marugo-s.github.io/management/pages/marugo.html');
