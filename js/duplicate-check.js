@@ -442,8 +442,17 @@
     return store.includes('BISTRO') && store.includes('CAVA') ? 'BISTRO CAVACAVA' : store;
   }
 
+  // 入力日時は時間帯に依存しない「YYYY/MM/DD HH:mm:ss」の文字列にそろえる（ミリ秒値は実行環境の
+  // 時間帯で変わり、ブラウザーとGASでキーが一致しなくなる）
+  function inputTimeIdentity(value) {
+    const text = String(value || '').trim();
+    const m = text.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return text;
+    const pad = n => String(Number(n || 0)).padStart(2, '0');
+    return `${m[1]}/${pad(m[2])}/${pad(m[3])} ${pad(m[4])}:${pad(m[5])}:${pad(m[6])}`;
+  }
+
   function groupMemberIdentity(row) {
-    const time = parseInputTime(row.inputDate);
     return [
       String(row.date || ''),
       compactName(row.name),
@@ -451,7 +460,7 @@
       storeIdentity(row.borrower),
       String(row.item || '').trim().normalize('NFKC'),
       Math.round((Number(row.amount) || 0) * 100),
-      Number.isFinite(time) ? time : String(row.inputDate || '').trim(),
+      inputTimeIdentity(row.inputDate),
       isCorrection(row)
     ];
   }

@@ -1752,6 +1752,11 @@
                 async reviewDuplicateGroup(key, hidden) {
                     const entry = (this.duplicateEntries || []).find(item => item.key === key);
                     if (!entry || this.duplicateReviewSaving) return;
+                    if (!this.duplicateReviewState || this.duplicateReviewState.status !== 'ok') {
+                        // 確認状態を読めていない間に保存すると、その候補だけが隠れて「全候補を表示中」の案内と食い違う
+                        this.showCustomAlertDialog('確認状態を読み込めていないため、保存できません。もう一度「重複チェック」を押してから操作してください。');
+                        return;
+                    }
                     if (!window.DuplicateReview || typeof window.DuplicateReview.set !== 'function') {
                         this.showCustomAlertDialog('確認状態を保存する機能が読み込まれていません。ページを再読み込みしてください。');
                         return;

@@ -806,3 +806,25 @@ test('画面: 一覧の数字列は集計カードと同じ書体（¥ の字形
   assert.match(html, /css\/styles\.css\?v=2026101401/);
   assert.match(html, /¥\$\{row\.amount\.toLocaleString\(\)\}/, '円記号は U+00A5 のまま');
 });
+
+test('確認キーは実行環境の時間帯に左右されない（ブラウザーUTC・GAS日本時間でも一致）', () => {
+  const { execFileSync } = require('node:child_process');
+  const script = `
+    const vm=require('node:vm'),fs=require('node:fs'),ctx={};vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(${JSON.stringify(path.join(root, 'js/duplicate-check.js'))},'utf8'),ctx);
+    const D=ctx.DuplicateCheck;
+    const H=['›','名前','貸主','借主','カテゴリー','品目','個/本','単価','金額','入力日時','修正'];
+    const v=[H,
+      ['2026/09/03','庄司友紀','焼肉マルゴ','MARUGO MARUNOUCHI','飲料','シャンティ','6.00','658','3,948','2026/09/14 22:06:46',''],
+      ['2026/09/03','庄司友紀','焼肉マルゴ','MARUGO MARUNOUCHI','飲料','シャンティ','6.00','658','3,948','2026/09/14 22:10:58',''],
+      ['2026/06/02','大塚沙希子','371BAR',"eric'S",'飲料','Echezeaux','1.00','54,000','54,000','2026/06/10 1:58:39',''],
+      ['2026/06/02','大塚沙希子','371BAR',"eric'S",'飲料','Echezeaux','1.00','54,000','54,000','2026/06/10 2:03:11','']];
+    console.log(JSON.stringify(D.findSuspects(D.rowsFromSheetValues(v)).groups.map(g=>D.groupKey(g)).sort()));`;
+  const run = tz => execFileSync(process.execPath, ['-e', script], { env: { ...process.env, TZ: tz } }).toString().trim();
+  const tokyo = run('Asia/Tokyo');
+  const utc = run('UTC');
+  const la = run('America/Los_Angeles');
+  assert.ok(JSON.parse(tokyo).length >= 2);
+  assert.equal(utc, tokyo);
+  assert.equal(la, tokyo);
+});

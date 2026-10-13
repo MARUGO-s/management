@@ -759,7 +759,10 @@ function setDuplicateReview_(data) {
     const recordedAt = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss');
     const row = [recordedAt, key, data.hidden ? DUPLICATE_REVIEW_HIDDEN : DUPLICATE_REVIEW_SHOWN,
       reviewer, note, data.level, kind, summary].map(sheetText_);
-    sheet.getRange(Math.max(sheet.getLastRow(), 1) + 1, 1, 1, row.length).setValues([row]);
+    const target = sheet.getRange(Math.max(sheet.getLastRow(), 1) + 1, 1, 1, row.length);
+    // 名前「0012」やメモ「1/2」が数値・日付に変換されないよう、書式なしテキストで書く
+    if (typeof target.setNumberFormat === 'function') target.setNumberFormat('@');
+    target.setValues([row]);
     SpreadsheetApp.flush();
     return createJsonResponse({ status: 'SUCCESS', duplicateReviewVersion: 1, key: key,
       review: { hidden: data.hidden, reviewer: reviewer, reviewedAt: duplicateReviewTime_(recordedAt), note: note } });
