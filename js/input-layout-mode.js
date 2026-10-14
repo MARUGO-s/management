@@ -90,10 +90,99 @@
       updateSummary();
     }
 
+    // ---- PC表示の初期行（品目3行＋追加グループ2行）----
+    // 既存の「＋ 品目を追加」「＋ 全データを追加」ボタンを押すのと同じ操作で行を作る（送信処理は無変更）。
+    // 自動で作った行には data-pc-preset を付け、何も入力されないまま残った行は送信直前とスマホ表示への
+    // 切替時に取り除く（「行を削除」を押したのと同じ）。最初からある1行目と、手で追加した行は対象外。
+    var PRESET_ATTR = 'data-pc-preset';
+
+    function rowIsBlank(row) {
+      var fields = ['.category', '.item', '.unit-price', '.quantity', '.amount'];
+      for (var i = 0; i < fields.length; i++) {
+        var el = row.querySelector(fields[i]);
+        if (el && String(el.value || '').trim() !== '') return false;
+      }
+      return !row.querySelector('.category-option.selected');
+    }
+
+    function groupIsBlank(group) {
+      var fields = ['.full-lender', '.full-borrower', '.full-name'];
+      for (var i = 0; i < fields.length; i++) {
+        var el = group.querySelector(fields[i]);
+        if (el && String(el.value || '').trim() !== '') return false;
+      }
+      var rows = group.querySelectorAll('.entry-row');
+      for (var j = 0; j < rows.length; j++) if (!rowIsBlank(rows[j])) return false;
+      return true;
+    }
+
+    function formIsPristine() {
+      var main = doc.querySelectorAll('#entriesContainer .entry-row');
+      if (main.length !== 1 || !rowIsBlank(main[0])) return false;
+      if (doc.querySelectorAll('#extraGroups .full-entry-group').length) return false;
+      var top = ['name', 'lender', 'borrower'];
+      for (var i = 0; i < top.length; i++) {
+        var el = doc.getElementById(top[i]);
+        if (el && String(el.value || '').trim() !== '') return false;
+      }
+      return true;
+    }
+
+    function markNew(selector, before) {
+      var all = doc.querySelectorAll(selector);
+      for (var i = 0; i < all.length; i++) if (before.indexOf(all[i]) < 0) all[i].setAttribute(PRESET_ATTR, '1');
+    }
+
+    function list(selector) { return Array.prototype.slice.call(doc.querySelectorAll(selector)); }
+
+    function addPresetRows() {
+      if (!formIsPristine()) return false;
+      var addRow = doc.getElementById('add-row-btn');
+      var addFull = doc.getElementById('add-full-row-btn');
+      if (!addRow || !addFull) return false;
+      var before = list('#entriesContainer .entry-row');
+      addRow.click();
+      addRow.click();
+      markNew('#entriesContainer .entry-row', before);
+      var groupsBefore = list('#extraGroups .full-entry-group');
+      addFull.click();
+      markNew('#extraGroups .full-entry-group', groupsBefore);
+      var group = doc.querySelector('#extraGroups .full-entry-group[' + PRESET_ATTR + ']');
+      var addItem = doc.querySelector('#extraGroups .group-add-item');
+      if (group && addItem) {
+        var rowsBefore = list('#extraGroups .entry-row');
+        addItem.click();
+        markNew('#extraGroups .entry-row', rowsBefore);
+      }
+      refresh();
+      return true;
+    }
+
+    function removeBlankPresets() {
+      var groups = list('#extraGroups .full-entry-group[' + PRESET_ATTR + ']');
+      for (var g = 0; g < groups.length; g++) {
+        if (!groupIsBlank(groups[g])) continue;
+        var removeBtn = groups[g].querySelector('.remove-full-row');
+        if (removeBtn) removeBtn.click(); else groups[g].remove();
+      }
+      var rows = list('.entry-row[' + PRESET_ATTR + ']');
+      for (var r = 0; r < rows.length; r++) {
+        if (!rows[r].isConnected || !rowIsBlank(rows[r])) continue;
+        var container = rows[r].parentNode;
+        if (container && container.querySelectorAll('.entry-row').length <= 1) continue; // 最後の1行は残す
+        rows[r].remove();
+      }
+      var view = doc.defaultView;
+      if (view && typeof view.refreshRemoveButtonsVisibility === 'function') view.refreshRemoveButtonsVisibility();
+      refresh();
+    }
+
     function apply(next) {
       var pc = next === 'pc';
       if (pc) root.classList.add(PC_CLASS);
       else root.classList.remove(PC_CLASS);
+      if (pc) addPresetRows();
+      else removeBlankPresets();
       refresh();
       return mode();
     }
@@ -105,7 +194,8 @@
       return next;
     }
 
-    return { mode: mode, apply: apply, toggle: toggle, refresh: refresh, summarize: summarize, updateSummary: updateSummary };
+    return { mode: mode, apply: apply, toggle: toggle, refresh: refresh, summarize: summarize, updateSummary: updateSummary,
+      addPresetRows: addPresetRows, removeBlankPresets: removeBlankPresets };
   }
 
   function install(win) {
@@ -134,6 +224,11 @@
         t.click();
       }
     });
+
+    // 送信直前（main.js の送信処理より先＝キャプチャ段階）に、未入力のまま残った自動作成の行だけを取り除く
+    doc.addEventListener('submit', function (e) {
+      if (e.target && e.target.id === 'loanForm') controller.removeBlankPresets();
+    }, true);
 
     // 行の追加・削除や金額の再計算に合わせて、属性と集計を更新（表示のみ）
     var pending = false;
