@@ -9,6 +9,10 @@ const OUT = path.resolve(process.argv[2] || 'dogfood-output/session-recovery');
 const RED = process.argv.includes('--red');
 const LOST = process.argv.includes('--lost-response');
 const BASELINE_REF = process.env.BASELINE_REF;
+// Reuse the same real-controller failure matrix for tablet PC mode.
+const MODES = process.env.RECOVERY_MODES ? process.env.RECOVERY_MODES.split(',') : ['pc','sp'];
+const WIDTH = Number(process.env.RECOVERY_WIDTH || 0);
+const HEIGHT = Number(process.env.RECOVERY_HEIGHT || 900);
 const baselineFiles = new Map();
 function localBody(file) {
   if (!BASELINE_REF) return fs.readFileSync(file);
@@ -37,6 +41,7 @@ const snapshot = page => page.evaluate(() => ({
   error: document.querySelector('#errorModal').classList.contains('show'),
   text: document.querySelector('#errorModalBody').textContent,
   onTop: (() => { const e = document.querySelector('#errorModal .modal-card'), r = e.getBoundingClientRect(); return !!document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('#errorModal'); })(),
+  errorWithinViewport: (() => { const r=document.querySelector('#errorModal .modal-card').getBoundingClientRect(); return r.width>0 && r.x>=0 && r.right<=innerWidth+1 && r.y>=0 && r.bottom<=innerHeight+1; })(),
   name: document.querySelector('#name').value,
   session: !!window.LoanSession.get()
 }));
@@ -62,9 +67,9 @@ async function fillGroup(page, prefix, name, item, price) {
   const results = [];
   try {
     const scenarios = LOST ? ['lost-expired','lost-sheets401','missing'] : BASELINE_REF && !RED ? ['valid','extra-valid'] : ['missing', 'expired', 'sheets401', 'startup401', 'gas-session', 'partial-session', 'initial-login', 'extra-sheets401','valid','extra-valid','preview401'];
-    for (const mode of ['pc', 'sp']) for (const scenario of scenarios) {
+    for (const mode of MODES) for (const scenario of scenarios) {
       if (RED && !['missing','expired','sheets401'].includes(scenario)) continue;
-      const context = await browser.newContext({ viewport: { width: mode === 'pc' ? 1440 : 390, height: 900 }, serviceWorkers: 'block' });
+      const context = await browser.newContext({ viewport: { width: WIDTH || (mode === 'pc' ? 1440 : 390), height: HEIGHT }, serviceWorkers: 'block' });
       await context.tracing.start({ screenshots: true, snapshots: true });
       let navs = 0, recovered = false, loginAttempts = 0;
       const posts = [], endpoints = [], errors = [];
@@ -127,6 +132,10 @@ async function fillGroup(page, prefix, name, item, price) {
         await page.goto(BASE+'/index.html');
         await page.waitForTimeout(1200);
         if (scenario === 'initial-login') {
+          const login=await page.locator('#password-screen .modal-card').boundingBox();
+          const viewport=page.viewportSize();
+          assert(login && login.x>=0 && login.x+login.width<=viewport.width+1 && login.y>=0 && login.y+login.height<=viewport.height+1);
+          await page.screenshot({path:path.join(OUT,`${mode}-initial-login.png`)});
           assert.equal(endpoints.filter(e => ['api-usage-tracker','indicator-settings'].includes(e.endpoint)).length,0,'no authenticated startup API before login');
           await page.locator('#password-input').fill('synthetic-offline-only');
           await page.locator('#password-btn').click();
@@ -162,7 +171,7 @@ async function fillGroup(page, prefix, name, item, price) {
           results.push(row); fs.writeFileSync(path.join(OUT,'results.json'),JSON.stringify(results,null,2));
           await page.screenshot({path:path.join(OUT,`${mode}-${scenario}-failure.png`)});
           if(RED) continue;
-          assert.equal(navs,1); assert(after.error && after.onTop && after.sameDOM); assert.deepEqual(after.fields,before.fields);
+          assert.equal(navs,1); assert(after.error && after.onTop && after.sameDOM && after.errorWithinViewport); assert.deepEqual(after.fields,before.fields);
           assert.match(after.text,/ログイン/);
           assert.equal(posts.length, scenario.startsWith('lost-')?3:scenario==='gas-session'?1:scenario==='partial-session'?2:0);
           await page.locator('#errorModalLoginBtn').waitFor({state:'visible'});
@@ -171,9 +180,13 @@ async function fillGroup(page, prefix, name, item, price) {
           const journal=after.receipts;
           await page.locator('#errorModalLoginBtn').click();
           await page.locator('#password-cancel-btn').click();
+          // Cancel must restore the same error and form; next login remains centered.
           assert.deepEqual((await snapshot(page)).fields,before.fields); assert((await snapshot(page)).error);
           await page.locator('#errorModalLoginBtn').click();
           await page.locator('#password-input').fill('synthetic-offline-wrong'); await page.locator('#password-btn').click();
+          const login=await page.locator('#password-screen .modal-card').boundingBox(), viewport=page.viewportSize();
+          assert(login && login.x>=0 && login.x+login.width<=viewport.width+1 && login.y>=0 && login.y+login.height<=viewport.height+1);
+          await page.screenshot({path:path.join(OUT,`${mode}-${scenario}-login.png`)});
           await page.waitForFunction(() => document.querySelector('#password-error')?.style.display==='block');
           assert.deepEqual((await snapshot(page)).fields,before.fields); assert.deepEqual((await snapshot(page)).receipts,journal);
           await page.locator('#password-input').fill('synthetic-offline-only'); await page.locator('#password-btn').click();
@@ -204,6 +217,6 @@ async function fillGroup(page, prefix, name, item, price) {
       finally { fs.writeFileSync(path.join(OUT,'results.json'),JSON.stringify(results,null,2)); await context.tracing.stop({path:path.join(OUT,`${mode}-${scenario}-trace.zip`)}); await context.close(); }
     }
     if(RED) { assert.equal(results.length,6); assert(results.every(r=>r.navs===2 && !r.error && !r.nameRetained)); console.log('RED reproduced',JSON.stringify(results)); }
-    else { assert.equal(results.length,LOST?6:BASELINE_REF?4:22); console.log(BASELINE_REF?'BASELINE':'GREEN',JSON.stringify(results)); }
+    else { assert.equal(results.length,MODES.length*scenarios.length); console.log(BASELINE_REF?'BASELINE':'GREEN',JSON.stringify(results)); }
   } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exitCode=1});
