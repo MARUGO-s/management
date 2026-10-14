@@ -866,6 +866,64 @@
                     }
                 }
 
+                // 貸借表の列は見出しの完全一致で解決する。質問文の「単価」を価格列と誤認しない。
+                resolveSheetColumns(headers) {
+                    const normalize = value => String(value == null ? '' : value).normalize('NFKC').trim().toLowerCase();
+                    const normalizedHeaders = headers.map(normalize);
+                    const specs = [
+                        ['dateIndex', ['›', '日付', 'date', '取引日']],
+                        ['nameIndex', ['名前', 'name', '入力者']],
+                        ['lenderIndex', ['貸主', 'lender']],
+                        ['borrowerIndex', ['借主', 'borrower']],
+                        ['categoryIndex', ['カテゴリー', 'category']],
+                        ['itemIndex', ['品目', 'item']],
+                        ['quantityIndex', ['個/本/g', '個/本', 'quantity']],
+                        ['unitPriceIndex', ['単価', 'unitPrice']],
+                        ['amountIndex', ['金額', 'amount']],
+                        ['inputDateIndex', ['入力日時', 'inputDate']],
+                        ['correctionIndex', ['修正', 'correction']]
+                    ].map(([key, aliases]) => [key, aliases.map(normalize)]);
+
+                    // B～K列が既存の貸借表の構成なら、A1が変わっても取引日はA列。
+                    // 見出しを直すために元シートへ書き込むことはしない。
+                    const knownLayout = specs.slice(1).every(([, aliases], index) =>
+                        aliases.includes(normalizedHeaders[index + 1]));
+                    const columns = {};
+                    specs.forEach(([key, aliases], position) => {
+                        if (knownLayout) {
+                            columns[key] = position;
+                            return;
+                        }
+                        const matches = normalizedHeaders.reduce((indices, header, index) => {
+                            if (header && aliases.includes(header)) indices.push(index);
+                            return indices;
+                        }, []);
+                        if (matches.length > 1) {
+                            throw new Error(`貸借表の列見出しが重複しています（${aliases[0]}）。列構成を確認してください。`);
+                        }
+                        columns[key] = matches.length === 1 ? matches[0] : -1;
+                    });
+                    specs.forEach(([key, aliases]) => {
+                        if (columns[key] === -1) {
+                            throw new Error(`貸借表の列見出しを確認できません（${aliases[0]}）。列構成を確認してください。`);
+                        }
+                    });
+                    // 受付IDは元の識別子を完全一致で読む。A1と同名でも既知のL列を優先する。
+                    const receiptIndices = headers.reduce((indices, header, index) => {
+                        if (header === '__receipt_id_v1' && (!knownLayout || index >= 11)) indices.push(index);
+                        return indices;
+                    }, []);
+                    if (knownLayout && headers[11] === '__receipt_id_v1') {
+                        columns.receiptIndex = 11;
+                    } else {
+                        if (receiptIndices.length > 1) {
+                            throw new Error('貸借表の受付ID列見出しが重複しています。列構成を確認してください。');
+                        }
+                        columns.receiptIndex = receiptIndices.length === 1 ? receiptIndices[0] : -1;
+                    }
+                    return columns;
+                }
+
                 async connectToGoogleSheets() {
                     this.log('Google Sheets API に接続中...', 'loading');
                     this.showDebugInfo();
@@ -887,36 +945,10 @@
                         // 統合データから必要な情報を設定（management-main-42と同じ処理方法）
                         const values = unifiedData.rawData;
 
-                        // ヘッダー行から列インデックスを取得
                         const headers = values[0] || [];
-                        const getColumnIndex = (aliases) => {
-                            for (const alias of aliases) {
-                                const index = headers.findIndex(header => {
-                                    if (!header) return false; // 空の見出しはどの名前にも部分一致してしまうため除外
-                                    if (header === alias) return true;
-                                    if (header.toLowerCase().includes(alias.toLowerCase()) ||
-                                        alias.toLowerCase().includes(header.toLowerCase())) return true;
-                                    if (alias === 'date' && (header === '›' || header.includes('日付'))) return true;
-                                    return false;
-                                });
-                                if (index !== -1) return index;
-                            }
-                            return -1;
-                        };
-
-                        const dateIndex = getColumnIndex(['›', '日付', 'date', '取引日']);
-                        const nameIndex = getColumnIndex(['名前', 'name', '入力者']);
-                        const lenderIndex = getColumnIndex(['貸主', 'lender']);
-                        const borrowerIndex = getColumnIndex(['借主', 'borrower']);
-                        const categoryIndex = getColumnIndex(['カテゴリー', 'category']);
-                        const itemIndex = getColumnIndex(['品目', 'item']);
-                        const quantityIndex = getColumnIndex(['個/本/g', '個/本', 'quantity']);
-                        const unitPriceIndex = getColumnIndex(['単価', 'unitPrice']);
-                        const amountIndex = getColumnIndex(['金額', 'amount']);
-                        const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']);
-                        const correctionIndex = getColumnIndex(['修正', 'correction']);
-                        // 元行の受付ID（L列）。修正画面が同じ入力日時の別の行と取り違えないように渡す
-                        const receiptIndex = headers.indexOf('__receipt_id_v1');
+                        const { dateIndex, nameIndex, lenderIndex, borrowerIndex, categoryIndex, itemIndex,
+                            quantityIndex, unitPriceIndex, amountIndex, inputDateIndex, correctionIndex, receiptIndex
+                        } = this.resolveSheetColumns(headers);
 
                         console.log('🔍 列インデックス:', { amountIndex, dateIndex, lenderIndex, borrowerIndex });
 
@@ -989,38 +1021,9 @@
                     const headers = values[0];
                     this.debugLog('ヘッダー行', headers);
 
-                    // フィールドマッピング
-                    const getColumnIndex = (aliases) => {
-                        for (const alias of aliases) {
-                            const index = headers.findIndex(header => {
-                                if (!header) return false; // 空の見出しはどの名前にも部分一致してしまうため除外
-                                if (header === alias) return true;
-                                if (header.toLowerCase().includes(alias.toLowerCase()) ||
-                                    alias.toLowerCase().includes(header.toLowerCase())) return true;
-                                if (alias === 'date' && (header === '›' || header.includes('日付'))) return true;
-                                return false;
-                            });
-                            if (index !== -1) {
-                                this.debugLog(`フィールドマッピング成功: ${aliases[0]} -> ${headers[index]} (列${index})`);
-                                return index;
-                            }
-                        }
-                        this.debugLog(`フィールドマッピング失敗: ${aliases[0]}`);
-                        return -1;
-                    };
-
-                    const dateIndex = getColumnIndex(['›', '日付', 'date', '取引日']); // A列
-                    const nameIndex = getColumnIndex(['名前', 'name', '入力者']); // B列
-                    const lenderIndex = getColumnIndex(['貸主', 'lender']); // C列
-                    const borrowerIndex = getColumnIndex(['借主', 'borrower']); // D列
-                    const categoryIndex = getColumnIndex(['カテゴリー', 'category']); // E列
-                    const itemIndex = getColumnIndex(['品目', 'item']); // F列
-                    const quantityIndex = getColumnIndex(['個/本/g', '個/本', 'quantity']); // G列
-                    const unitPriceIndex = getColumnIndex(['単価', 'unitPrice']); // H列
-                    const amountIndex = getColumnIndex(['金額', 'amount']); // I列
-                    const inputDateIndex = getColumnIndex(['入力日時', 'inputDate']); // J列
-                    const correctionIndex = getColumnIndex(['修正', 'correction']); // K列
-                    const receiptIndex = headers.indexOf('__receipt_id_v1'); // L列（元行の受付ID）
+                    const { dateIndex, nameIndex, lenderIndex, borrowerIndex, categoryIndex, itemIndex,
+                        quantityIndex, unitPriceIndex, amountIndex, inputDateIndex, correctionIndex, receiptIndex
+                    } = this.resolveSheetColumns(headers);
 
                     this.debugLog('フィールドインデックス', {
                         dateIndex, nameIndex, lenderIndex, borrowerIndex,
