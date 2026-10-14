@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.resolve(process.argv[2] || 'dogfood-output/session-recovery');
 const RED = process.argv.includes('--red');
+const LOST = process.argv.includes('--lost-response');
 const BASELINE_REF = process.env.BASELINE_REF;
 const baselineFiles = new Map();
 function localBody(file) {
@@ -60,13 +61,14 @@ async function fillGroup(page, prefix, name, item, price) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const results = [];
   try {
-    const scenarios = BASELINE_REF && !RED ? ['valid','extra-valid'] : ['missing', 'expired', 'sheets401', 'startup401', 'gas-session', 'partial-session', 'initial-login', 'extra-sheets401','valid','extra-valid','preview401'];
+    const scenarios = LOST ? ['lost-expired','lost-sheets401','missing'] : BASELINE_REF && !RED ? ['valid','extra-valid'] : ['missing', 'expired', 'sheets401', 'startup401', 'gas-session', 'partial-session', 'initial-login', 'extra-sheets401','valid','extra-valid','preview401'];
     for (const mode of ['pc', 'sp']) for (const scenario of scenarios) {
       if (RED && !['missing','expired','sheets401'].includes(scenario)) continue;
       const context = await browser.newContext({ viewport: { width: mode === 'pc' ? 1440 : 390, height: 900 }, serviceWorkers: 'block' });
       await context.tracing.start({ screenshots: true, snapshots: true });
       let navs = 0, recovered = false, loginAttempts = 0;
       const posts = [], endpoints = [], errors = [];
+      const writtenReceipts = new Set();
       await context.addInitScript(({mode, scenario}) => {
         localStorage.setItem('inputLayoutMode', mode);
         if (!sessionStorage.getItem('__seeded')) {
@@ -96,13 +98,16 @@ async function fillGroup(page, prefix, name, item, price) {
             // Never persist session tokens or password bodies in test evidence.
             const { sessionToken, ...business } = body;
             posts.push({ ...business, authenticated: !!sessionToken });
+            const duplicate=writtenReceipts.has(body.receiptId);
+            if(scenario.startsWith('lost-')) writtenReceipts.add(body.receiptId);
+            if(scenario.startsWith('lost-') && posts.length<=3) return route.abort('failed');
             response = !recovered && (scenario === 'gas-session' || (scenario === 'partial-session' && posts.length === 2))
               ? { status:'ERROR', code:'SESSION_REQUIRED', written:false, message:'ログインが必要です。ログインし直してください。' }
-              : { status:'SUCCESS', idempotencyVersion:1, receiptId:body.receiptId, notifications:{backup:'completed',email:'completed'} };
+              : { status:'SUCCESS', idempotencyVersion:1, receiptId:body.receiptId, duplicate, notifications:{backup:'completed',email:'completed'} };
           }
         } else if (endpoint === 'sheets-api') {
           response = { values:[['date','name','lender','borrower','category','item','quantity','price','amount','inputDate','correction','receipt']] };
-          if ((!recovered && scenario.includes('sheets401')) || (scenario==='preview401' && posts.length>0)) { status=401; response={error:'Unauthorized'}; }
+          if ((!recovered && scenario.includes('sheets401') && (!scenario.startsWith('lost-') || posts.length>0)) || (scenario==='preview401' && posts.length>0)) { status=401; response={error:'Unauthorized'}; }
         } else if (endpoint === 'password-manager') {
           if (body.action === 'get') response={success:true,passwords:{system:{status:'設定済み'}}};
           else if (body.action === 'verify') {
@@ -138,6 +143,13 @@ async function fillGroup(page, prefix, name, item, price) {
         await page.evaluate(() => { window.__businessNodes=[document.querySelector('#name'),...document.querySelectorAll('.item')].filter(e=>e.value); });
         const before=await snapshot(page);
         await page.locator('#loanForm button[type=submit]').click();
+        if(scenario.startsWith('lost-')) {
+          await page.waitForFunction(() => !submitData._isRunning && document.querySelector('#errorModal').classList.contains('show') && document.querySelector('#errorModalRetryBtn') && document.querySelector('#errorModalRetryBtn').style.display !== 'none',{},{timeout:15000});
+          assert.equal(posts.length,3);
+          const uncertain=await snapshot(page);assert.match(uncertain.text,/登録済みの可能性/);
+          if(scenario==='lost-expired') await page.evaluate(() => LoanSession.set('offline-fixture-session',Date.now()-1));
+          await page.locator('#errorModalRetryBtn').click();
+        }
         if(['startup401','initial-login','valid','extra-valid','preview401'].includes(scenario)) {
           await page.waitForFunction(() => !submitData._isRunning && document.querySelector('#step-complete')?.classList.contains('final-completed'),{},{timeout:15000});
           await page.waitForTimeout(500);
@@ -152,7 +164,9 @@ async function fillGroup(page, prefix, name, item, price) {
           if(RED) continue;
           assert.equal(navs,1); assert(after.error && after.onTop && after.sameDOM); assert.deepEqual(after.fields,before.fields);
           assert.match(after.text,/ログイン/);
-          assert.equal(posts.length, scenario==='gas-session'?1:scenario==='partial-session'?2:0);
+          assert.equal(posts.length, scenario.startsWith('lost-')?3:scenario==='gas-session'?1:scenario==='partial-session'?2:0);
+          await page.locator('#errorModalLoginBtn').waitFor({state:'visible'});
+          if(scenario.startsWith('lost-')) { assert.match(after.text,/今回のリクエストは未送信.*以前の送信結果は未確認/s); assert.match(after.text,/登録済みの可能性/); assert.doesNotMatch(after.text,/登録されていません/); }
           if(scenario==='partial-session') assert.match(after.text,/2件中1件は登録済み/);
           const journal=after.receipts;
           await page.locator('#errorModalLoginBtn').click();
@@ -178,7 +192,10 @@ async function fillGroup(page, prefix, name, item, price) {
             const clean=p=>Object.fromEntries(Object.entries(p).filter(([k])=>k!=='inputDate'));
             assert.deepEqual(clean(posts.at(-1)),clean(posts[row.postsBeforeLogin-1]));
           }
-          row.payloads=posts; row.reloginRetained=true; row.autoSent=0; row.manualPosts=posts.length-row.postsBeforeLogin; row.sameReceipt=true; row.navs=navs;
+          const confirmed=Object.values((await snapshot(page)).receipts).flatMap(raw=>Object.values(JSON.parse(raw)));
+          assert(confirmed.every(e=>e.state==='confirmed'));
+          if(scenario.startsWith('lost-')) { assert.equal(writtenReceipts.size,1); row.savedReceipts=writtenReceipts.size; }
+          row.confirmed=true; row.payloads=posts; row.reloginRetained=true; row.autoSent=0; row.manualPosts=posts.length-row.postsBeforeLogin; row.sameReceipt=true; row.navs=navs;
           await page.screenshot({path:path.join(OUT,`${mode}-${scenario}-success.png`)});
         }
         if(['startup401','initial-login','valid','extra-valid','preview401'].includes(scenario)) results.push({mode,scenario,navs,posts:posts.length,payloads:posts,errors});
@@ -187,6 +204,6 @@ async function fillGroup(page, prefix, name, item, price) {
       finally { fs.writeFileSync(path.join(OUT,'results.json'),JSON.stringify(results,null,2)); await context.tracing.stop({path:path.join(OUT,`${mode}-${scenario}-trace.zip`)}); await context.close(); }
     }
     if(RED) { assert.equal(results.length,6); assert(results.every(r=>r.navs===2 && !r.error && !r.nameRetained)); console.log('RED reproduced',JSON.stringify(results)); }
-    else { assert.equal(results.length,BASELINE_REF?4:22); console.log(BASELINE_REF?'BASELINE':'GREEN',JSON.stringify(results)); }
+    else { assert.equal(results.length,LOST?6:BASELINE_REF?4:22); console.log(BASELINE_REF?'BASELINE':'GREEN',JSON.stringify(results)); }
   } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exitCode=1});

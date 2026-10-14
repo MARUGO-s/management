@@ -8,7 +8,7 @@
 
 入力ページだけに `data-preserve-input` のログインUIを置き、既存 `SimpleAuth.verifyPassword()` の正規 `password-manager` 検証を使用する。認証切れのエラーを先に表示し、再ログインUIはボタン操作で開く。取消・失敗・成功のいずれでも同じ入力/受付履歴を保ち、認証成功では送信しない。パスワードの新しい保存機構は作らない。
 
-GAS拒否は `written:false` なら未登録確定、書込情報がなければ結果未確認とする。部分成功の登録件数を残し、登録後の表示用Sheets 401は登録済みとして案内する。SPの長いフォームでも失敗モーダルが画面内になるよう、認証/受付エラー表示中だけbodyのtransformを解除する。
+GAS拒否の `written:false` は今回の要求の未書込だけを示し、以前の同じ受付IDの登録有無を証明しない。受付単位の `attempted` をPOST前に保存し、準備のみの初回と送信結果未確認を区別する。旧形式pending（attemptedなし）も未確認として扱う。認証切れの再確認では「今回のリクエストは未送信」「以前の送信結果は未確認・登録済みの可能性」を併記する。部分成功の登録件数を残し、登録後の表示用Sheets 401は登録済みとして案内する。SPの長いフォームでも失敗モーダルが画面内になるよう、認証/受付エラー表示中だけbodyのtransformを解除する。
 
 PC/SP切替、5行のPC初期状態、既存の未使用preset除去、数量計算、重複判定、業務項目、送信先、GAS/サーバーは変更しない。未使用presetは元から送信直前に削除されるため、保持検証は**入力済み行/グループ内の全項目（空欄を含む）と元の入力DOM**を対象とする。
 
@@ -47,6 +47,15 @@ Playwrightが別ディレクトリにインストールされていれば `NODE_
 - 正常baseline: `/Users/yoshito/.hermes/cache/scratch/session-recovery-baseline/results.json`
 - スクリーンショット/trace: 同ディレクトリの `<pc|sp>-<scenario>-failure.png`、`-success.png`、`-trace.zip`。
 - 全Node TAP: `/Users/yoshito/.hermes/cache/scratch/session-full-tests.tap`
+
+## 独立レビューブロッカーの追加修正（ローカルのみ）
+
+- Node VMのREDで、通信断後の実 `confirmNoSimilarEntries` が「この内容は登録されていません」と誤表示することを実測。部分成功後の認証切れ再確認で確定件数が消える別REDも確認。
+- 同一受付IDを維持し、受付履歴のPOST試行フラグを参照して過去の未確定と今回の未送信/拒否を区別。準備のみの初回未送信表示は維持。GASの今回の `written:false` でも過去unknownを否定しない。
+- 全Node **213件成功、失敗0**（追加6件、既存partialテストを拡張）。missing/expired/Sheets401、旧pending、GAS拒否、部分成功件数、手動同ID確認まで検証。
+- 実Chrome **PC/SP × lost-expired/lost-sheets401/first-missing = 6件成功**。以前未確認・登録済み可能性/ログインボタンの可視性、全入力保持、取消/認証失敗時保持、認証成功後POST0、手動同ID POST1、confirmedを検証。全通信/CDNモック。
+- 再実行: `node scripts/browser-session-recovery.js <出力先> --lost-response`（Playwright用NODE_PATHが必要なら指定）。
+- 証跡: `/Users/yoshito/.hermes/cache/scratch/receipt-auth-red.tap`、`receipt-auth-partial-red.tap`、`receipt-auth-green.tap`、`receipt-auth-browser/results.json` と同ディレクトリの画像/trace。
 
 ## 未検証/対象外
 

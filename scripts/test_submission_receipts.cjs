@@ -612,6 +612,23 @@ test('read-only readiness check creates no registration or notification',()=>{
   assert.deepEqual(s.stats(),{backups:0,emails:0,locked:false});
 });
 
+test('lost response then real auth preflight never denies the previous registration',async()=>{
+  const b=browser(), p=payload('A'), [data]=b.api.prepare('gas',[p]);
+  b.window.fetch=async()=>{throw new Error('response lost');};
+  await assert.rejects(()=>b.api.send('gas',data),e=>e.receiptOutcome==='unknown');
+  vm.runInContext(fs.readFileSync(path.join(root,'js/duplicate-check.js'),'utf8'),b.context);
+  const source=fs.readFileSync(path.join(root,'pages/js/main.js'),'utf8');
+  vm.runInContext(source.slice(source.indexOf('async function confirmNoSimilarEntries('),source.indexOf('\nfunction initializeElements()',source.indexOf('async function confirmNoSimilarEntries('))),b.context);
+  b.context.GAS_URL='gas';
+  b.context.callSheetsAPI=async()=>{throw Object.assign(new Error('expired'),{code:'SESSION_REQUIRED'});};
+  let error;try{await b.context.confirmNoSimilarEntries(b.api.prepare('gas',[p]));}catch(e){error=e;}
+  const info=b.api.describeFailure(error);
+  assert.doesNotMatch(info.body,/登録されていません/);
+  assert.match(info.body,/以前.*未確認|登録済みの可能性/);
+  assert.equal(info.loginRequired,true);
+  assert.equal(b.api.prepare('gas',[p])[0].receiptId,data.receiptId);
+});
+
 test('lost response keeps pending ID and retry registers exactly once',async()=>{
   const b=browser(), s=server('docs/gas_scripts/gas_code_complete.gs');
   const [data]=b.api.prepare('gas',[payload('A')]);
@@ -730,6 +747,13 @@ for(const file of ['pages/js/main.js']) {
     assert.equal(s.rows.length,3);assert.equal(ui.button.disabled,false);
     assert.equal(ui.get('errorModal').dataset.tone,'warning');
     assert.match(ui.get('errorModalBody').textContent,/2件中1件は登録済み.*二重登録はされません/s);
+    const normalRead=b.context.callSheetsAPI;
+    b.context.callSheetsAPI=async()=>{throw Object.assign(new Error('expired'),{code:'SESSION_REQUIRED'});};
+    await b.context.submitData();
+    assert.match(ui.get('errorModalBody').textContent,/2件中1件は登録済み.*以前の送信結果は未確認/s);
+    assert.doesNotMatch(ui.get('errorModalBody').textContent,/登録されていません/);
+    assert.equal(requests.length,4,'auth preflight must not POST');
+    b.context.callSheetsAPI=normalRead;
     await b.context.submitData();
     assert.equal(s.rows.length,3);
     assert.equal(new Set(requests).size,2);

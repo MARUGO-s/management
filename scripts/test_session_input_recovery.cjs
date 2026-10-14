@@ -17,6 +17,8 @@ function harness({ input = true, status = 200 } = {}) {
     fetch: async () => ({ status, ok: status === 200, json: async () => ({ monthly: { total: 0 }, values: [['header']] }) }) });
   context.window = context; context.globalThis = context;
   vm.runInContext(source('config.js'), context);
+  context.GAS_URL = 'http://offline/gas';
+  vm.runInContext(source('js/submission-receipts.js'), context);
   const main = source('pages/js/main.js');
   vm.runInContext(main.slice(main.indexOf('async function confirmNoSimilarEntries('), main.indexOf('\nfunction ', main.indexOf('async function confirmNoSimilarEntries(')) > 0 ? main.indexOf('\nfunction ', main.indexOf('async function confirmNoSimilarEntries(')) : undefined), context);
   context.DuplicateCheck = { rowsFromSheetValues: () => [], findSimilarForNewEntries: () => [], findSimilarWithinBatch: () => [] };
@@ -61,7 +63,8 @@ test('receipts reject missing session before any POST', async () => {
 for (const written of [false, undefined]) test(`GAS SESSION_REQUIRED written=${written} preserves auth code and accurate outcome`, async () => {
   const h = receiptsHarness(); h.context.LoanSession.set('fixture',Date.now()+100000);
   h.context.fetch = async () => ({json:async()=>({code:'SESSION_REQUIRED',message:'ログインしてください',written})});
-  await assert.rejects(h.context.LoanReceipts.send('http://offline/gas',{receiptId:'fixture-receipt'}), e => {
+  const [payload] = h.context.LoanReceipts.prepare('http://offline/gas',[{item:'fixture'}]);
+  await assert.rejects(h.context.LoanReceipts.send('http://offline/gas',payload), e => {
     assert.equal(e.code,'SESSION_REQUIRED'); assert.equal(e.receiptOutcome,written===false?'rejected':'unknown');
     const info=h.context.LoanReceipts.describeFailure(e,1,2,true);
     assert.equal(info.loginRequired,true); assert.match(info.body,/2件中1件は登録済み/); assert.match(info.body,/ログイン/);
@@ -136,6 +139,64 @@ test('input HTML provides a cancellable login form separate from business form',
   assert.match(html, /id="password-screen"[^>]*data-preserve-input="true"/);
   for (const id of ['password-form','password-input','password-btn','password-error','password-cancel-btn']) assert(html.includes(`id="${id}"`));
 });
+for (const kind of ['missing', 'expired', 'sheets401']) test(`previous unknown survives ${kind}, relogin and same receipt confirmation`, async () => {
+  const h=receiptsHarness(), api=h.context.LoanReceipts, url=vm.runInContext('GAS_URL',h.context);
+  h.context.setTimeout=resolve=>resolve();
+  h.context.LoanSession.set('fixture',Date.now()+100000);
+  const [data]=api.prepare(url,[{item:'lost-response'}]);
+  let posts=0; const ids=[];
+  h.context.fetch=async(_,options)=>{posts++;ids.push(JSON.parse(options.body).receiptId);throw new Error('lost response after write');};
+  await assert.rejects(api.send(url,data),e=>e.receiptOutcome==='unknown');
+  if(kind==='missing') h.context.LoanSession.clear();
+  if(kind==='expired') h.context.LoanSession.set('fixture',Date.now()-1);
+  if(kind==='sheets401') h.context.fetch=async()=>({status:401,ok:false,json:async()=>({error:'Unauthorized'})});
+  const retry=api.prepare(url,[{item:'lost-response'}]);
+  await assert.rejects(h.context.confirmNoSimilarEntries(retry),e=>{
+    const info=api.describeFailure(e,1,2,true);
+    assert.equal(info.tone,'warning'); assert.equal(info.loginRequired,true);
+    assert.match(info.body,/2件中1件は登録済み/);
+    assert.match(info.body,/今回のリクエストは未送信.*以前の送信結果は未確認/s);
+    assert.doesNotMatch(info.body,/登録されていません/);
+    return true;
+  });
+  h.context.LoanSession.set('renewed',Date.now()+100000);
+  assert.equal(posts,3,'no automatic resend after login');
+  h.context.fetch=async(_,options)=>{posts++;ids.push(JSON.parse(options.body).receiptId);return {json:async()=>({status:'SUCCESS',idempotencyVersion:1,receiptId:data.receiptId,duplicate:true})};};
+  assert.equal((await api.send(url,retry[0])).duplicate,true);
+  assert.equal(new Set(ids).size,1); assert.equal(posts,4);
+  assert.equal(Object.values(JSON.parse(h.data.get('loan-receipt-v1:'+url)))[0].state,'confirmed');
+});
+
+test('fresh preflight is unsent but old pending journals cannot deny a previous write',async()=>{
+  const h=receiptsHarness(),api=h.context.LoanReceipts,url=vm.runInContext('GAS_URL',h.context);
+  const [data]=api.prepare(url,[{item:'fixture'}]);
+  await assert.rejects(h.context.confirmNoSimilarEntries([data]),e=>{
+    const info=api.describeFailure(e); assert.equal(info.tone,'error');
+    assert.match(info.title,/未送信/);assert.match(info.body,/登録されていません/); return true;
+  });
+  const journal=JSON.parse(h.data.get('loan-receipt-v1:'+url));
+  for(const entry of Object.values(journal))delete entry.attempted;
+  h.data.set('loan-receipt-v1:'+url,JSON.stringify(journal));
+  await assert.rejects(h.context.confirmNoSimilarEntries(api.prepare(url,[{item:'fixture'}])),e=>{
+    const info=api.describeFailure(e);assert.match(info.body,/以前の送信結果は未確認/);
+    assert.doesNotMatch(info.body,/登録されていません/);return true;
+  });
+  assert.equal(api.prepare(url,[{item:'fixture'}])[0].receiptId,data.receiptId);
+});
+
+test('GAS written false on an unknown receipt only rejects the current attempt',async()=>{
+  const h=receiptsHarness(),api=h.context.LoanReceipts,url=vm.runInContext('GAS_URL',h.context);
+  h.context.setTimeout=resolve=>resolve();h.context.LoanSession.set('fixture',Date.now()+100000);
+  const [data]=api.prepare(url,[{item:'fixture'}]);
+  h.context.fetch=async()=>{throw new Error('lost');};
+  await assert.rejects(api.send(url,data),e=>e.receiptOutcome==='unknown');
+  h.context.fetch=async()=>({json:async()=>({code:'SESSION_REQUIRED',written:false})});
+  await assert.rejects(api.send(url,data),e=>{
+    const info=api.describeFailure(e);assert.match(info.body,/今回.*拒否.*以前.*未確認/s);
+    assert.doesNotMatch(info.body,/登録されていません/);return true;
+  });
+});
+
 for (const kind of ['missing', 'expired', 'sheets401']) {
   test(`input ${kind}: duplicate gate retains SESSION_REQUIRED without navigating`, async () => {
     const h = harness({ status: kind === 'sheets401' ? 401 : 200 });

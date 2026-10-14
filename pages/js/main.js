@@ -2430,7 +2430,7 @@ async function confirmNoSimilarEntries(payloads) {
     console.warn('⚠️ 重複確認用のデータを取得できなかったため送信を停止します:', error);
     if (error.code === 'SESSION_REQUIRED') {
       error.receiptOutcome = 'notSent';
-      throw error;
+      throw window.LoanReceipts.annotateAuthFailure(GAS_URL, payloads, error);
     }
     throw Object.assign(new Error('重複確認用のデータを取得できませんでした。送信前に停止しました。時間をおいて再試行してください。'),
       { receiptOutcome: 'notSent' });
