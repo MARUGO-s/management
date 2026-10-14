@@ -41,7 +41,7 @@
         { receiptOutcome: 'notSent' });
     }
   }
-  // 送信失敗の結果: notSent/rejected は「登録されていない」ことが確定、unknown は結果未確認。
+  // notSent/rejected は今回の要求の結果のみ。以前の pending 送信結果は別に保持する。
   function outcomeError(message, outcome, detail) {
     return Object.assign(new Error(message), { receiptOutcome: outcome, detail: detail || '' });
   }
@@ -108,7 +108,7 @@
       const { key } = entries[index];
       let entry = entries[index].entry;
       if (!entry || startNew) {
-        entry = { receiptId: root.crypto.randomUUID(), state: 'pending' };
+        entry = { receiptId: root.crypto.randomUUID(), state: 'pending', attempted: false };
         journal[key] = entry;
       }
       return { ...payload, receiptId: entry.receiptId, receiptVersion: 1 };
@@ -130,17 +130,48 @@
     }
     throw new Error('登録結果の履歴を保存できませんでした。同じ内容で再送すると登録済みの結果を確認できます。');
   }
+  // Older pending entries have no attempt flag: never assume they were unsent.
+  function annotateAuthFailure(url, payloads, error) {
+    const ids = new Set(payloads.map(payload => payload.receiptId));
+    const journal = read(url);
+    error.previousUnconfirmed = Object.values(journal).some(entry =>
+      ids.has(entry.receiptId) && entry.state === 'pending' && entry.attempted !== false);
+    error.registeredCount ??= Object.values(journal).filter(entry =>
+      ids.has(entry.receiptId) && entry.state === 'confirmed').length;
+    error.totalCount ??= payloads.length;
+    return error;
+  }
+  function markAttempted(url, payload) {
+    const journal = read(url);
+    for (const entry of Object.values(journal)) {
+      if (entry.receiptId === payload.receiptId) {
+        entry.attempted = true;
+        write(url, journal);
+        return;
+      }
+    }
+    throw outcomeError('受付履歴がないため、送信前に停止しました。', 'notSent');
+  }
   async function send(url, payload) {
+    const previousUnconfirmed = annotateAuthFailure(url, [payload], {}).previousUnconfirmed;
     let result;
     let requestPayload = payload;
     // CacheService の早期失効後にも新しいトークンで再確認できるよう、最大2回だけ承認を求める。
     for (let approvalAttempts = 0; approvalAttempts < 3; approvalAttempts++) {
+      const session = root.LoanSession?.get();
+      if (!session) {
+        throw annotateAuthFailure(url, [payload], Object.assign(
+          outcomeError('ログインが必要です。ログインし直してください。', 'notSent'),
+          { code: 'SESSION_REQUIRED' }));
+      }
+      // Persist before the first POST, including a response lost after a successful write.
+      markAttempted(url, payload);
       try {
         ({ result } = await fetchJson(url, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           // ログインで発行されたトークンを添える（GASで確認し、行には書き込まない）。
-          body: JSON.stringify({ ...requestPayload, sessionToken: root.LoanSession?.get()?.token || '' }), redirect: 'follow'
+          body: JSON.stringify({ ...requestPayload, sessionToken: session.token }), redirect: 'follow'
         }));
       } catch (error) {
         throw outcomeError('通信が不安定なため、登録結果を確認できませんでした。', 'unknown', error.message);
@@ -162,7 +193,8 @@
     }
     if (result?.code === 'SESSION_REQUIRED') {
       root.LoanSession?.clear();
-      throw outcomeError(result.message, 'rejected');
+      throw Object.assign(outcomeError(result.message || 'ログインし直してください。',
+        result.written === false ? 'rejected' : 'unknown'), { code: 'SESSION_REQUIRED', previousUnconfirmed });
     }
     if (result?.status === 'ERROR' && result.written === false) {
       throw outcomeError('サーバーで登録を中止しました。', 'rejected', result.message);
@@ -194,6 +226,15 @@
     const outcome = error?.receiptOutcome || 'unknown';
     const done = registered > 0 ? `${total}件中${registered}件は登録済みです。` : '';
     const detail = error?.detail || (error?.receiptOutcome ? '' : error?.message) || '';
+    const loginRequired = error?.code === 'SESSION_REQUIRED';
+    if (loginRequired) {
+      const known = !error.previousUnconfirmed && (outcome === 'notSent' || outcome === 'rejected');
+      return { tone: known ? 'error' : 'warning', loginRequired: true,
+        title: known && outcome === 'notSent' ? '送信前に停止しました（未送信）' : known ? '登録できませんでした' : '登録を確認できていません',
+        body: done + (known ? `${registered > 0 ? '残りは' : 'この内容は'}登録されていません。` : ((outcome === 'notSent' ? '今回のリクエストは未送信です。' : outcome === 'rejected' ? '今回のリクエストは登録前に拒否されました。' : '') + '以前の送信結果は未確認です。登録済みの可能性があります。')) +
+          '\nログインが必要です。「ログインし直す」を押してください。入力内容と受付IDは保持しています。' +
+          'ログイン後、内容を変えずに手動で再送してください（同じ受付IDで照合するため二重登録されません）。自動送信はしません。', detail };
+    }
     if (outcome === 'notSent' || outcome === 'rejected') {
       return { tone: 'error', title: '登録できませんでした',
         body: `${done}${registered > 0 ? '残りは' : 'この内容は'}登録されていません。${error.message}\n` +
@@ -219,6 +260,23 @@
     modal.dataset.tone = info.tone;
     let retry = modal.querySelector?.('#errorModalRetryBtn');
     const actions = modal.querySelector?.('.modal-actions');
+    let login = modal.querySelector?.('#errorModalLoginBtn');
+    if (!login && actions && root.document) {
+      login = root.document.createElement('button');
+      login.type = 'button';
+      login.id = 'errorModalLoginBtn';
+      login.className = 'list-btn';
+      login.textContent = 'ログインし直す';
+      actions.insertBefore(login, actions.firstChild);
+    }
+    if (login) {
+      login.style.display = info.loginRequired ? '' : 'none';
+      // 失敗モーダルはそのまま。取り消すと元の失敗表示に戻る。
+      login.onclick = () => {
+        if (root.simpleAuth) root.simpleAuth.showAuthScreen();
+        else root.LoanSession?.requireLogin();
+      };
+    }
     if (!retry && actions && root.document) {
       retry = root.document.createElement('button');
       retry.type = 'button';
@@ -232,12 +290,13 @@
       if (title && modal.dataset.defaultTitle !== undefined) title.textContent = modal.dataset.defaultTitle;
       delete modal.dataset.tone;
       if (retry) retry.style.display = 'none';
+      if (login) login.style.display = 'none';
     };
     modal.querySelector?.('#errorModalCloseBtn')?.addEventListener('click', restore, { once: true });
     if (retry) {
-      retry.style.display = info.tone === 'warning' && onRetry ? '' : 'none';
+      retry.style.display = !info.loginRequired && info.tone === 'warning' && onRetry ? '' : 'none';
       retry.onclick = () => { modal.classList.remove('show'); restore(); onRetry(); };
     }
   }
-  root.LoanReceipts = { ensureServer, prepare, send, withLock, describeFailure, presentFailure };
+  root.LoanReceipts = { ensureServer, prepare, send, withLock, describeFailure, presentFailure, annotateAuthFailure };
 })(window);

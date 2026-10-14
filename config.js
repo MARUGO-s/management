@@ -85,8 +85,12 @@ async function callSheetsAPI(range, method = 'GET', values = null) {
     if (response.status === 401) {
       // 期限切れ・無効なトークン。ログインし直してもらう。
       window.LoanSession.clear();
-      if (document.getElementById('password-screen')) location.reload();
-      else window.LoanSession.requireLogin();
+      const authScreen = document.getElementById('password-screen');
+      // 入力画面では失敗表示と業務入力を保ち、再ログインはユーザー操作で開く。
+      if (authScreen?.dataset.preserveInput !== 'true') {
+        if (authScreen) location.reload();
+        else window.LoanSession.requireLogin();
+      }
       throw sessionRequiredError();
     }
     if (!response.ok) {

@@ -1428,7 +1428,21 @@ async function showRegisteredDataConfirmation(allPayloads) {
     }
   } catch (e) {
     console.warn('登録結果の取得に失敗しました', e);
-    // 失敗時は従来どおりのリロード
+    if (e.code === 'SESSION_REQUIRED') {
+      // GASのSUCCESS/受付ID照合は完了済み。表示用の401を未送信扱いしない。
+      const modal = document.getElementById('errorModal');
+      const body = document.getElementById('errorModalBody');
+      if (modal && body) {
+        window.LoanReceipts.presentFailure(modal, body, {
+          tone: 'warning', title: '登録済み（確認表示にはログインが必要です）', loginRequired: true,
+          body: `${allPayloads.length}件は登録済みです。登録結果の表示用データを取得できませんでした。` +
+            '\n再送は不要です。「ログインし直す」で認証してください。入力内容と受付履歴は保持しています。'
+        });
+        modal.classList.add('show');
+      }
+      return;
+    }
+    // 認証以外の表示失敗は従来どおり。
     location.reload();
   }
 }
@@ -2414,6 +2428,10 @@ async function confirmNoSimilarEntries(payloads) {
     rows = checker.rowsFromSheetValues(data.values).filter(row => !ownReceipts.has(row.receiptId));
   } catch (error) {
     console.warn('⚠️ 重複確認用のデータを取得できなかったため送信を停止します:', error);
+    if (error.code === 'SESSION_REQUIRED') {
+      error.receiptOutcome = 'notSent';
+      throw window.LoanReceipts.annotateAuthFailure(GAS_URL, payloads, error);
+    }
     throw Object.assign(new Error('重複確認用のデータを取得できませんでした。送信前に停止しました。時間をおいて再試行してください。'),
       { receiptOutcome: 'notSent' });
   }

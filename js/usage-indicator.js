@@ -146,6 +146,8 @@ class UsageIndicator {
 
     // 使用量データを読み込み
     async loadUsageData() {
+        const session = window.LoanSession?.get() || window.AdminSession?.get();
+        if (!session) return; // 認証前の401を作らない。ログイン後にrefreshで取得する。
         try {
             // Supabaseから使用量取得
             const response = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/api-usage-tracker`, {
@@ -153,7 +155,7 @@ class UsageIndicator {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`,
-            'x-loan-session': window.LoanSession?.get()?.token || ''
+                        'x-loan-session': session.token
                 },
                 body: JSON.stringify({
                     action: 'get'
@@ -327,6 +329,8 @@ class UsageIndicator {
     }
 
     async ensureColorSettings(forceRefresh = false) {
+        const session = window.LoanSession?.get() || window.AdminSession?.get();
+        if (!session) return this.getLocalColorSettings();
         if (!forceRefresh && this.colorSettings) {
             return this.colorSettings;
         }
@@ -342,7 +346,7 @@ class UsageIndicator {
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${window.SUPABASE_CONFIG.anonKey}`,
-            'x-loan-session': window.LoanSession?.get()?.token || ''
+                        'x-loan-session': session.token
                     },
                     body: JSON.stringify({ action: 'get' })
                 });
