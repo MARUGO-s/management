@@ -1,0 +1,243 @@
+/*
+ * 入力画面（index.html）のスマホ表示 / PC表示 切替
+ * - スマホ表示（既定）は従来のスタイルのまま。このファイルのPC用ルールはすべて html.pc-mode 配下。
+ * - PC表示は既存の配色（#2d3748 / #4a5568 / #e2e8f0）・フォント・ボタン形状を継承し、配置だけを変える。
+ * - 送信・検証ロジックは pages/js/main.js のまま（クラス名・DOM順は変更しない）。
+ */
+
+/* ===== 切替ボタン（両モード共通） ===== */
+.layout-toggle-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #4a5568;
+  background: rgba(74, 85, 104, 0.08);
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.layout-toggle-btn:hover { background: rgba(74, 85, 104, 0.15); border-color: #cbd5e0; }
+.layout-toggle-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.25); }
+.layout-toggle-btn .label-sp { display: none; }
+html.pc-mode .layout-toggle-btn .label-pc { display: none; }
+html.pc-mode .layout-toggle-btn .label-sp { display: inline; }
+
+/* PC用の集計（スマホ表示では出さない） */
+.pc-summary { display: none; }
+
+/* ===== PC表示 ===== */
+html.pc-mode body {
+  align-items: flex-start;
+  padding: 32px 24px 48px;
+  overflow-x: auto;
+  /* iPhone向けの transform を外し、モーダル（position:fixed）を画面中央に出す */
+  -webkit-transform: none;
+  transform: none;
+}
+
+html.pc-mode .container {
+  max-width: 1360px;
+  min-width: 1100px;
+  margin: 0 auto;
+  padding: 30px 40px 28px;
+  border-radius: 24px;
+}
+
+html.pc-mode h2 {
+  font-size: 2rem;
+  margin-bottom: 22px;
+}
+
+html.pc-mode .layout-toggle-btn {
+  top: 22px;
+  right: 28px;
+  padding: 7px 16px;
+  font-size: 0.85rem;
+}
+
+html.pc-mode label {
+  font-size: 0.75rem;
+  margin-bottom: 6px;
+}
+
+html.pc-mode input,
+html.pc-mode select {
+  padding: 11px 14px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+html.pc-mode select { padding-right: 36px; }
+
+/* 表形式では浮き上がりアニメーションがずれて見えるため止め、フォーカスリングを強める */
+html.pc-mode input:hover,
+html.pc-mode select:hover,
+html.pc-mode input:focus,
+html.pc-mode select:focus { transform: none; }
+html.pc-mode input:focus,
+html.pc-mode select:focus { box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.18); }
+
+html.pc-mode .list-btn { white-space: nowrap; }
+html.pc-mode .list-btn:focus-visible,
+html.pc-mode .category-option:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.25);
+}
+
+/* --- 共通項目: 日付 / 名前 / 貸主 / 借主 を1行に --- */
+html.pc-mode #loanForm {
+  display: grid;
+  grid-template-columns: 190px minmax(240px, 1.3fr) minmax(200px, 1fr) minmax(200px, 1fr);
+  column-gap: 16px;
+  align-items: start;
+}
+html.pc-mode #loanForm > .form-row { display: contents; }
+html.pc-mode #loanForm > .form-group,
+html.pc-mode #loanForm > .form-row > .form-group { margin-bottom: 20px; }
+html.pc-mode #loanForm > .form-row > .form-group .form-group { margin: 0; }
+html.pc-mode #name-list-btn { padding: 11px 14px; }
+html.pc-mode #loanForm > .entries-section,
+html.pc-mode #extraGroups,
+html.pc-mode #loanForm > .button-group { grid-column: 1 / -1; }
+html.pc-mode #loanForm > .entries-section { margin-bottom: 0; }
+
+/* --- 品目行: 1品目1行の表形式 --- */
+html.pc-mode #entriesContainer,
+html.pc-mode .full-entries { gap: 8px !important; }
+
+html.pc-mode .entry-row {
+  display: grid;
+  grid-template-columns: 296px minmax(220px, 1fr) 132px 112px 150px 88px;
+  column-gap: 12px;
+  align-items: end;
+  padding: 10px 14px !important;
+  border-radius: 12px !important;
+}
+html.pc-mode .entry-row > .form-row { display: contents; }
+html.pc-mode .entry-row .form-group { margin: 0 !important; }
+
+/* 列見出し: 各一覧の先頭行だけラベルを表示（行を削除しても次の行が見出しを引き継ぐ） */
+html.pc-mode .entry-row label { display: none; }
+html.pc-mode .entry-row:first-child label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  color: #718096;
+  white-space: nowrap;
+}
+
+/* カテゴリー: 4つのボタンを1つのセグメントに圧縮（hidden .category への書込みは従来どおり） */
+html.pc-mode .entry-row .category-grid {
+  display: flex;
+  gap: 0;
+  margin-top: 0;
+  border-radius: 10px;
+}
+html.pc-mode .entry-row .category-option {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 11px 2px;
+  margin-left: -2px;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  border-radius: 0;
+  transform: none;
+}
+html.pc-mode .entry-row .category-option:first-child { margin-left: 0; border-radius: 10px 0 0 10px; }
+html.pc-mode .entry-row .category-option:last-child { border-radius: 0 10px 10px 0; }
+html.pc-mode .entry-row .category-option:hover { transform: none; z-index: 1; }
+html.pc-mode .entry-row .category-option.selected { z-index: 2; }
+html.pc-mode .entry-row .category-option:focus-visible { z-index: 3; }
+
+/* 品目 + 履歴ボタン */
+html.pc-mode .entry-row .list-btn { padding: 11px 12px; }
+
+/* 数値は右寄せ */
+html.pc-mode .entry-row .unit-price,
+html.pc-mode .entry-row .quantity,
+html.pc-mode .entry-row .amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 金額（自動計算） */
+html.pc-mode .entry-row .amount-input::before { left: 12px; font-size: 1rem; }
+html.pc-mode .entry-row .amount-input input {
+  padding-left: 28px;
+  background: #f7fafc;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* 行の削除 */
+html.pc-mode .entry-row .row-actions {
+  align-self: end;
+  justify-content: center !important;
+}
+html.pc-mode .entry-row .remove-row-btn { padding: 11px 10px; font-size: 0.8rem; }
+
+/* --- 追加グループ（＋ 全データを追加）: 日付 / 貸主 / 借主 / 名前 を1行に --- */
+html.pc-mode .full-entry-group {
+  display: grid;
+  grid-template-columns: 190px minmax(200px, 1fr) minmax(200px, 1fr) minmax(240px, 1.3fr);
+  column-gap: 16px;
+  padding: 20px !important;
+}
+html.pc-mode .full-entry-group > .form-row { display: contents !important; }
+html.pc-mode .full-entry-group > .form-group,
+html.pc-mode .full-entry-group > .form-row > .form-group { margin: 0 0 16px 0 !important; }
+html.pc-mode .full-entry-group > .form-group:last-child { grid-column: 1 / -1; margin-bottom: 0 !important; }
+
+/* --- 送信バー: 画面下に固定し、品目数と合計を表示 --- */
+html.pc-mode #loanForm > .button-group {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 12px 12px 12px 22px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+html.pc-mode .pc-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  color: #4a5568;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+html.pc-mode .pc-summary strong {
+  margin: 0 4px;
+  font-size: 1.3rem;
+  color: #2d3748;
+  font-variant-numeric: tabular-nums;
+}
+html.pc-mode .pc-summary .pc-summary-note { font-size: 0.75rem; font-weight: 500; color: #a0aec0; }
+html.pc-mode #loanForm .submit-btn {
+  width: auto;
+  min-width: 260px;
+  padding: 14px 36px;
+}
+
+/* --- モーダル: PCでは少し広く --- */
+html.pc-mode .select-card { max-width: 640px; padding: 20px; }
+html.pc-mode .select-list { max-height: min(60vh, 520px); }
+html.pc-mode .modal-card { max-width: 520px; padding: 20px 24px; }
+html.pc-mode #status-popup { max-width: 440px; }
