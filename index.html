@@ -723,6 +723,16 @@
     .modal-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(17,24,39,0.35); z-index: 4500; backdrop-filter: blur(3px); }
     .modal-overlay.show { display: flex; }
     .modal-card { width: 92%; max-width: 440px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); padding: 16px; }
+    /* 入力画面の認証/受付失敗表示を、長いSPフォームでも画面中央に置く。
+       bodyのiPhone用transformはfixed要素の基準を本文全体に変えてしまう。 */
+    body:has(#errorModal.show[data-tone]), body:has(#password-screen[data-open="true"]) {
+      -webkit-transform: none;
+      transform: none;
+    }
+    #password-screen .modal-card { max-height: calc(100dvh - 32px); overflow-y: auto; }
+    #password-screen p { margin: 12px 0; font-size: 14px; line-height: 1.6; color: #4b5563; }
+    #password-screen input { width: 100%; margin: 8px 0; }
+    #password-error { color: #dc2626; margin-top: 8px; }
     /* 送信結果: 未登録は赤、結果未確認（登録済みの可能性あり）は注意色 */
     #errorModal[data-tone="error"] .modal-card { border-top: 4px solid #ef4444; }
     #errorModal[data-tone="warning"] .modal-card { border-top: 4px solid #f59e0b; }
@@ -772,6 +782,22 @@
   
 </head>
 <body>
+  <!-- ログインは業務フォームとは別DOM。認証切れ後も入力・受付履歴を作り直さない。 -->
+  <div id="password-screen" data-preserve-input="true" class="modal-overlay" style="display:none;z-index:10001" role="dialog" aria-modal="true" aria-labelledby="password-title">
+    <div class="modal-card">
+      <div class="modal-title" id="password-title">ログイン</div>
+      <p>入力内容はそのまま保持します。ログイン後、内容を確認して送信してください（自動送信はしません）。</p>
+      <form id="password-form">
+        <label for="password-input">システムパスワード</label>
+        <input id="password-input" type="password" autocomplete="current-password" required>
+        <div id="password-error" role="alert" style="display:none"></div>
+        <div class="modal-actions">
+          <button id="password-btn" type="submit" class="list-btn">🚪 ログイン</button>
+          <button id="password-cancel-btn" type="button" class="list-btn">取り消す</button>
+        </div>
+      </form>
+    </div>
+  </div>
   <div class="floating-shapes">
     <div class="shape"></div>
     <div class="shape"></div>
@@ -976,13 +1002,13 @@
     </div>
   </div>
 
-  <script src="config.js?v=2026101201"></script>
-  <script src="js/submission-receipts.js?v=2026101301"></script>
+  <script src="config.js?v=2026101404"></script>
+  <script src="js/submission-receipts.js?v=2026101404"></script>
   <script src="js/duplicate-check.js?v=2026101401"></script>
-  <script src="pages/js/main.js?v=2026101301"></script>
-  <script src="js/simple-auth.js?v=2026101201"></script>
+  <script src="pages/js/main.js?v=2026101404"></script>
+  <script src="js/simple-auth.js?v=2026101404"></script>
   <script src="js/quota-alert-system.js?v=2026101201"></script>
-  <script src="js/usage-indicator.js?v=2026101201"></script>
+  <script src="js/usage-indicator.js?v=2026101404"></script>
   <script src="js/input-layout-mode.js?v=2026101403"></script>
   <script>
     // index.html専用の初期化

@@ -73,7 +73,8 @@ test('changed client scripts have cache-busted references on all entry pages', (
   for (const page of ['index.html', 'admin.html', 'pages/marugo.html', 'pages/cost.html', 'pages/ingredients.html', 'pages/correction.html']) {
     const html = source(page);
     for (const match of html.matchAll(/<script[^>]*src="(?:\.\.\/)?(?:config\.js|js\/(?:simple-auth|quota-alert-system|usage-indicator)\.js|pages\/js\/main\.js)([^\"]*)"/g)) {
-      const expected = match[0].includes('pages/js/main.js') ? '?v=2026101301' : '?v=2026101201';
+      const unchanged = match[0].includes('quota-alert-system.js');
+      const expected = unchanged ? '?v=2026101201' : '?v=2026101404';
       assert.equal(match[1], expected, `${page}: ${match[0]}`);
     }
   }

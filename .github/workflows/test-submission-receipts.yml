@@ -17,8 +17,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test scripts/test_submission_receipts.cjs scripts/test_duplicate_check.cjs scripts/test_reverse_search.cjs scripts/test_monthly_duplicate_report.cjs scripts/test_analysis_store_filter.cjs scripts/test_duplicate_review.cjs scripts/test_input_layout_mode.cjs
+      - run: node --test scripts/*.cjs
       - run: |
+          node --check config.js
+          node --check js/simple-auth.js
+          node --check js/usage-indicator.js
           node --check js/submission-receipts.js
           node --check js/duplicate-check.js
           node --check js/duplicate-review.js

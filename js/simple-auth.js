@@ -22,7 +22,24 @@ class SimpleAuth {
         this.setupEventListeners();
     }
 
+    // 入力画面だけは同じDOMを保持したままログインする。
+    preservesInput() {
+        return document.getElementById('password-screen')?.dataset.preserveInput === 'true';
+    }
+
+    cancelLogin() {
+        if (this.loginPending) return;
+        const input = document.getElementById('password-input');
+        if (input) input.value = '';
+        const screen = document.getElementById('password-screen');
+        if (screen) {
+            screen.style.display = 'none';
+            delete screen.dataset.open;
+        }
+    }
+
     setupEventListeners() {
+        document.getElementById('password-cancel-btn')?.addEventListener('click', () => this.cancelLogin());
         // パスワードフォームのイベントリスナー
         const passwordForm = document.getElementById('password-form');
         if (passwordForm) {
@@ -188,6 +205,7 @@ class SimpleAuth {
 
     // パスワード送信処理
     async handlePasswordSubmit() {
+        if (this.loginPending) return;
         const passwordInput = document.getElementById('password-input');
         const passwordBtn = document.getElementById('password-btn');
         const passwordError = document.getElementById('password-error');
@@ -198,7 +216,10 @@ class SimpleAuth {
             return;
         }
 
-        // ボタンを無効化
+        // ボタンを無効化（Enterの重複実行と認証中の取消も防止）
+        this.loginPending = true;
+        const cancelBtn = document.getElementById('password-cancel-btn');
+        if (cancelBtn) cancelBtn.disabled = true;
         passwordBtn.disabled = true;
         passwordBtn.textContent = '🔄 認証中...';
 
@@ -211,8 +232,15 @@ class SimpleAuth {
                 this.setAuthenticated();
                 passwordError.style.display = 'none';
                 console.log('✅ 認証成功（Supabase）');
-                // ログイン前に失敗したデータ読み込みをやり直すため、再読み込みする。
-                location.reload();
+                if (this.preservesInput()) {
+                    this.hideAuthScreen();
+                    // 正規ログイン後に補助表示だけ再取得。送信処理は呼ばない。
+                    window.usageIndicator?.ensureColorSettings(true).catch(() => {});
+                    window.usageIndicator?.refresh();
+                } else {
+                    // 他の画面の初回読み込みは従来どおり。
+                    location.reload();
+                }
                 return;
             } else {
                 // 認証失敗
@@ -223,11 +251,14 @@ class SimpleAuth {
         } catch (error) {
             console.error('認証エラー:', error);
             this.showError('認証処理でエラーが発生しました');
+        } finally {
+            // パスワードは一時入力欄だけ。成功・失敗どちらでも保持しない。
+            passwordInput.value = '';
+            this.loginPending = false;
+            if (cancelBtn) cancelBtn.disabled = false;
+            passwordBtn.disabled = false;
+            passwordBtn.textContent = '🚪 ログイン';
         }
-
-        // ボタンを元に戻す
-        passwordBtn.disabled = false;
-        passwordBtn.textContent = '🚪 ログイン';
     }
 
     // パスワード設定処理
@@ -292,6 +323,14 @@ class SimpleAuth {
     // 認証画面表示（データベースベース）
     async showAuthScreen() {
         const authScreen = document.getElementById('password-screen');
+        if (this.preservesInput()) {
+            authScreen.dataset.open = 'true';
+            authScreen.style.display = 'flex';
+            const error = document.getElementById('password-error');
+            if (error) error.style.display = 'none';
+            document.getElementById('password-input')?.focus();
+            return; // 入力フォームと失敗表示を隠したり再構築しない。
+        }
         if (authScreen) {
             authScreen.style.display = 'block';
             
@@ -334,6 +373,7 @@ class SimpleAuth {
         const authScreen = document.getElementById('password-screen');
         if (authScreen) {
             authScreen.style.display = 'none';
+            delete authScreen.dataset.open;
         }
 
         // メインアプリを表示
