@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <title>貸借管理フォーム</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 表示モード（スマホ/PC）を初回描画前に反映してちらつきを防ぐ。既定はスマホ表示。 -->
+  <script id="input-layout-mode-boot">(function(){try{if(localStorage.getItem('inputLayoutMode')==='pc')document.documentElement.classList.add('pc-mode');}catch(e){}})();</script>
   <style>
     * {
       margin: 0;
@@ -758,6 +760,7 @@
       transform: translateY(0);
     }
   </style>
+  <link rel="stylesheet" href="css/input-layout-mode.css?v=2026101402">
 
 <link rel="icon" href="assets/icons/favicon.ico" type="image/x-icon">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/icon-180x180.png">
@@ -776,6 +779,7 @@
   </div>
 
   <div class="container">
+    <button type="button" id="layoutToggleBtn" class="layout-toggle-btn" aria-pressed="false" title="PC表示に切り替える"><span class="label-pc">💻 PC表示</span><span class="label-sp">📱 スマホ表示</span></button>
     <h2>💰 貸借管理</h2>
     <form id="loanForm" novalidate>
       <div class="form-group">
@@ -808,7 +812,7 @@
         </div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group entries-section">
         <label>🏷️ 品目一覧</label>
         <div id="entriesContainer" style="display:flex; flex-direction:column; gap:16px;">
           <div class="entry-row" data-index="0" style="border:1px solid #e5e7eb; border-radius:12px; padding:16px; background:#fff;">
@@ -869,6 +873,11 @@
       <div id="extraGroups" style="display:flex; flex-direction:column; gap:16px; margin-top:12px;"></div>
 
       <div class="button-group">
+        <div class="pc-summary" aria-live="polite">
+          <span>品目<strong id="pcSummaryRows">1</strong>行</span>
+          <span>合計<strong id="pcSummaryTotal">¥0</strong></span>
+          <span class="pc-summary-note">※表示中の金額の合計</span>
+        </div>
         <button type="submit" class="submit-btn">
           <span class="loading"></span>
           <span class="btn-text">📨 送信する</span>
@@ -974,6 +983,7 @@
   <script src="js/simple-auth.js?v=2026101201"></script>
   <script src="js/quota-alert-system.js?v=2026101201"></script>
   <script src="js/usage-indicator.js?v=2026101201"></script>
+  <script src="js/input-layout-mode.js?v=2026101402"></script>
   <script>
     // index.html専用の初期化
     document.addEventListener('DOMContentLoaded', function() {
