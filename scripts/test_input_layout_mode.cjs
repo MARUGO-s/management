@@ -228,7 +228,7 @@ test('every layout rule is scoped to html.pc-mode, so smartphone mode keeps the 
 });
 
 test('assets are cache-busted and the existing form selectors used by main.js are intact', () => {
-  assert.match(html, /<link rel="stylesheet" href="css\/input-layout-mode\.css\?v=2026101402">/);
+  assert.match(html, /<link rel="stylesheet" href="css\/input-layout-mode\.css\?v=2026101405">/);
   assert.match(html, /<script src="js\/input-layout-mode\.js\?v=2026101403"><\/script>/);
   for (const sel of ['id="entriesContainer"', 'class="entry-row" data-index="0"', 'class="category" required', 'class="item" required',
     'class="unit-price" required', 'class="quantity" required', 'class="amount" required', 'id="add-row-btn"', 'id="add-full-row-btn"',
