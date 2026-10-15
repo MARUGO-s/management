@@ -106,7 +106,9 @@
     }
 
     function groupIsBlank(group) {
-      var fields = ['.full-lender', '.full-borrower', '.full-name'];
+      var carryover = group.querySelector('.carryover-toggle');
+      if (carryover && carryover.getAttribute('aria-pressed') === 'true') return false;
+      var fields = ['.full-lender', '.full-borrower', '.full-name', '.original-date'];
       for (var i = 0; i < fields.length; i++) {
         var el = group.querySelector(fields[i]);
         if (el && String(el.value || '').trim() !== '') return false;
