@@ -1,6 +1,12 @@
 /* 当月入力・前月繰越（両表示モード共通） */
 .date-help, .carryover-help { color: #4a5568; font-size: 12px; line-height: 1.5; margin: 6px 0; }
-.carryover-controls { margin-top: 8px; min-width: 0; }
+.posting-date-row { display: flex; gap: 8px; align-items: stretch; }
+.posting-date-row > input { flex: 1 1 0; width: 0; min-width: 0; }
+.posting-date-row > .carryover-toggle { flex: 0 0 60px; padding: 10px 8px; font-size: 13px; line-height: 1.4; }
+.carryover-controls { min-width: 0; }
+.carryover-help:empty { display: none; }
+html.pc-mode .posting-date-row > input { padding-left: 8px; padding-right: 24px; font-size: 14px; }
+html.pc-mode .posting-date-row > input::-webkit-calendar-picker-indicator { right: 5px; }
 .carryover-toggle[aria-pressed="true"] { color: #744210; background: #fef3c7; border-color: #d69e2e; }
 .carryover-details { margin-top: 10px; }
 .carryover-details[hidden] { display: none; }

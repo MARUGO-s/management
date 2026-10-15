@@ -85,7 +85,15 @@ fs.mkdirSync(OUT, { recursive: true });
         assert.equal(await page.locator('#date').evaluate(el => el.validity.rangeUnderflow), false);
         await page.locator('#date').fill(testDay);
       }
-      const primary = page.locator('#date').locator('..');
+      const primary = page.locator('#date').locator('..').locator('..');
+      for (const group of [primary, extra]) {
+        const date = await group.locator('.posting-date-row > input').boundingBox();
+        const button = await group.locator('.carryover-toggle').boundingBox();
+        assert(date && button);
+        assert(Math.abs(date.y - button.y) < 1, 'date and carryover button share a row');
+        assert(Math.abs(date.height - button.height) < 1, 'matching control heights');
+        assert(button.x >= date.x + date.width + 7, 'carryover sits to the right with a gap');
+      }
       await primary.locator('.carryover-toggle').click();
       assert.equal(await primary.locator('.carryover-toggle').getAttribute('aria-pressed'), 'true');
       assert.equal(await page.locator('#date').getAttribute('min'), '2026-10-01', 'carryover always posts to the current month');
