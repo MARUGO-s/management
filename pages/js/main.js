@@ -822,10 +822,12 @@ function addFullRow() {
   group.innerHTML = `
     <div class="form-group" style="margin-bottom:25px;">
       <label>📅 計上日</label>
-      <input type="date" class="full-date" required aria-label="計上日">
+      <div class="posting-date-row">
+        <input type="date" class="full-date" required aria-label="計上日">
+        <button type="button" class="list-btn carryover-toggle" aria-pressed="false">繰越</button>
+      </div>
       <p class="date-help">前月分は翌月5日まで通常入力できます（日本時間）</p>
       <div class="carryover-controls">
-        <button type="button" class="list-btn carryover-toggle" aria-pressed="false">繰越</button>
         <div class="carryover-details" hidden>
           <label>前月の実際の取引日
             <input type="date" class="original-date">
