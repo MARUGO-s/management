@@ -771,6 +771,7 @@
     }
   </style>
   <link rel="stylesheet" href="css/input-layout-mode.css?v=2026101405">
+  <link rel="stylesheet" href="css/loan-date-policy.css?v=2026101501">
 
 <link rel="icon" href="assets/icons/favicon.ico" type="image/x-icon">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/icon-180x180.png">
@@ -809,8 +810,17 @@
     <h2>💰 貸借管理</h2>
     <form id="loanForm" novalidate>
       <div class="form-group">
-        <label for="date">📅 日付</label>
-        <input type="date" id="date" required>
+        <label for="date">📅 計上日</label>
+        <input type="date" id="date" required aria-describedby="posting-date-help">
+        <p id="posting-date-help" class="date-help">前月分は翌月5日まで通常入力できます（日本時間）。</p>
+        <div class="carryover-controls">
+          <button type="button" class="list-btn carryover-toggle" aria-pressed="false">繰越</button>
+          <div class="carryover-details" hidden>
+            <label for="original-date">前月の実際の取引日</label>
+            <input type="date" id="original-date" class="original-date">
+          </div>
+          <p class="carryover-help" aria-live="polite"></p>
+        </div>
       </div>
 
       <div class="form-group">
@@ -1003,9 +1013,10 @@
   </div>
 
   <script src="config.js?v=2026101404"></script>
-  <script src="js/submission-receipts.js?v=2026101404"></script>
+  <script src="js/submission-receipts.js?v=2026101501"></script>
   <script src="js/duplicate-check.js?v=2026101401"></script>
-  <script src="pages/js/main.js?v=2026101404"></script>
+  <script src="js/loan-date-policy.js?v=2026101501"></script>
+  <script src="pages/js/main.js?v=2026101501"></script>
   <script src="js/simple-auth.js?v=2026101404"></script>
   <script src="js/quota-alert-system.js?v=2026101201"></script>
   <script src="js/usage-indicator.js?v=2026101404"></script>

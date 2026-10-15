@@ -185,6 +185,8 @@ function gas() {
     MailApp: { sendEmail() { emails++; } }
   });
   vm.runInContext(read('docs/gas_scripts/gas_code_complete.gs'), ctx);
+  const validateDate = ctx.LoanDatePolicy.validate;
+  ctx.LoanDatePolicy.validate = data => validateDate(data, new Date('2026-09-30T12:00:00+09:00'));
   ctx.createBackup = () => { backups++; };
   ctx.sendBorrowerEmail_ = () => { emails++; return 'completed'; };
   const post = data => ctx.doPost({ postData: { contents: JSON.stringify('sessionToken' in data ? data : { ...data, sessionToken: 'valid-token' }) } });

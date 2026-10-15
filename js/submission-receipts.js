@@ -11,6 +11,7 @@
       payload.originalCreatedAt || payload.originalRowId || payload.originalRowIndex || '',
       // 入力日時が同じ秒の別の元行を、元行の受付IDで区別する（GASの内容ハッシュと同じ規則）。
       ...(payload.originalCreatedAt && payload.originalRowId ? [String(payload.originalRowId)] : []),
+      ...(payload.isCarryover === true || payload.originalDate ? [payload.isCarryover === true, String(payload.originalDate || '')] : []),
       occurrence
     ]);
   }
@@ -58,12 +59,15 @@
       }
     }
   }
-  async function ensureServer(url) {
+  async function ensureServer(url, options = {}) {
     let response, result;
     try {
       ({ response, result } = await fetchJson(url, { cache: 'no-store', redirect: 'follow' }));
     } catch (error) {
       throw outcomeError('サーバーに接続できなかったため、送信前に停止しました。', 'notSent', error.message);
+    }
+    if (options.datePolicy && result?.datePolicyVersion !== 1) {
+      throw outcomeError('当月入力・繰越に対応するサーバーの更新待ちのため、送信前に停止しました。管理者にご連絡ください。', 'notSent');
     }
     if (result?.receiptColumnsReady === false) {
       throw outcomeError('受付ID用の列を利用できないため、送信前に停止しました。管理者にご連絡ください。', 'notSent');
@@ -76,6 +80,16 @@
     }
     if (!(result?.duplicateRulesVersion >= 2)) {
       throw outcomeError('日付違いの再入力・修正元の確認に対応したサーバーではないため、送信前に停止しました（重複確認の更新待ち）。管理者にご連絡ください。', 'notSent');
+    }
+  }
+  // An attempted receipt may be checked after closing a month. The server only
+  // acknowledges an existing row; a missing row still fails the current-date rule.
+  function hasRecordedAttempt(url, payload) {
+    const journal = read(url);
+    for (let occurrence = 0; ; occurrence++) {
+      const entry = journal[keyOf(payload, occurrence)];
+      if (!entry) return false;
+      if (entry.attempted !== false) return true;
     }
   }
   function prepare(url, payloads) {
@@ -298,5 +312,5 @@
       retry.onclick = () => { modal.classList.remove('show'); restore(); onRetry(); };
     }
   }
-  root.LoanReceipts = { ensureServer, prepare, send, withLock, describeFailure, presentFailure, annotateAuthFailure };
+  root.LoanReceipts = { ensureServer, prepare, send, hasRecordedAttempt, withLock, describeFailure, presentFailure, annotateAuthFailure };
 })(window);

@@ -98,7 +98,7 @@ async function fillGroup(page, prefix, name, item, price) {
         endpoints.push({ endpoint: u.hostname === 'script.google.com' ? 'GAS' : endpoint, method: req.method(), action: body.action || null, authenticated: !!req.headers()['x-loan-session'] });
         let status = 200, response = { success:true, status:'SUCCESS', monthly:{ total:0 }, daily:{ total:0 }, total:{ total:0 }, devices:{ count:0 }, data:[] };
         if (u.hostname === 'script.google.com') {
-          if (req.method() === 'GET') response = { status:'SUCCESS', idempotencyVersion:1, similarityVersion:1, duplicateRulesVersion:2, receiptColumnsReady:true };
+          if (req.method() === 'GET') response = { status:'SUCCESS', idempotencyVersion:1, similarityVersion:1, duplicateRulesVersion:2,datePolicyVersion:1, receiptColumnsReady:true };
           else {
             // Never persist session tokens or password bodies in test evidence.
             const { sessionToken, ...business } = body;

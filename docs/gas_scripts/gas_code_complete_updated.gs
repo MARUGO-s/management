@@ -127,7 +127,9 @@ function receiptHash_(data) {
     data.originalCreatedAt || data.originalRowId || data.originalRowIndex || '',
     // 入力日時だけでは同秒の元行を区別できない。元行の受付IDも送られた場合だけ内容に含め、
     // 受付IDを送らない旧画面のハッシュは変えない。
-    ...(data.originalCreatedAt && data.originalRowId ? [String(data.originalRowId)] : [])
+    ...(data.originalCreatedAt && data.originalRowId ? [String(data.originalRowId)] : []),
+    // Preserve legacy hashes; bind carryover metadata only when supplied.
+    ...(data.isCarryover === true || data.originalDate ? [data.isCarryover === true, String(data.originalDate || '')] : [])
   ]);
   return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, canonical)
     .map(value => ('0' + ((value + 256) % 256).toString(16)).slice(-2)).join('');
@@ -465,6 +467,7 @@ function processCorrectionData(data) {
 
     const receipt = findReceipt_(sheet, data);
     if (receipt) return duplicateResponse_(data, receipt, true, lock);
+    if (data.isCarryover || data.originalDate) throw new Error('繰越と逆取引修正は同時に登録できません。');
     const insertRowIndex = correctionInsertPosition_(sheet, data, validateCorrectionOrigin_(sheet, data));
     const correctionMark = "✏️修正";
     const rowData = createRowDataArray(data, correctionMark).concat([data.receiptId, receiptHash_(data)]);
@@ -515,9 +518,12 @@ function processNormalData(data) {
     const receipt = findReceipt_(sheet, data);
     if (receipt) return duplicateResponse_(data, receipt, data.isCorrection === true, lock);
     if (data.isCorrection === true) throw new Error('修正データは修正画面から登録してください。');
+    // Existing receipts above remain confirmable after a month boundary. New writes use server Japan time.
+    const dateError = LoanDatePolicy.validate(data);
+    if (dateError) return createJsonResponse({ status: 'ERROR', written: false, code: 'INVALID_POSTING_DATE', message: dateError });
     const similarKind = hasSimilarTransaction_(sheet, data);
     if (similarKind) return similarTransactionResponse_(data, similarKind);
-    const correctionMark = data.isCorrection ? (data.correctionMark || "✏️修正") : "";
+    const correctionMark = data.isCorrection ? (data.correctionMark || "✏️修正") : LoanDatePolicy.mark(data);
     const rowData = createRowDataArray(data, correctionMark).concat([data.receiptId, receiptHash_(data)]);
 
     markPendingNotifications_(data);
@@ -598,7 +604,7 @@ function sendBorrowerEmail_(data, isCorrection) {
     const unitPriceDisp = (parseFloat(data.unitPrice || 0)).toLocaleString('ja-JP');
     const amountDisp = (parseFloat(data.amount || 0)).toLocaleString('ja-JP');
     const subject = '【貸借管理】新しい取引が登録されました';
-    const bodyText = `${data.borrower} 様\n\n以下の内容で登録されました：\n\n日付: ${data.date}\n品目: ${data.item}\n個/本: ${data.quantity}\n単価: ${unitPriceDisp} 円\n金額: ${amountDisp} 円\n貸主: ${data.lender}\nカテゴリー: ${data.category}\n${isCorrection ? '備考: ✏️修正\n' : ''}\n--\n貸借管理システム`;
+    const bodyText = `${data.borrower} 様\n\n以下の内容で登録されました：\n\n日付: ${data.date}\n品目: ${data.item}\n個/本: ${data.quantity}\n単価: ${unitPriceDisp} 円\n金額: ${amountDisp} 円\n貸主: ${data.lender}\nカテゴリー: ${data.category}\n${isCorrection ? '備考: ✏️修正\n' : LoanDatePolicy.mark(data) + (data.isCarryover ? '\n当月の精算に計上します。\n' : '')}\n--\n貸借管理システム`;
     MailApp.sendEmail({ to: email, subject, body: bodyText });
     Logger.log('📧 借主へメール送信済み: ' + email);
     return 'completed';
@@ -633,7 +639,7 @@ function doGet() {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(TARGET_SHEET_NAME);
     const ready = !!sheet && receiptColumnsAvailable_(sheet);
     return createJsonResponse({ status: 'SUCCESS', message: 'GAS動作確認OK (GET)',
-      idempotencyVersion: 1, similarityVersion: 1, duplicateRulesVersion: 2, receiptColumnsReady: ready });
+      idempotencyVersion: 1, similarityVersion: 1, duplicateRulesVersion: 2, datePolicyVersion: 1, receiptColumnsReady: ready });
   } catch (error) {
     return createJsonResponse({ status: 'ERROR', message: error.message, idempotencyVersion: 1,
       receiptColumnsReady: false });
@@ -974,3 +980,46 @@ function updateCategoryValidation() {
     return 'エラー: ' + error.toString();
   }
 }
+
+// Shared verbatim with the GAS sources. All business dates use Japan time.
+var LoanDatePolicy = (function () {
+  'use strict';
+  function today(now) {
+    return new Date((now || new Date()).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  }
+  function valid(value) {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      !isNaN(Date.parse(value)) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
+  }
+  function bounds(now) {
+    var end = today(now), start = end.slice(0, 7) + '-01';
+    var previousEnd = new Date(Date.parse(start + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
+    var previousMin = previousEnd.slice(0, 7) + '-01';
+    // The previous month stays open through the fifth, inclusive, in Japan time.
+    return { min: Number(end.slice(8)) <= 5 ? previousMin : start, currentMin: start,
+      max: end, previousMin: previousMin, previousMax: previousEnd };
+  }
+  function validate(data, now) {
+    var range = bounds(now);
+    var min = data.isCarryover === true ? range.currentMin : range.min;
+    if (!valid(data.date) || data.date < min || data.date > range.max) {
+      return data.isCarryover === true
+        ? '繰越の計上日は当月1日から今日までの日付を指定してください。'
+        : '計上日は入力可能な期間から今日までの日付を指定してください。前月分の通常入力は翌月5日までです。6日以降の入力漏れは「繰越」で登録してください。';
+    }
+    if (data.isCarryover != null && typeof data.isCarryover !== 'boolean') return '繰越の指定が不正です。';
+    if (data.isCarryover === true) {
+      if (data.isCorrection === true) return '繰越と逆取引修正は同時に登録できません。';
+      if (!valid(data.originalDate) || data.originalDate < range.previousMin || data.originalDate > range.previousMax) {
+        return '繰越の実際の取引日は、前月1日から前月末日までを指定してください。';
+      }
+    } else if (data.originalDate != null && data.originalDate !== '') {
+      return '前月の取引日を指定する場合は「繰越」を選んでください。';
+    }
+    return '';
+  }
+  function mark(data) {
+    return data.isCarryover === true ? '↪繰越（前月取引日: ' + data.originalDate + '）' : '';
+  }
+  return { today: today, valid: valid, bounds: bounds, validate: validate, mark: mark };
+})();

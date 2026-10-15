@@ -1,0 +1,7 @@
+/* 当月入力・前月繰越（両表示モード共通） */
+.date-help, .carryover-help { color: #4a5568; font-size: 12px; line-height: 1.5; margin: 6px 0; }
+.carryover-controls { margin-top: 8px; min-width: 0; }
+.carryover-toggle[aria-pressed="true"] { color: #744210; background: #fef3c7; border-color: #d69e2e; }
+.carryover-details { margin-top: 10px; }
+.carryover-details[hidden] { display: none; }
+.carryover-details input { min-width: 0; max-width: 100%; }

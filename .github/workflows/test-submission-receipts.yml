@@ -22,6 +22,7 @@ jobs:
           node --check config.js
           node --check js/simple-auth.js
           node --check js/usage-indicator.js
+          node --check js/loan-date-policy.js
           node --check js/submission-receipts.js
           node --check js/duplicate-check.js
           node --check js/duplicate-review.js

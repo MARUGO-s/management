@@ -175,3 +175,25 @@ test('解析画面の行は元行の受付ID（L列）を持ち、修正画面�
   assert.deepEqual(analyzer.data.map(row => row.receiptId), ['origin-receipt', '']);
   assert.deepEqual(analyzer.data.map(row => row.name), ['田中', '田中']);
 });
+
+test('前月の漏れを当月繰越にすると前月集計は変えず当月精算・CSVに含め、修正と誤表示しない', () => {
+  const ordinary = row('2026-09-10', 'BISTRO CAVACAVA', 'MARUGO2', 100, '2026/09/10 12:00:00', 2);
+  const carryover = row('2026-10-01', 'BISTRO CAVACAVA', 'MARUGO2', 250, '2026/10/01 12:00:00', 3);
+  carryover.correction = '↪繰越（前月取引日: 2026-09-30）';
+  const { analyzer, get } = page('BISTRO CAVACAVA');
+  analyzer.data = [ordinary, carryover];
+  analyzer.analyzeStoreBalance();
+  assert.equal(analyzer.searchResults.length, 1);
+  assert.equal(analyzer.searchResults[0].amount, 100);
+  get('start-date').value = '2026-10-01';
+  get('end-date').value = '2026-10-31';
+  analyzer.analyzeStoreBalance();
+  assert.equal(analyzer.searchResults.length, 1);
+  assert.equal(analyzer.searchResults[0].amount, 250);
+  assert.match(get('details-table').innerHTML, /↪繰越（前月取引日: 2026-09-30）/);
+  assert.doesNotMatch(get('details-table').innerHTML, />✏️修正</);
+  let csv;
+  analyzer.downloadCsv = value => { csv = JSON.parse(value); };
+  analyzer.exportResults();
+  assert.equal(csv[0].貸出金額, 250);
+});
