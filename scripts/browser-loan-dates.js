@@ -49,6 +49,32 @@ fs.mkdirSync(OUT, { recursive: true });
       const page = await context.newPage();
       page.on('pageerror', error => errors.push(error.message));
       page.on('dialog', dialog => dialog.accept());
+      if (mode === 'pc') {
+        const probe = await context.newPage();
+        probe.on('pageerror', error => errors.push(error.message));
+        await probe.goto(BASE + '/index.html');
+        const preset = probe.locator('.full-entry-group').first();
+        await preset.locator('.carryover-toggle').click();
+        await preset.locator('.original-date').fill('2026-09-30');
+        await probe.locator('#layoutToggleBtn').click();
+        assert.equal(await probe.locator('.full-entry-group').count(), 1, 'carryover-only preset survives switching to smartphone mode');
+        assert.equal(await preset.locator('.original-date').inputValue(), '2026-09-30');
+        await probe.locator('#layoutToggleBtn').click();
+        // The same cleanup also runs immediately before submit.
+        await probe.evaluate(() => InputLayoutMode.controller.removeBlankPresets());
+        assert.equal(await probe.locator('.full-entry-group').count(), 1, 'carryover-only preset survives submit cleanup');
+        await preset.locator('.carryover-toggle').click();
+        await probe.evaluate(() => InputLayoutMode.controller.removeBlankPresets());
+        assert.equal(await probe.locator('.full-entry-group').count(), 1, 'hidden original date stays preserved after carryover is turned off');
+        await preset.locator('.original-date').evaluate(el => { el.value = ''; });
+        await probe.evaluate(() => InputLayoutMode.controller.removeBlankPresets());
+        assert.equal(await probe.locator('.full-entry-group').count(), 0, 'completely blank presets still get removed');
+        await probe.evaluate(() => InputLayoutMode.controller.addPresetRows());
+        await probe.locator('.full-entry-group .carryover-toggle').click();
+        await probe.evaluate(() => InputLayoutMode.controller.removeBlankPresets());
+        assert.equal(await probe.locator('.full-entry-group').count(), 1, 'carryover selection alone is enough to preserve a preset');
+        await probe.close();
+      }
       await page.goto(BASE + '/index.html');
       await page.waitForTimeout(500);
       assert.equal(await page.locator('#date').inputValue(), testDay, 'Japan date even on an overseas device');
