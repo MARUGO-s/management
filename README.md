@@ -7,6 +7,8 @@ Google Sheets APIとSupabaseを活用した貸借管理システムです。デ�
 
 二重登録防止の仕組みとGAS先行反映の手順は [運用ガイド](docs/DUPLICATE_PREVENTION.md) を参照してください。
 
+当月入力の日付制限と前月繰越の使い方・反映手順は [当月入力と繰越](docs/CURRENT_MONTH_CARRYOVER.md) を参照してください。
+
 ## 機能
 - 📊 データ送信・管理
 - 🔍 問題報告システム

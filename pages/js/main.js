@@ -821,8 +821,18 @@ function addFullRow() {
 
   group.innerHTML = `
     <div class="form-group" style="margin-bottom:25px;">
-      <label>📅 日付</label>
-      <input type="date" class="full-date" required>
+      <label>📅 計上日</label>
+      <input type="date" class="full-date" required aria-label="計上日">
+      <p class="date-help">前月分は翌月5日まで通常入力できます（日本時間）</p>
+      <div class="carryover-controls">
+        <button type="button" class="list-btn carryover-toggle" aria-pressed="false">繰越</button>
+        <div class="carryover-details" hidden>
+          <label>前月の実際の取引日
+            <input type="date" class="original-date">
+          </label>
+        </div>
+        <p class="carryover-help" aria-live="polite"></p>
+      </div>
     </div>
     <div class="form-row" style="display:flex; gap:15px; margin-bottom:25px;">
       <div class="form-group" style="flex:1; margin-bottom:0;">
@@ -897,11 +907,8 @@ function addFullRow() {
   // 日付を今日に設定（タイムゾーン対応）
   const dateInput = group.querySelector('.full-date');
   if (dateInput) {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    dateInput.value = `${year}-${month}-${day}`;
+    dateInput.value = LoanDatePolicy.today();
+    setupPostingDate(dateInput);
   }
 
   // 最初の行をセットアップ
@@ -1963,6 +1970,11 @@ async function submitData(options = {}) {
     let groupIndex = 0;
     for (const gd of groupDefs) {
       const date = gd.dateEl?.value || '';
+      const dateGroup = gd.dateEl?.closest('.form-group');
+      const isCarryover = dateGroup?.querySelector('.carryover-toggle')?.getAttribute('aria-pressed') === 'true';
+      const originalDate = isCarryover ? (dateGroup?.querySelector('.original-date')?.value || '') : '';
+      const posting = { date, ...(isCarryover ? { isCarryover: true, originalDate } : {}) };
+      const dateError = LoanDatePolicy.validate(posting);
       const name = gd.nameEl?.value || '';
       const lender = gd.lenderEl?.value || '';
       const borrower = gd.borrowerEl?.value || '';
@@ -2037,7 +2049,7 @@ async function submitData(options = {}) {
          // 数量・金額はハイライト対象外のため、別に数えて送信を止める。
          if (!(parseFloat(en.quantity) > 0) || !(amt > 0)) invalidNumberRows++;
         const payload = {
-          date, name, lender, borrower,
+          ...posting, name, lender, borrower,
           category: en.category,
           item: en.item,
           quantity: en.quantity, // convertToHalfWidthNumberが文字列を返すのでそのまま使用
@@ -2060,6 +2072,10 @@ async function submitData(options = {}) {
           payload: payload
         });
         
+        if (dateError && !window.LoanReceipts.hasRecordedAttempt(GAS_URL, payload)) {
+          markError(dateError.startsWith('繰越の実際') ? dateGroup?.querySelector('.original-date') : gd.dateEl);
+          throw Object.assign(new Error(dateError), { receiptOutcome: 'notSent' });
+        }
         allPayloads.push(payload);
       });
        // エラー要素のフィルタリング（フォーカス制御なし）
@@ -2168,7 +2184,7 @@ async function submitData(options = {}) {
     }
 
     // 既に書き込まれた受付IDを送信前照合から除くため、再送時も同じIDを先に復元する。
-    await window.LoanReceipts.ensureServer(GAS_URL);
+    await window.LoanReceipts.ensureServer(GAS_URL, { datePolicy: !isCorrection });
     allPayloads = window.LoanReceipts.prepare(GAS_URL, allPayloads);
     // 似た登録がすでに集計に残っていれば、別の取引かを確認する（別の端末・別の人の入力も対象）
     if (!isCorrection && !(await confirmNoSimilarEntries(allPayloads))) {
@@ -2471,13 +2487,61 @@ async function confirmNoSimilarEntries(payloads) {
   return confirm(lines.join('\n'));
 }
 
+function setupPostingDate(input) {
+  if (input._postingDateSetup) { refreshPostingDate(input); return; }
+  input._postingDateSetup = true;
+  const group = input.closest('.form-group');
+  const toggle = group.querySelector('.carryover-toggle');
+  toggle.addEventListener('click', () => {
+    const active = toggle.getAttribute('aria-pressed') !== 'true';
+    toggle.setAttribute('aria-pressed', String(active));
+    toggle.textContent = active ? '✓ 繰越' : '繰越';
+    refreshPostingDate(input);
+  });
+  input.addEventListener('change', () => refreshPostingDate(input));
+  group.querySelector('.original-date').addEventListener('change', () => refreshPostingDate(input));
+  refreshPostingDate(input);
+}
+
+function refreshPostingDate(input) {
+  const range = LoanDatePolicy.bounds();
+  const group = input.closest('.form-group');
+  const active = group.querySelector('.carryover-toggle').getAttribute('aria-pressed') === 'true';
+  const original = group.querySelector('.original-date');
+  input.min = active ? range.currentMin : range.min;
+  group.querySelector('.date-help').textContent = active
+    ? '繰越の計上日は当月1日から今日までです（日本時間）。'
+    : `${range.min}〜${range.max}を入力できます。前月分の締め切りは翌月5日です（日本時間）。`;
+  input.max = range.max;
+  group.querySelector('.carryover-details').hidden = !active;
+  original.disabled = !active;
+  original.required = active;
+  original.min = range.previousMin;
+  original.max = range.previousMax;
+  if (!LoanDatePolicy.validate({ date: input.value, ...(active ? { isCarryover: true, originalDate: original.value } : {}) })) {
+    [input, original, group].forEach(el => el.classList.remove('input-error', 'error-pulse', 'error-outline'));
+    pendingErrorQueue = pendingErrorQueue.filter(el => el !== input && el !== original);
+  }
+  group.querySelector('.carryover-help').textContent = active
+    ? `${range.previousMin.slice(0, 7)}の入力漏れを、上の日付で当月の精算に計上します。前月の集計は変更しません。`
+    : '';
+}
+
+function refreshPostingDates() {
+  document.querySelectorAll('#date, .full-date').forEach(refreshPostingDate);
+}
+
 function initializeElements() {
   // 日付を今日に設定（タイムゾーン対応）
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  document.getElementById('date').value = `${year}-${month}-${day}`;
+  document.getElementById('date').value = LoanDatePolicy.today();
+  setupPostingDate(document.getElementById('date'));
+  // Refresh limits after midnight/month changes, without discarding typed values.
+  if (!initializeElements._dateRefreshAdded) {
+    document.addEventListener('visibilitychange', refreshPostingDates);
+    window.addEventListener('focus', refreshPostingDates);
+    setInterval(refreshPostingDates, 60000);
+    initializeElements._dateRefreshAdded = true;
+  }
 
   // 🔓 submitDataフラグをリセット（ページ読み込み時）
   if (typeof submitData === 'function' && !submitData._isRunning) {

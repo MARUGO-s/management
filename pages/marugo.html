@@ -518,7 +518,7 @@
                                             <th class="sortable" onclick="sortTable(6)">単価</th>
                                             <th class="sortable" onclick="sortTable(7)">金額</th>
                                             <th class="sortable" onclick="sortTable(8)">入力者</th>
-                                            <th class="sortable" onclick="sortTable(9)">修正</th>
+                                            <th class="sortable" onclick="sortTable(9)">修正・繰越</th>
                                         </tr>
                                     </thead>
                                     <tbody id="details-table">
@@ -537,6 +537,9 @@
         <!-- 削除: 脆弱な難読化認証スクリプトを除去 -->
         <script>
             // ソート機能用の変数
+            function escapeLoanNote(value) {
+                return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            }
             let sortDirection = {};
             let currentTableData = [];
 
@@ -2036,7 +2039,7 @@
                                         <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="amount" title="クリックでソート">
                                             金額 <span class="sort-indicator"></span>
                                         </th>
-                                        <th style="padding: 8px;">修正</th>
+                                        <th style="padding: 8px;">修正・繰越</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2048,8 +2051,7 @@
                             const correctionValue = item.correction || '';
                             const hasCorrection = correctionValue && (
                                 correctionValue.includes('✏️修正') ||
-                                correctionValue.includes('修正') ||
-                                correctionValue.trim() !== ''
+                                correctionValue.includes('修正')
                             );
 
                             if (correctionValue) {
@@ -2066,7 +2068,7 @@
 
                             const correctionTag = hasCorrection
                                 ? '<span style="color: #dc3545; font-weight: bold;">✏️修正</span>'
-                                : '';
+                                : (escapeLoanNote(item.correction || ''));
 
                             return `
                                         <tr style="background: white;"
@@ -2357,7 +2359,7 @@
                                                 <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="amount" title="クリックでソート">
                                                     金額 <span class="sort-indicator"></span>
                                                 </th>
-                                                <th style="padding: 8px;">修正</th>
+                                                <th style="padding: 8px;">修正・繰越</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -2368,7 +2370,7 @@
                             );
                             const correctionTag = hasCorrection
                                 ? '<span style="color: #dc3545; font-weight: bold;">✏️修正</span>'
-                                : '';
+                                : (escapeLoanNote(item.correction || ''));
                             return `
                                                 <tr style="background: white;"
                                                     data-date="${item.date}"
@@ -2403,7 +2405,7 @@
                                                 <th style="padding: 8px; cursor: pointer; user-select: none;" data-sort="amount" title="クリックでソート">
                                                     金額 <span class="sort-indicator"></span>
                                                 </th>
-                                                <th style="padding: 8px;">修正</th>
+                                                <th style="padding: 8px;">修正・繰越</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -2414,7 +2416,7 @@
                             );
                             const correctionTag = hasCorrection
                                 ? '<span style="color: #dc3545; font-weight: bold;">✏️修正</span>'
-                                : '';
+                                : (escapeLoanNote(item.correction || ''));
                             return `
                                                 <tr style="background: white;"
                                                     data-date="${item.date}"

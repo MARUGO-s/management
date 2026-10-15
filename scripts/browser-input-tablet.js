@@ -66,7 +66,7 @@ async function safeCard(page, selector) {
         let body={};try{body=JSON.parse(req.postData()||'{}');}catch{}
         let response={success:true,status:'SUCCESS',monthly:{total:0},daily:{total:0},total:{total:0},devices:{count:0},data:[]};
         if(u.hostname==='script.google.com') {
-          if(req.method()==='GET') response={status:'SUCCESS',idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2,receiptColumnsReady:true};
+          if(req.method()==='GET') response={status:'SUCCESS',idempotencyVersion:1,similarityVersion:1,duplicateRulesVersion:2,datePolicyVersion:1,receiptColumnsReady:true};
           else {const {sessionToken,...business}=body; posts.push({...business,authenticated:!!sessionToken}); response={status:'SUCCESS',idempotencyVersion:1,receiptId:body.receiptId,notifications:{backup:'completed',email:'completed'}};}
         } else if(u.pathname.endsWith('sheets-api')) response={values:[['date','name','lender','borrower','category','item','quantity','price','amount','inputDate','correction','receipt']]};
         else if(u.pathname.endsWith('password-manager')) response={success:true,passwords:{system:{status:'設定済み'}}};
@@ -79,21 +79,22 @@ async function safeCard(page, selector) {
       try {
         await page.goto(BASE+'/index.html');await page.waitForTimeout(1300);
         await page.addStyleTag({content:'*,*::before,*::after {animation:none !important;transition:none !important;} .container {opacity:1 !important;transform:none !important;}'});
+        const postingDate=await page.locator('#date').inputValue();
         const initial=await measure(page);assert.equal(initial.rows,mode==='pc'?5:1,'unchanged presets');
         if(baseline && width===390 && mode==='pc') { results.push({mode,width,height,initial,errors,navs});continue; }
         if(mode==='sp') {
           assert.equal(await page.locator('html').evaluate(e=>e.classList.contains('pc-mode')),false);
-          await page.locator('#date').fill('2026-10-14');
+          await page.locator('#date').fill(postingDate);
           await page.screenshot({path:path.join(OUT,'sp-390-primary.png')});
           await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
           await page.screenshot({path:path.join(OUT,'sp-390-bottom.png')});
           results.push({mode,width,height,initial,errors,navs});continue;
         }
         if(!baseline)check(initial);
-        await page.locator('#date').fill('2026-10-14');await page.locator('#name').fill('OFFLINE-TEST');
+        await page.locator('#date').fill(postingDate);await page.locator('#name').fill('OFFLINE-TEST');
         await page.locator('#lender').selectOption({index:1});await page.locator('#borrower').selectOption({index:2});
         const extra=page.locator('.full-entry-group').first();
-        await extra.locator('.full-date').fill('2026-10-14');await extra.locator('.full-name').fill('OFFLINE-EXTRA');
+        await extra.locator('.full-date').fill(postingDate);await extra.locator('.full-name').fill('OFFLINE-EXTRA');
         await extra.locator('.full-lender').selectOption({index:1});await extra.locator('.full-borrower').selectOption({index:2});
         const rows=page.locator('.entry-row');
         for(let i=0;i<await rows.count();i++) {
