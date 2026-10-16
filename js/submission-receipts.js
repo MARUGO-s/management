@@ -272,6 +272,7 @@
       body.appendChild(small);
     }
     modal.dataset.tone = info.tone;
+    modal.dataset.loginRequired = String(!!info.loginRequired);
     let retry = modal.querySelector?.('#errorModalRetryBtn');
     const actions = modal.querySelector?.('.modal-actions');
     let login = modal.querySelector?.('#errorModalLoginBtn');
@@ -303,6 +304,7 @@
     const restore = () => {
       if (title && modal.dataset.defaultTitle !== undefined) title.textContent = modal.dataset.defaultTitle;
       delete modal.dataset.tone;
+      delete modal.dataset.loginRequired;
       if (retry) retry.style.display = 'none';
       if (login) login.style.display = 'none';
     };

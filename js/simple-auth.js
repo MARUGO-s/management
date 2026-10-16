@@ -234,6 +234,13 @@ class SimpleAuth {
                 console.log('✅ 認証成功（Supabase）');
                 if (this.preservesInput()) {
                     this.hideAuthScreen();
+                    // 認証済みになったら、背面に残っているログイン要求も閉じる。
+                    // 既存の閉じる処理を通し、入力・受付履歴は保持して手動送信を待つ。
+                    const failure = document.getElementById('errorModal');
+                    if (failure?.dataset.loginRequired === 'true' && failure.classList.contains('show')) {
+                        document.getElementById('errorModalCloseBtn')?.click();
+                        failure.classList.remove('show');
+                    }
                     // 正規ログイン後に補助表示だけ再取得。送信処理は呼ばない。
                     window.usageIndicator?.ensureColorSettings(true).catch(() => {});
                     window.usageIndicator?.refresh();

@@ -210,3 +210,29 @@ for (const kind of ['missing', 'expired', 'sheets401']) {
     assert.equal(h.navigations(), 0, 'business input must never reload on auth failure');
   });
 }
+
+for (const outcome of ['success', 'invalid', 'cancel', 'unrelated']) {
+  test(`relogin ${outcome}: dismiss only an authenticated session warning`, async () => {
+    const h = authHarness();
+    let warningVisible = true, closed = 0, requests = 0;
+    h.data.set('loan-receipt-v1:fixture', 'pending-receipt');
+    h.elements['errorModal'] = {
+      dataset: { loginRequired: outcome === 'unrelated' ? 'false' : 'true' },
+      classList: { contains: () => warningVisible, remove: () => { warningVisible = false; } }
+    };
+    h.elements['errorModalCloseBtn'] = { click() { closed++; warningVisible = false; } };
+    h.context.fetch = async () => {
+      requests++;
+      return { json: async () => outcome === 'invalid' ? { success: true, isValid: false } :
+        { success: true, isValid: true, token: 'renewed-fixture', expiresAt: Date.now() + 100000 } };
+    };
+    if (outcome === 'cancel') h.auth.cancelLogin();
+    else await h.auth.handlePasswordSubmit();
+    assert.equal(warningVisible, outcome !== 'success');
+    assert.equal(closed, outcome === 'success' ? 1 : 0);
+    assert.equal(requests, outcome === 'cancel' ? 0 : 1, 'no automatic submission');
+    assert.equal(h.data.get('loan-receipt-v1:fixture'), 'pending-receipt');
+    assert.equal(h.elements['main-app'].style.display, 'block');
+    assert.equal(h.navigations(), 0);
+  });
+}

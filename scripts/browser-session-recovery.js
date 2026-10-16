@@ -66,7 +66,7 @@ async function fillGroup(page, prefix, name, item, price) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const results = [];
   try {
-    const scenarios = LOST ? ['lost-expired','lost-sheets401','missing'] : BASELINE_REF && !RED ? ['valid','extra-valid'] : ['missing', 'expired', 'sheets401', 'startup401', 'gas-session', 'partial-session', 'initial-login', 'extra-sheets401','valid','extra-valid','preview401'];
+    const scenarios = LOST ? ['lost-expired','lost-sheets401','missing'] : BASELINE_REF && !RED ? ['valid','extra-valid'] : ['cancel-initial', 'missing', 'expired', 'sheets401', 'startup401', 'gas-session', 'partial-session', 'initial-login', 'extra-sheets401','valid','extra-valid','preview401'];
     for (const mode of MODES) for (const scenario of scenarios) {
       if (RED && !['missing','expired','sheets401'].includes(scenario)) continue;
       const context = await browser.newContext({ viewport: { width: WIDTH || (mode === 'pc' ? 1440 : 390), height: HEIGHT }, serviceWorkers: 'block' });
@@ -78,7 +78,7 @@ async function fillGroup(page, prefix, name, item, price) {
         localStorage.setItem('inputLayoutMode', mode);
         if (!sessionStorage.getItem('__seeded')) {
           sessionStorage.setItem('__seeded', '1');
-          if (scenario !== 'initial-login') {
+          if (scenario !== 'initial-login' && scenario !== 'cancel-initial') {
             sessionStorage.setItem('loanSession', JSON.stringify({ token: 'offline-fixture-session', expiresAt: Date.now()+3600000 }));
             sessionStorage.setItem('simpleAuth', JSON.stringify({ authenticated: true, timestamp: new Date().toISOString() }));
           }
@@ -143,6 +143,7 @@ async function fillGroup(page, prefix, name, item, price) {
           await page.waitForTimeout(200);
           assert(endpoints.some(e => e.endpoint==='indicator-settings' && e.authenticated));
         }
+        if (scenario === 'cancel-initial') await page.locator('#password-cancel-btn').click();
         await fillGroup(page,'#entriesContainer','OFFLINE-TEST','OFFLINE-ITEM','100');
         if (['extra-sheets401','partial-session','extra-valid'].includes(scenario)) {
           if(mode==='sp') await page.locator('#add-full-row-btn').click();
@@ -193,7 +194,7 @@ async function fillGroup(page, prefix, name, item, price) {
           await page.waitForFunction(() => window.simpleAuth.isAuthenticated()); await page.waitForTimeout(200);
           const logged=await snapshot(page); assert.deepEqual(logged.fields,before.fields); assert.deepEqual(logged.receipts,journal); assert.equal(navs,1);
           assert.equal(posts.length,row.postsBeforeLogin,'login must not auto-submit');
-          await page.locator('#errorModalCloseBtn').click();
+          assert.equal(logged.error,false,'successful login must dismiss the obsolete auth warning');
           await page.locator('#loanForm button[type=submit]').click();
           const expected = row.postsBeforeLogin + (scenario==='partial-session'||scenario==='extra-sheets401'?2:1);
           await page.waitForFunction(() => !submitData._isRunning && document.querySelector('#step-complete')?.classList.contains('final-completed'),{},{timeout:15000});
