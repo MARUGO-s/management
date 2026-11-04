@@ -27,7 +27,7 @@ function listPublicFiles(root = ROOT) {
   const files = [];
   for (const file of PUBLIC_FILES) {
     const full = path.join(root, file);
-    if (!fs.statSync(full).isFile()) throw new Error(`公開ファイルがありません: ${file}`);
+    if (!fs.existsSync(full) || !fs.statSync(full).isFile()) throw new Error(`公開ファイルがありません: ${file}`);
     files.push(file);
   }
   for (const dir of PUBLIC_DIRS) {

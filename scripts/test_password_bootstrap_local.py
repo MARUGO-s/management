@@ -17,6 +17,7 @@ from test_local_function_authorization import ROOT, SECRET, request
 ADMIN_PASSWORD = 'local-admin-test-password'
 LEGACY_ADMIN_HASH = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
 rows = {'admin': LEGACY_ADMIN_HASH}
+RACE = {}
 
 
 def b64url_decode(value):
@@ -67,8 +68,20 @@ class FakePostgrest(BaseHTTPRequestHandler):
 
     def do_PATCH(self):
         from urllib.parse import parse_qs, urlparse
-        kind = parse_qs(urlparse(self.path).query)['password_type'][0].removeprefix('eq.')
+        query = parse_qs(urlparse(self.path).query)
+        kind = query['password_type'][0].removeprefix('eq.')
         body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+        # Honour an extra password_hash=eq.<old> filter like PostgREST does.
+        expected = query.get('password_hash', [None])[0]
+        if expected is not None and rows.get(kind) != expected.removeprefix('eq.'):
+            self.write_json(204, {})
+            return
+        if RACE.get(kind):
+            # Simulate an admin changing the password between the read and the upgrade write.
+            rows[kind] = RACE.pop(kind)
+            if expected is not None:
+                self.write_json(204, {})
+                return
         rows[kind] = body['password_hash']
         self.write_json(204, {})
 
@@ -83,7 +96,7 @@ def main():
     env = {**os.environ, 'SESSION_SIGNING_SECRET': SECRET, 'SUPABASE_URL': 'http://127.0.0.1:9999', 'SUPABASE_SERVICE_ROLE_KEY': 'test-placeholder'}
     process = subprocess.Popen(['deno', 'run', '--allow-net', '--allow-env', str(ROOT / 'supabase/functions/password-manager/index.ts')], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     try:
-        for _ in range(50):
+        for _ in range(150):
             with socket.socket() as sock:
                 if sock.connect_ex(('127.0.0.1', 8000)) == 0:
                     break
@@ -116,6 +129,12 @@ def main():
         change['currentPassword'] = new_password
         status, _, body = request(change, auth['token'])
         assert status == 200 and matches_pbkdf2(rows['system'], change['newPassword']), (status, body)
+        # A legacy upgrade must not overwrite a password that changed after it was read.
+        rows['admin'] = LEGACY_ADMIN_HASH
+        RACE['admin'] = 'changed-by-admin-meanwhile'
+        status, _, body = request({'action': 'verify', 'passwordType': 'admin', 'currentPassword': ADMIN_PASSWORD})
+        assert status == 200 and json.loads(body)['isValid'] and rows['admin'] == 'changed-by-admin-meanwhile', rows['admin'][:30]
+        print('Local password bootstrap: conditional upgrade does not overwrite a concurrent change')
         print('Local password bootstrap: legacy upgrade, PBKDF2 login, initial setup, no-session rejection, wrong/current password rotation passed')
     finally:
         process.terminate()

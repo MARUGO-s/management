@@ -5,6 +5,8 @@
 
 export const PBKDF2_ITERATIONS = 310000
 const MIN_ITERATIONS = 100000
+// Edge Function のCPU上限（約2秒）を超えないよう、保存済み記録の反復回数にも上限を置く。
+const MAX_ITERATIONS = 1000000
 const SALT_BYTES = 16
 const HASH_BYTES = 32
 const SCHEME = 'pbkdf2_sha256'
@@ -50,8 +52,9 @@ export async function verifyPassword(password: string, stored: string | null | u
   if (stored.startsWith(`${SCHEME}$`)) {
     const parts = stored.split('$')
     if (parts.length !== 4) return rejected
+    if (!/^[1-9][0-9]{5,6}$/.test(parts[1])) return rejected
     const iterations = Number(parts[1])
-    if (!Number.isInteger(iterations) || iterations < MIN_ITERATIONS || iterations > 10_000_000) return rejected
+    if (iterations < MIN_ITERATIONS || iterations > MAX_ITERATIONS) return rejected
     let salt: Uint8Array
     let expected: Uint8Array
     try {

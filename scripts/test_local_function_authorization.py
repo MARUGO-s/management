@@ -57,7 +57,7 @@ def main():
         env = {**os.environ, 'SESSION_SIGNING_SECRET': SECRET, 'SUPABASE_URL': 'http://127.0.0.1:9999', 'SUPABASE_SERVICE_ROLE_KEY': 'test-placeholder'}
         process = subprocess.Popen(['deno', 'run', '--allow-net', '--allow-env', str(ROOT / 'supabase/functions' / name / 'index.ts')], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         try:
-            for _ in range(50):
+            for _ in range(150):
                 if process.poll() is not None:
                     raise RuntimeError(f'{name} failed to start: {(process.stderr.read() if process.stderr else "")[-1000:]}')
                 with socket.socket() as sock:
@@ -101,7 +101,7 @@ def main():
     env.pop('SHEETS_REQUIRE_SESSION', None)
     process = subprocess.Popen(['deno', 'run', '--allow-net', '--allow-env', str(ROOT / 'supabase/functions/sheets-api/index.ts')], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     try:
-        for _ in range(50):
+        for _ in range(150):
             if process.poll() is not None:
                 raise RuntimeError('sheets-api failed to start')
             with socket.socket() as sock:

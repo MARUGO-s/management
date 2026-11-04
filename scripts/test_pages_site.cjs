@@ -9,6 +9,62 @@ const { listPublicFiles, buildSite } = require('./build-pages-site.js');
 
 const ROOT = path.resolve(__dirname, '..');
 
+// 公開物の一覧（2026-11-05時点、公開サイトとバイト一致を確認済み）。
+// 画面用ファイルを足す・消すときは、この一覧も意図して更新する。
+const EXPECTED_PUBLIC_FILES = [
+  "admin.html",
+  "assets/css/drawer.vertical.css",
+  "assets/css/style.css",
+  "assets/css/styles-form.css",
+  "assets/icons/favicon-v2.ico",
+  "assets/icons/favicon.ico",
+  "assets/icons/icon-16x16.png",
+  "assets/icons/icon-180x180-v2.png",
+  "assets/icons/icon-180x180.png",
+  "assets/icons/icon-192x192.png",
+  "assets/icons/icon-32x32.png",
+  "assets/icons/icon-512x512.png",
+  "assets/images/finger.png",
+  "assets/site.webmanifest",
+  "config.js",
+  "css/input-layout-mode.css",
+  "css/loan-date-policy.css",
+  "dome/202512.html",
+  "dome/202601.html",
+  "dome/202601改訂版.html",
+  "dome/DEPLOY.md",
+  "dome/README.md",
+  "dome/generate-recipes-static.js",
+  "dome/generate-recipes.js",
+  "dome/recipes.html",
+  "dome/server.js",
+  "favicon.ico",
+  "index.html",
+  "js/duplicate-check.js",
+  "js/duplicate-review.js",
+  "js/input-layout-mode.js",
+  "js/loan-date-policy.js",
+  "js/quota-alert-system.js",
+  "js/simple-auth.js",
+  "js/simple-optimization.js",
+  "js/submission-receipts.js",
+  "js/unified-data-loader.js",
+  "js/usage-indicator.js",
+  "pages/correction.html",
+  "pages/cost.html",
+  "pages/css/styles.css",
+  "pages/ingredients.html",
+  "pages/js/correction.js",
+  "pages/js/ingredients.js",
+  "pages/js/main.js",
+  "pages/js/scripts.js",
+  "pages/marugo.html",
+];
+
+test('Pages site publishes exactly the expected screen files', () => {
+  assert.deepEqual(listPublicFiles(), EXPECTED_PUBLIC_FILES);
+});
+
 test('Pages site contains the screens but no server code, migrations, GAS copies or docs', () => {
   const files = listPublicFiles();
   for (const required of ['index.html', 'admin.html', 'config.js', 'favicon.ico', 'pages/correction.html', 'pages/marugo.html', 'pages/js/main.js', 'js/simple-auth.js', 'css/input-layout-mode.css']) {
@@ -55,7 +111,11 @@ test('buildSite copies the files byte-for-byte and disables Jekyll', () => {
 test('the Pages workflow builds with this script and uploads only site/', () => {
   const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/pages.yml'), 'utf8');
   assert.match(workflow, /node scripts\/build-pages-site\.js site/);
-  assert.match(workflow, /actions\/upload-pages-artifact@v3[\s\S]*path: site/);
-  assert.match(workflow, /actions\/deploy-pages@v4/);
+  assert.match(workflow, /actions\/upload-pages-artifact@[0-9a-f]{40} # v3[\s\S]*path: site/);
+  assert.match(workflow, /actions\/deploy-pages@[0-9a-f]{40} # v4/);
   assert.match(workflow, /node --test scripts\/\*\.cjs/);
+  const topPermissions = (workflow.match(/^permissions:\n((?:  .*\n)+)/m) || [])[1] || '';
+  assert.equal(topPermissions.trim(), 'contents: read', 'pages/id-token write must be job-level, not workflow-level');
+  assert.match(workflow, /deploy:[\s\S]*permissions:\n\s+pages: write\n\s+id-token: write/);
+  assert.doesNotMatch(workflow, /uses: [^@\s]+@v\d/, 'actions must be pinned to a commit SHA');
 });

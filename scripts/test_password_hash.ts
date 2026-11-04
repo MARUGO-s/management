@@ -31,6 +31,22 @@ Deno.test('legacy SHA-256 records still log in and are marked for upgrade', asyn
   assertEquals(await verifyPassword('other', legacy), { valid: false, needsRehash: false })
 })
 
+Deno.test('iteration counts outside the safe range or not plain digits are rejected', async () => {
+  const valid = await hashPassword('pw')
+  const [, , salt, hash] = valid.split('$')
+  for (const iterations of ['99999', '1000001', '10000000', '3.1e5', '0x4baf0', '+310000', '0310000', ' 310000']) {
+    assertEquals(await verifyPassword('pw', `pbkdf2_sha256$${iterations}$${salt}$${hash}`), { valid: false, needsRehash: false }, iterations)
+  }
+})
+
+Deno.test('older PBKDF2 records with fewer iterations still verify and are marked for upgrade', async () => {
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('pw'), 'PBKDF2', false, ['deriveBits'])
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 150000 }, key, 256))
+  const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  assertEquals(await verifyPassword('pw', `pbkdf2_sha256$150000$${b64(salt)}$${b64(bits)}`), { valid: true, needsRehash: true })
+})
+
 Deno.test('malformed or empty records never verify', async () => {
   for (const stored of ['', 'pbkdf2_sha256$1$x$y', 'pbkdf2_sha256$abc$AAAA$BBBB', 'pbkdf2_sha256$310000$$', 'plain-text-password', null, undefined]) {
     assertEquals(await verifyPassword('plain-text-password', stored as string), { valid: false, needsRehash: false })
