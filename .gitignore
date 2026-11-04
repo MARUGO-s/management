@@ -1,6 +1,9 @@
 .DS_Store
 node_modules/
 .env
-# 秘密情報を含むためリポジトリに含めない（テンプレは docs/reference/config.example.js）
-config.js
+# config.js は追跡済みで Pages にも公開される。公開してよい値（Supabase URL・anon key・シートID）だけを置き、
+# service role key などの秘密は絶対に書かない（秘密は Supabase / GAS の Secrets に置く）。
 supabase/.temp/
+
+# Pages build output (scripts/build-pages-site.js)
+/site/
