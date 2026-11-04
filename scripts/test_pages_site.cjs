@@ -9,7 +9,7 @@ const { listPublicFiles, buildSite } = require('./build-pages-site.js');
 
 const ROOT = path.resolve(__dirname, '..');
 
-// 公開物の一覧（2026-11-05時点、公開サイトとバイト一致を確認済み）。
+// 公開物の一覧（2026-11-05時点、公開サイトとバイト一致を確認済み。dome/ は所有者の判断で削除）。
 // 画面用ファイルを足す・消すときは、この一覧も意図して更新する。
 const EXPECTED_PUBLIC_FILES = [
   "admin.html",
@@ -29,15 +29,6 @@ const EXPECTED_PUBLIC_FILES = [
   "config.js",
   "css/input-layout-mode.css",
   "css/loan-date-policy.css",
-  "dome/202512.html",
-  "dome/202601.html",
-  "dome/202601改訂版.html",
-  "dome/DEPLOY.md",
-  "dome/README.md",
-  "dome/generate-recipes-static.js",
-  "dome/generate-recipes.js",
-  "dome/recipes.html",
-  "dome/server.js",
   "favicon.ico",
   "index.html",
   "js/duplicate-check.js",
@@ -74,6 +65,7 @@ test('Pages site contains the screens but no server code, migrations, GAS copies
     assert.ok(!/^(supabase|docs|scripts|\.github)\//.test(file), `must not publish ${file}`);
     assert.ok(!/\.(sql|gs|ts|py|toml)$/.test(file), `must not publish ${file}`);
   }
+  assert.ok(!files.some((f) => f.startsWith('dome/')), 'dome/ was removed by the owner');
   for (const secretish of ['supabase/migrations/20250918000147_create_password_management.sql', 'supabase/config.toml', 'docs/gas_scripts/gas_code_complete.gs', 'scripts/insert_october_data_sql.sql', 'README.md']) {
     assert.ok(fs.existsSync(path.join(ROOT, secretish)) === false || !files.includes(secretish), `${secretish} is published`);
   }

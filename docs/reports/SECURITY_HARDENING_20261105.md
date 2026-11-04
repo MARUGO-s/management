@@ -15,10 +15,10 @@
    - 旧形式（塩なしSHA-256）は、ログインに成功したときにPBKDF2へ置き換える。旧関数で通っていた記録は新関数でも必ず通るので、利用者が再設定する必要はない。
    - 置き換えは「読んだ時点の値と同じときだけ」書き換える。その間に変更された値を上書きしない。
    - 比較は一定時間で行う。保存済みの反復回数は、10万〜100万の数字だけを受け付ける（Edge Function の CPU 上限への配慮）。
-2. **GitHub Pages の公開物**：画面用ファイル47件だけにした（`scripts/build-pages-site.js`、`.github/workflows/pages.yml`）。
-   - 公開する：`index.html`、`admin.html`、`config.js`、`favicon.ico`、`pages/`、`js/`、`css/`、`assets/`、`dome/`。
+2. **GitHub Pages の公開物**：画面用ファイル38件だけにした（`scripts/build-pages-site.js`、`.github/workflows/pages.yml`）。
+   - 公開する：`index.html`、`admin.html`、`config.js`、`favicon.ico`、`pages/`、`js/`、`css/`、`assets/`。`dome/`（かき氷レシピ）は所有者の判断でリポジトリから削除し、入力画面の見えないリンクも外した。
    - 公開しない：`supabase/`、`docs/`、`scripts/`、README。
-   - 47件の一覧をテストで固定した。workflow の書き込み権限は deploy ジョブだけに付け、アクションは commit SHA で固定した。
+   - 38件の一覧をテストで固定した。workflow の書き込み権限は deploy ジョブだけに付け、アクションは commit SHA で固定した。
 3. **CI**：Deno のテスト（ハッシュ7件・セッション4件）と、Python のテスト（パスワード関数・認可）を実行するようにした。
 
 ## 注意：リポジトリは公開（PUBLIC）
@@ -37,7 +37,7 @@ Pages の公開範囲を絞っても、`supabase/`・`docs/`・`scripts/` は gi
   - 条件付き置き換えを外す → Pythonテストが失敗。
   - `pages/cost.html` を外す → Pagesテストが失敗。
   - workflow 全体に書き込み権限を付ける → Pagesテストが失敗。
-- 公開47ファイル：今の公開サイトとバイト単位で一致（Jekyll の処理で中身は変わっていなかった）。
+- 公開38ファイル：今の公開サイトとバイト単位で一致（index.html は見えないリンクの削除分だけ異なる）（Jekyll の処理で中身は変わっていなかった）。
 - 画面を開いたときの要求：全リポジトリを配信した場合と同じで、404は0件（7画面＋独立レビューの11URL）。
 - 独立レビュー：`review/review-result.json`（scratch）。high 1件（リポジトリ公開）と medium 3件に対応済み。
 
@@ -45,7 +45,7 @@ Pages の公開範囲を絞っても、`supabase/`・`docs/`・`scripts/` は gi
 
 1. `gh api -X PUT repos/MARUGO-s/management/pages -f build_type=workflow` で、配信を GitHub Actions に切り替える。**merge より先に行う**（旧方式のまま workflow が動くのを避けるため）。切り替えた直後に公開サイトが表示されるかを確認し、表示されなければすぐに Pages workflow を手動で実行する。
 2. PRをmergeする。Pages workflow が自動で動いて公開する。
-3. 確認：画面の47ファイルが一致すること。`supabase/…`・`docs/…`・`scripts/…` の各ファイルが404になること。
+3. 確認：画面の38ファイルが mainと一致すること。`dome/recipes.html` も404になること。`supabase/…`・`docs/…`・`scripts/…` の各ファイルが404になること。
 4. `supabase functions deploy password-manager --project-ref mzismgyctulktrihcwfg` で関数を配備する。貸借管理アカウントのアクセストークンが必要。
 5. 署名鍵 `SESSION_SIGNING_SECRET` を新しいランダム値にする。値はチャットや画面に出さない。全員のログインが切れるので、再ログインが必要。
 6. 管理画面にログインして動作を確認する。この最初のログインで、admin の記録がPBKDF2に置き換わる。

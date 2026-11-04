@@ -10,7 +10,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 // 画面が読み込むファイルだけ。新しい画面用フォルダを足すときはここにも追加する。
 const PUBLIC_FILES = ['index.html', 'admin.html', 'config.js', 'favicon.ico'];
-const PUBLIC_DIRS = ['pages', 'js', 'css', 'assets', 'dome'];
+const PUBLIC_DIRS = ['pages', 'js', 'css', 'assets'];
 
 // 公開してはいけない場所。誤って上の一覧に入れたときに止める。
 const FORBIDDEN_PREFIXES = ['supabase/', 'docs/', 'scripts/', '.github/', '.git/', 'output/', 'node_modules/'];
