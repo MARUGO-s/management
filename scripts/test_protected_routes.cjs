@@ -39,7 +39,8 @@ test('password changes require an admin session in addition to the current passw
   assert.ok(at > 0);
   const change = code.slice(at, code.indexOf("case 'get':", at));
   assert.match(change, /authorizeLoanSession\(req, 'admin'\)/);
-  assert.match(change, /currentInputHash !== currentPasswordData\.password_hash/);
+  assert.match(change, /verifyPassword\(currentPassword, currentPasswordData\.password_hash\)/);
+  assert.match(change, /currentPasswordData && !currentCheck\?\.valid/);
 });
 
 test('first-time system password setup verifies the admin password and sends its signed token', () => {

@@ -1,4 +1,5 @@
 """Test initial password setup and rotation against a local in-memory PostgREST stand-in."""
+import base64
 import hashlib
 import json
 import os
@@ -14,7 +15,19 @@ import urllib.request
 from test_local_function_authorization import ROOT, SECRET, request
 
 ADMIN_PASSWORD = 'local-admin-test-password'
-rows = {'admin': hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()}
+LEGACY_ADMIN_HASH = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
+rows = {'admin': LEGACY_ADMIN_HASH}
+
+
+def b64url_decode(value):
+    return base64.urlsafe_b64decode(value + '=' * (-len(value) % 4))
+
+
+def matches_pbkdf2(stored, password):
+    """Check a stored record is salted PBKDF2-SHA256 and matches the password."""
+    scheme, iterations, salt, digest = stored.split('$')
+    assert scheme == 'pbkdf2_sha256' and int(iterations) >= 310000, stored[:30]
+    return hashlib.pbkdf2_hmac('sha256', password.encode(), b64url_decode(salt), int(iterations), len(b64url_decode(digest))) == b64url_decode(digest)
 
 
 class FakePostgrest(BaseHTTPRequestHandler):
@@ -82,22 +95,28 @@ def main():
         status, _, body = request({'action': 'verify', 'passwordType': 'admin', 'currentPassword': ADMIN_PASSWORD})
         auth = json.loads(body)
         assert status == 200 and auth['isValid'] and auth['token'], (status, body)
+        assert rows['admin'] != LEGACY_ADMIN_HASH and matches_pbkdf2(rows['admin'], ADMIN_PASSWORD), 'legacy SHA-256 must be upgraded after a successful login'
+        upgraded_admin = rows['admin']
+        status, _, body = request({'action': 'verify', 'passwordType': 'admin', 'currentPassword': ADMIN_PASSWORD})
+        assert status == 200 and json.loads(body)['isValid'] and rows['admin'] == upgraded_admin, 'PBKDF2 login must work and must not rewrite the record'
+        status, _, body = request({'action': 'verify', 'passwordType': 'admin', 'currentPassword': 'wrong-password'})
+        assert status == 200 and not json.loads(body)['isValid'] and rows['admin'] == upgraded_admin, (status, body)
         new_password = 'first-system-test-password'
         change = {'action': 'change', 'passwordType': 'system', 'newPassword': new_password}
         status, _, _ = request(change)
         assert status == 401 and 'system' not in rows, 'Unauthenticated initial setup must fail'
         status, _, body = request(change, auth['token'])
-        assert status == 200 and rows['system'] == hashlib.sha256(new_password.encode()).hexdigest(), (status, body)
+        assert status == 200 and matches_pbkdf2(rows['system'], new_password), (status, body)
         status, _, body = request({'action': 'get', 'passwordType': 'system'})
         assert status == 200 and json.loads(body)['passwords']['system']['status'] == '設定済み', (status, body)
         change['newPassword'] = 'second-system-test-password'
         change['currentPassword'] = 'wrong'
         status, _, _ = request(change, auth['token'])
-        assert status == 401 and rows['system'] == hashlib.sha256(new_password.encode()).hexdigest()
+        assert status == 401 and matches_pbkdf2(rows['system'], new_password)
         change['currentPassword'] = new_password
         status, _, body = request(change, auth['token'])
-        assert status == 200 and rows['system'] == hashlib.sha256(change['newPassword'].encode()).hexdigest(), (status, body)
-        print('Local password bootstrap: admin login, initial setup, no-session rejection, wrong/current password rotation passed')
+        assert status == 200 and matches_pbkdf2(rows['system'], change['newPassword']), (status, body)
+        print('Local password bootstrap: legacy upgrade, PBKDF2 login, initial setup, no-session rejection, wrong/current password rotation passed')
     finally:
         process.terminate()
         try:

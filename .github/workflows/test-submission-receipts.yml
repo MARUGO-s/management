@@ -18,6 +18,11 @@ jobs:
         with:
           node-version: '22'
       - run: node --test scripts/*.cjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno test --allow-env scripts/test_password_hash.ts scripts/test_session_authorization.ts
+      - run: python3 scripts/test_password_bootstrap_local.py
       - run: |
           node --check config.js
           node --check js/simple-auth.js

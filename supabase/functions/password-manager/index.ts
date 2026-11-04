@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { issueSessionToken, verifySessionToken, authorizeLoanSession } from '../_shared/session.ts'
+import { hashPassword, verifyPassword } from '../_shared/password-hash.ts'
 
 // パスワード管理用のEdge Function（データベースベース）
 serve(async (req) => {
@@ -38,15 +39,9 @@ serve(async (req) => {
       serviceRoleKey
     )
     
-    // SHA256ハッシュ生成関数
-    const hashPassword = async (password: string) => {
-      const encoder = new TextEncoder()
-      const data = encoder.encode(password)
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-      const hashArray = Array.from(new Uint8Array(hashBuffer))
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-    }
-    
+    // パスワードは塩付きPBKDF2で保存する（_shared/password-hash.ts）。
+    // 旧形式（塩なしSHA-256）はログイン成功時にPBKDF2へ置き換える。
+
     switch (action) {
       case 'verify':
         // データベースからパスワードハッシュを取得
@@ -64,11 +59,17 @@ serve(async (req) => {
           }), { status: 500 })
         }
         
-        // 入力されたパスワードをハッシュ化して比較
-        const inputHash = await hashPassword(currentPassword)
-        const storedHash = passwordData.password_hash
-        const isValid = inputHash === storedHash
-        
+        // 入力されたパスワードを保存済みの形式で照合する
+        const { valid: isValid, needsRehash } = await verifyPassword(currentPassword, passwordData.password_hash)
+        if (isValid && needsRehash) {
+          // 旧形式の記録を塩付きPBKDF2へ置き換える。失敗してもログイン自体は続ける。
+          const { error: rehashError } = await supabase.from('password_management')
+            .update({ password_hash: await hashPassword(currentPassword) })
+            .eq('password_type', passwordType)
+            .eq('password_hash', passwordData.password_hash)
+          if (rehashError) console.error('パスワード形式の更新エラー:', rehashError.message)
+        }
+
         console.log(`🔍 パスワード検証: type=${passwordType}, match=${isValid}`)
         // 総当たりを遅らせる。
         if (!isValid) await new Promise(resolve => setTimeout(resolve, 1000))
@@ -113,8 +114,8 @@ serve(async (req) => {
         if (!currentPasswordData && passwordType !== 'system') {
           return new Response(JSON.stringify({ success: false, error: '管理者パスワードが未設定です' }), { status: 409, headers: { 'Access-Control-Allow-Origin': '*' } })
         }
-        const currentInputHash = typeof currentPassword === 'string' ? await hashPassword(currentPassword) : null
-        if (currentPasswordData && currentInputHash !== currentPasswordData.password_hash) {
+        const currentCheck = currentPasswordData ? await verifyPassword(currentPassword, currentPasswordData.password_hash) : null
+        if (currentPasswordData && !currentCheck?.valid) {
           return new Response(JSON.stringify({
             success: false,
             error: '現在のパスワードが正しくありません'

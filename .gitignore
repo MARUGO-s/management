@@ -4,3 +4,6 @@ node_modules/
 # 秘密情報を含むためリポジトリに含めない（テンプレは docs/reference/config.example.js）
 config.js
 supabase/.temp/
+
+# Pages build output (scripts/build-pages-site.js)
+/site/
