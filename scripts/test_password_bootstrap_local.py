@@ -97,6 +97,8 @@ def main():
     process = subprocess.Popen(['deno', 'run', '--allow-net', '--allow-env', str(ROOT / 'supabase/functions/password-manager/index.ts')], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     try:
         for _ in range(150):
+            if process.poll() is not None:
+                raise RuntimeError(f'Function exited early: {process.stderr.read()[-2000:]}')
             with socket.socket() as sock:
                 if sock.connect_ex(('127.0.0.1', 8000)) == 0:
                     break

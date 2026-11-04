@@ -39,6 +39,14 @@ Deno.test('iteration counts outside the safe range or not plain digits are rejec
   }
 })
 
+Deno.test('a correctly derived record above the iteration cap is rejected (CPU guard)', async () => {
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('pw'), 'PBKDF2', false, ['deriveBits'])
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 1000001 }, key, 256))
+  const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  assertEquals(await verifyPassword('pw', `pbkdf2_sha256$1000001$${b64(salt)}$${b64(bits)}`), { valid: false, needsRehash: false })
+})
+
 Deno.test('older PBKDF2 records with fewer iterations still verify and are marked for upgrade', async () => {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('pw'), 'PBKDF2', false, ['deriveBits'])
