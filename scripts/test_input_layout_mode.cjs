@@ -98,6 +98,157 @@ function loadModule(win) {
   return win.InputLayoutMode;
 }
 
+function summaryRow(values = {}) {
+  const inputs = Object.fromEntries(['category', 'item', 'unit-price', 'quantity', 'amount'].map(name => [name, element({ extra: { value: values[name] || '' } })]));
+  return { inputs, querySelector: selector => inputs[selector.replace(/^\./, '')] || null };
+}
+
+test('空の品目行は初期行・手動追加行・自動計算0円でも表示件数と合計から除外する', () => {
+  const page = fakePage('pc');
+  page.rows.splice(0, page.rows.length, summaryRow(), summaryRow({ amount: '0' }), summaryRow({ amount: '¥0' }), summaryRow({ item: '　 ' }), summaryRow());
+  const before = page.snapshot();
+  const api = loadModule(page.win);
+  assert.equal(api.controller.summarize().rows, 0);
+  assert.equal(api.controller.summarize().total, 0);
+  assert.equal(page.byId.get('pcSummaryRows').textContent, '0');
+  assert.equal(page.byId.get('pcSummaryTotal').textContent, '¥0');
+  assert.equal(page.rows.length, 5, 'display filtering must not remove input rows');
+  assert.equal(page.snapshot(), before, 'display filtering must not rewrite any field');
+});
+
+test('表示集計は入力済みの主品目・追加グループと空行を混ぜても入力行だけを数える', () => {
+  const page = fakePage('pc');
+  const api = loadModule(page.win);
+  const expected = api.controller.summarize();
+  page.rows.push(summaryRow(), summaryRow({ amount: '0' }), summaryRow({ amount: '0.00' }));
+  api.controller.refresh();
+  assert.equal(api.controller.summarize().rows, expected.rows);
+  assert.equal(api.controller.summarize().total, expected.total);
+});
+
+test('金額0円の実入力と金額だけの途中入力は件数と合計の対象として残す', () => {
+  const page = fakePage('pc');
+  page.rows.splice(0, page.rows.length, summaryRow({ item: '0円の品目', amount: '0' }), summaryRow({ amount: '1,200' }), summaryRow({ amount: '編集中' }), summaryRow({ amount: '0' }));
+  const api = loadModule(page.win);
+  assert.equal(api.controller.summarize().rows, 3);
+  assert.equal(api.controller.summarize().total, 1200);
+});
+
+test('入力してから全内容を消した品目行は、行を残して件数・合計から外れる', () => {
+  const page = fakePage('pc');
+  page.rows.splice(0, page.rows.length, summaryRow({ item: '品目', 'unit-price': '100', quantity: '2', amount: '200' }));
+  const api = loadModule(page.win);
+  assert.equal(api.controller.summarize().rows, 1);
+  assert.equal(api.controller.summarize().total, 200);
+  for (const [name, field] of Object.entries(page.rows[0].inputs)) field.value = name === 'amount' ? '0' : '';
+  (page.docListeners.input || []).forEach(fn => fn({}));
+  assert.equal(page.byId.get('pcSummaryRows').textContent, '0');
+  assert.equal(page.byId.get('pcSummaryTotal').textContent, '¥0');
+  assert.equal(page.rows.length, 1);
+});
+
+for (const name of ['category', 'item', 'unit-price', 'quantity']) {
+  test(`品目行の途中入力を空行扱いで失わない: ${name}`, () => {
+    const page = fakePage('pc');
+    page.rows.splice(0, page.rows.length, summaryRow({ [name]: name === 'unit-price' || name === 'quantity' ? '0' : '入力途中' }));
+    const before = page.snapshot();
+    const api = loadModule(page.win);
+    assert.equal(api.controller.summarize().rows, 1);
+    assert.equal(page.snapshot(), before);
+  });
+}
+
+function focusPage({ stored = 'pc', fieldTop = 858, fieldBottom = 900, rowTop = 820, rowBottom = 930, barTop = 806 } = {}) {
+  const page = fakePage(stored);
+  const frames = [], scrolls = [];
+  const rect = (top, bottom) => ({ top, bottom, height: bottom - top, left: 0, right: 100 });
+  const form = page.byId.get('loanForm');
+  const bar = { contains: target => target === bar, getClientRects: () => [{}], getBoundingClientRect: () => rect(barTop, 888) };
+  const row = { getBoundingClientRect: () => rect(rowTop, rowBottom) };
+  form.querySelector = () => bar;
+  const field = { isConnected: true, value: '入力途中',
+    closest: selector => selector === '#loanForm' ? form : selector === '.entry-row' ? row : null,
+    getBoundingClientRect: () => rect(fieldTop, fieldBottom),
+    focus() { throw new Error('visibility guard must not refocus'); },
+    blur() { throw new Error('visibility guard must not blur'); } };
+  page.document.activeElement = field;
+  page.win.innerHeight = 900;
+  page.win.requestAnimationFrame = fn => { frames.push(fn); };
+  page.win.scrollBy = options => scrolls.push(options.top);
+  loadModule(page.win);
+  return { ...page, field, bar, frames, scrolls,
+    fire(target = field) { (page.docListeners.focusin || []).forEach(fn => fn({ target })); },
+    flush() { while (frames.length) frames.shift()(); } };
+}
+
+test('PCのfocusinは合計バーに隠れた品目行を必要な分だけスクロールし、値・フォーカスを変えない', () => {
+  const page = focusPage();
+  const before = page.snapshot();
+  page.fire();
+  assert.deepEqual(page.scrolls, [], 'wait until native focus scrolling finishes');
+  page.flush();
+  assert.deepEqual(page.scrolls, [132], 'show the whole row above the measured bar with 8px clearance');
+  assert.equal(page.field.value, '入力途中');
+  assert.equal(page.document.activeElement, page.field);
+  assert.equal(page.snapshot(), before);
+});
+
+test('見えている行はスクロールしない', () => {
+  const page = focusPage({ fieldTop: 300, fieldBottom: 344, rowTop: 270, rowBottom: 400 });
+  page.fire(); page.flush();
+  assert.deepEqual(page.scrolls, []);
+});
+
+test('折返し行が可視領域より高いときは、選択中の入力欄だけを優先する', () => {
+  const page = focusPage({ rowTop: 100, rowBottom: 1100 });
+  page.fire(); page.flush();
+  assert.deepEqual(page.scrolls, [102]);
+});
+
+test('逆Tabで行の上辺が切れた場合は、上方向へ必要な分だけ補正する', () => {
+  const page = focusPage({ fieldTop: 10, fieldBottom: 54, rowTop: -20, rowBottom: 100 });
+  page.fire(); page.flush();
+  assert.deepEqual(page.scrolls, [-28]);
+});
+
+test('スマホ通常表示では、固定バー回避のスクロールを予約しない', () => {
+  const page = focusPage({ stored: 'sp' });
+  page.fire(); page.flush();
+  assert.deepEqual(page.frames, []);
+  assert.deepEqual(page.scrolls, []);
+});
+
+for (const state of ['focus-moved', 'removed', 'switched-mode']) {
+  test(`予約中に対象が変わったときは古いfocusinで動かさない: ${state}`, () => {
+    const page = focusPage();
+    page.fire();
+    if (state === 'focus-moved') page.document.activeElement = {};
+    if (state === 'removed') page.field.isConnected = false;
+    if (state === 'switched-mode') page.win.InputLayoutMode.controller.apply('sp');
+    page.flush();
+    assert.deepEqual(page.scrolls, []);
+  });
+}
+
+test('フォーム外のモーダルや、合計バー自身のフォーカスは動かさない', () => {
+  const page = focusPage();
+  const outside = { isConnected: true, closest: () => null };
+  page.document.activeElement = outside;
+  page.fire(outside); page.flush();
+  page.bar.isConnected = true;
+  page.bar.closest = () => page.byId.get('loanForm');
+  page.document.activeElement = page.bar;
+  page.fire(page.bar); page.flush();
+  assert.deepEqual(page.scrolls, []);
+});
+
+test('rAFがない環境でも標準のタイマーでフォーカス可視化を実行する', () => {
+  const page = focusPage();
+  delete page.win.requestAnimationFrame;
+  page.fire();
+  assert.deepEqual(page.scrolls, [132]);
+});
+
 function bootScript() {
   const m = html.match(/<script id="input-layout-mode-boot">([\s\S]*?)<\/script>/);
   assert.ok(m, 'boot script exists');
@@ -229,7 +380,7 @@ test('every layout rule is scoped to html.pc-mode, so smartphone mode keeps the 
 
 test('assets are cache-busted and the existing form selectors used by main.js are intact', () => {
   assert.match(html, /<link rel="stylesheet" href="css\/input-layout-mode\.css\?v=2026101405">/);
-  assert.match(html, /<script src="js\/input-layout-mode\.js\?v=2026101503"><\/script>/);
+  assert.match(html, /<script src="js\/input-layout-mode\.js\?v=2026110402"><\/script>/);
   for (const sel of ['id="entriesContainer"', 'class="entry-row" data-index="0"', 'class="category" required', 'class="item" required',
     'class="unit-price" required', 'class="quantity" required', 'class="amount" required', 'id="add-row-btn"', 'id="add-full-row-btn"',
     'id="extraGroups"', 'type="submit" class="submit-btn"', 'class="btn-text"']) assert.ok(html.includes(sel), sel);

@@ -343,7 +343,14 @@ const jst = (y, m, d, h = 6, min = 10) => new Date(Date.UTC(y, m - 1, d, h - 9, 
 
 function monthly(values = MONTHLY, options = {}) {
   const fetches = [];
+  // Fixture transactions are September 2026. Keep the real monthly entry point
+  // in October instead of letting the machine's current month empty the report.
+  const fixedNow = Date.parse('2026-10-12T12:00:00+09:00');
   const ctx = vm.createContext({
+    Date: class extends Date {
+      constructor(...args) { super(...(args.length ? args : [fixedNow])); }
+      static now() { return fixedNow; }
+    },
     console: { log() {}, warn() {}, error() {} },
     SPREADSHEET_ID: 'sheet-id', TARGET_SHEET_NAME: '貸借表',
     Utilities: {
