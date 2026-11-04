@@ -61,15 +61,33 @@
       }
     }
 
-    // 表示のみの集計（送信内容には使わない）。各行の金額欄（calculateAmountForRow の結果）を合計する。
+    // 表示集計だけの判定。空行の自動計算で入る金額0は、入力済みとは数えない。
+    // 検証・送信・プリセット整理の空行判定は変更しない。
+    function rowHasSummaryInput(row) {
+      var fields = ['.category', '.item', '.unit-price', '.quantity'];
+      for (var i = 0; i < fields.length; i++) {
+        var field = row.querySelector(fields[i]);
+        if (field && String(field.value == null ? '' : field.value).trim() !== '') return true;
+      }
+      if (row.querySelector('.category-option.selected')) return true;
+      var amount = row.querySelector('.amount');
+      var text = String(amount && amount.value != null ? amount.value : '').replace(/[¥,，\s]/g, '');
+      // 金額だけの手入力も失わない。不正な途中入力も空行扱いにはしない。
+      return text !== '' && (!isFinite(Number(text)) || Number(text) !== 0);
+    }
+
+    // 表示のみの集計（送信内容には使わない）。入力のある品目行だけを件数・合計の対象にする。
     function summarize() {
       var rows = doc.querySelectorAll('#entriesContainer .entry-row, #extraGroups .entry-row');
       var total = 0;
+      var count = 0;
       for (var i = 0; i < rows.length; i++) {
+        if (!rowHasSummaryInput(rows[i])) continue;
+        count++;
         var amount = rows[i].querySelector('.amount');
         if (amount) total += parseAmount(amount.value);
       }
-      return { rows: rows.length, total: total };
+      return { rows: count, total: total };
     }
 
     function updateSummary() {
@@ -225,6 +243,36 @@
         e.preventDefault();
         t.click();
       }
+    });
+
+    // Tabは横取りせず、標準のフォーカス移動後に合計バーの遮蔽だけを補正する。
+    // 委譲により手動追加した行も対象。値・選択・プリセット整理には触れない。
+    doc.addEventListener('focusin', function (e) {
+      var target = e.target;
+      if (controller.mode() !== 'pc') return;
+      var defer = win.requestAnimationFrame || win.setTimeout;
+      defer.call(win, function () {
+        // フレーム待ちの間に別の欄へ移動・削除・表示切替された場合は動かさない。
+        if (controller.mode() !== 'pc' || !target || !target.isConnected || doc.activeElement !== target) return;
+        var form = target.closest('#loanForm');
+        if (!form) return;
+        var bar = form.querySelector(':scope > .button-group');
+        if (!bar || bar.contains(target) || !bar.getClientRects().length) return;
+        var barRect = bar.getBoundingClientRect();
+        if (barRect.top >= win.innerHeight || barRect.bottom <= 0) return;
+        var top = 8;
+        var bottom = Math.min(win.innerHeight, barRect.top) - 8;
+        if (bottom <= top) return;
+        var rect = target.getBoundingClientRect();
+        var row = target.closest('.entry-row');
+        if (row) {
+          var rowRect = row.getBoundingClientRect();
+          // 折返し行が画面より高い場合は、選択中の入力欄を優先する。
+          if (rowRect.height <= bottom - top) rect = rowRect;
+        }
+        var delta = rect.bottom > bottom ? rect.bottom - bottom : rect.top < top ? rect.top - top : 0;
+        if (delta) win.scrollBy({ top: delta, left: 0, behavior: 'instant' });
+      });
     });
 
     // 送信直前（main.js の送信処理より先＝キャプチャ段階）に、未入力のまま残った自動作成の行だけを取り除く

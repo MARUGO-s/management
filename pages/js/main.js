@@ -2510,16 +2510,19 @@ function refreshPostingDate(input) {
   const group = input.closest('.form-group');
   const active = group.querySelector('.carryover-toggle').getAttribute('aria-pressed') === 'true';
   const original = group.querySelector('.original-date');
-  input.min = active ? range.currentMin : range.min;
+  // 同じ min/max の代入でも、ブラウザは日付欄の連続数字入力をリセットする。
+  // 月・日を直接編集できるよう、締め日や繰越切替で制限が変わったときだけ更新する。
+  const minimum = active ? range.currentMin : range.min;
+  if (input.min !== minimum) input.min = minimum;
   group.querySelector('.date-help').textContent = active
     ? '繰越の計上日は当月1日から今日までです（日本時間）。'
     : `${range.min}〜${range.max}を入力できます。前月分の締め切りは翌月5日です（日本時間）。`;
-  input.max = range.max;
+  if (input.max !== range.max) input.max = range.max;
   group.querySelector('.carryover-details').hidden = !active;
   original.disabled = !active;
   original.required = active;
-  original.min = range.previousMin;
-  original.max = range.previousMax;
+  if (original.min !== range.previousMin) original.min = range.previousMin;
+  if (original.max !== range.previousMax) original.max = range.previousMax;
   if (!LoanDatePolicy.validate({ date: input.value, ...(active ? { isCarryover: true, originalDate: original.value } : {}) })) {
     [input, original, group].forEach(el => el.classList.remove('input-error', 'error-pulse', 'error-outline'));
     pendingErrorQueue = pendingErrorQueue.filter(el => el !== input && el !== original);
