@@ -75,8 +75,20 @@ test('changed client scripts have cache-busted references on all entry pages', (
     const html = source(page);
     for (const match of html.matchAll(/<script[^>]*src="(?:\.\.\/)?(?:config\.js|js\/(?:simple-auth|quota-alert-system|usage-indicator)\.js|pages\/js\/main\.js)([^\"]*)"/g)) {
       const unchanged = match[0].includes('quota-alert-system.js');
-      const expected = match[0].includes('js/simple-auth.js') ? '?v=2026101701' : unchanged ? '?v=2026101201' : match[0].includes('pages/js/main.js') ? '?v=2026110401' : '?v=2026101404';
+      const expected = match[0].includes('js/simple-auth.js') ? '?v=2026110501' : unchanged ? '?v=2026101201' : match[0].includes('pages/js/main.js') ? '?v=2026110401' : '?v=2026101404';
       assert.equal(match[1], expected, `${page}: ${match[0]}`);
     }
   }
+});
+
+test('password verify checks the login lock before reading the password and both login screens explain a lock', () => {
+  const fn = source('supabase/functions/password-manager/index.ts');
+  const verify = fn.slice(fn.indexOf("case 'verify'"), fn.indexOf("case 'change'"));
+  assert.ok(verify.indexOf('checkLoginLock(') > -1 && verify.indexOf('checkLoginLock(') < verify.indexOf(".select('password_hash')"), 'lock check must come first');
+  assert.match(verify, /status: 429/);
+  assert.match(verify, /recordLoginFailure\(supabase, throttleKey\)/);
+  assert.match(verify, /clearLoginFailures\(supabase, throttleKey\)/);
+  const admin = source('admin.html');
+  assert.match(admin, /response\.status === 429 && result\.locked/);
+  assert.match(source('js/simple-auth.js'), /response\.status === 429 && result\.locked/);
 });

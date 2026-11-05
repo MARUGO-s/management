@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { issueSessionToken, verifySessionToken, authorizeLoanSession } from '../_shared/session.ts'
 import { hashPassword, verifyPassword } from '../_shared/password-hash.ts'
+import { checkLoginLock, clearLoginFailures, loginThrottleKey, recordLoginFailure } from '../_shared/login-throttle.ts'
 
 // パスワード管理用のEdge Function（データベースベース）
 serve(async (req) => {
@@ -43,7 +44,27 @@ serve(async (req) => {
     // 旧形式（塩なしSHA-256）はログイン成功時にPBKDF2へ置き換える。
 
     switch (action) {
-      case 'verify':
+      case 'verify': {
+        // 同じ接続元・種別で直近10分に10回失敗していたら、照合せずに断る。
+        const throttleKey = await loginThrottleKey(req, String(passwordType))
+        const lock = await checkLoginLock(supabase, throttleKey)
+        if (lock.locked) {
+          return new Response(JSON.stringify({
+            success: false,
+            isValid: false,
+            locked: true,
+            retryAfterSeconds: lock.retryAfterSeconds,
+            error: 'ログインの失敗が続いたため、しばらくログインできません'
+          }), {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Retry-After': String(lock.retryAfterSeconds),
+            },
+          })
+        }
+
         // データベースからパスワードハッシュを取得
         const { data: passwordData, error: fetchError } = await supabase
           .from('password_management')
@@ -71,8 +92,13 @@ serve(async (req) => {
         }
 
         console.log(`🔍 パスワード検証: type=${passwordType}, match=${isValid}`)
-        // 総当たりを遅らせる。
-        if (!isValid) await new Promise(resolve => setTimeout(resolve, 1000))
+        if (isValid) {
+          await clearLoginFailures(supabase, throttleKey)
+        } else {
+          await recordLoginFailure(supabase, throttleKey)
+          // 総当たりを遅らせる。
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
         // 成功時はデータ読み取り・登録に使う有効期限付きトークンを発行する。
         const session = isValid ? await issueSessionToken(passwordType) : null
         
@@ -87,6 +113,7 @@ serve(async (req) => {
             'Access-Control-Allow-Origin': '*',
           },
         })
+      }
 
       case 'change':
         {

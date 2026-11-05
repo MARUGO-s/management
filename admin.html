@@ -1561,6 +1561,10 @@
                         this.showAdminPanel(true);
                         console.log('✅ 管理者認証成功（Supabase）');
                     } else {
+                        // 失敗が続いて一時的にロックされた場合は理由を出す。通常の失敗は従来の文言。
+                        errorDiv.textContent = (response.status === 429 && result.locked)
+                            ? `❌ ログインの失敗が続いたため、一時的にログインできません。約${Math.max(1, Math.ceil((Number(result.retryAfterSeconds) || 600) / 60))}分後にもう一度お試しください`
+                            : '❌ パスワードが正しくありません';
                         errorDiv.style.display = 'block';
                         errorDiv.style.animation = 'shake 0.5s';
                         document.getElementById('admin-password').value = '';

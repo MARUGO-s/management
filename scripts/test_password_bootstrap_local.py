@@ -46,6 +46,8 @@ class FakePostgrest(BaseHTTPRequestHandler):
     def do_GET(self):
         from urllib.parse import parse_qs, urlparse
         path = urlparse(self.path)
+        if path.path == '/rest/v1/login_failures':
+            return self.write_json(200, [])
         assert path.path == '/rest/v1/password_management', path.path
         query = parse_qs(path.query)
         kind = query.get('password_type', [''])[0].removeprefix('eq.')
@@ -60,11 +62,18 @@ class FakePostgrest(BaseHTTPRequestHandler):
             self.write_json(200, matches)
 
     def do_POST(self):
+        if self.path.startswith('/rest/v1/login_failures'):
+            self.rfile.read(int(self.headers['Content-Length']))
+            return self.write_json(201, {})
         assert self.path.startswith('/rest/v1/password_management')
         body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         assert body['password_type'] not in rows
         rows[body['password_type']] = body['password_hash']
         self.write_json(201, {})
+
+    def do_DELETE(self):
+        assert self.path.startswith('/rest/v1/login_failures'), self.path
+        self.write_json(204, {})
 
     def do_PATCH(self):
         from urllib.parse import parse_qs, urlparse

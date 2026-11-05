@@ -1,4 +1,12 @@
 // 🔐 シンプルパスワード認証システム
+
+// ログイン失敗が続いてサーバーが一時的に受け付けないときの案内文。
+function loginLockMessage(retryAfterSeconds) {
+    const minutes = Math.max(1, Math.ceil((Number(retryAfterSeconds) || 600) / 60));
+    return `ログインの失敗が続いたため、一時的にログインできません。約${minutes}分後にもう一度お試しください`;
+}
+if (typeof window !== 'undefined') window.loginLockMessage = loginLockMessage;
+
 class SimpleAuth {
     constructor() {
         this.SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8時間
@@ -163,6 +171,8 @@ class SimpleAuth {
             });
             
             const result = await response.json();
+            // 失敗が続いて一時的にロックされた場合は、理由を画面に出す。
+            this.lockMessage = (response.status === 429 && result.locked) ? loginLockMessage(result.retryAfterSeconds) : '';
             if (!(result.success && result.isValid && result.token)) return false;
             // シートの読み取り・登録に使うトークンを保存する。
             if (!window.LoanSession) return false; // 古い config.js がキャッシュされている
@@ -250,8 +260,8 @@ class SimpleAuth {
                 }
                 return;
             } else {
-                // 認証失敗
-                this.showError('パスワードが正しくありません');
+                // 認証失敗（ロック中はその旨を出す）
+                this.showError(this.lockMessage || 'パスワードが正しくありません');
                 passwordInput.value = '';
                 passwordInput.focus();
             }
