@@ -6,6 +6,7 @@ old failures fall out of the window, and a broken throttle table never blocks a 
 """
 import hashlib
 import json
+import itertools
 import os
 import socket
 import subprocess
@@ -22,7 +23,8 @@ from test_local_function_authorization import ROOT, SECRET
 PASSWORDS = {'system': 'system-test-password', 'admin': 'admin-test-password'}
 rows = {kind: hashlib.sha256(value.encode()).hexdigest() for kind, value in PASSWORDS.items()}
 failures = []  # list of {'key': str, 'failed_at': str}
-BROKEN = {'throttle': False}
+BROKEN = {'throttle': False, 'password_read': False}
+NEXT_ID = itertools.count(1)
 
 
 def parse_time(value):
@@ -61,6 +63,8 @@ class FakePostgrest(BaseHTTPRequestHandler):
             limit = int(query.get('limit', ['1000'])[0])
             return self.write_json(200, [{'failed_at': r['failed_at']} for r in items[:limit]])
         assert path.path == '/rest/v1/password_management', path.path
+        if BROKEN['password_read']:
+            return self.write_json(500, {'message': 'password read failed for test'})
         kind = query.get('password_type', [''])[0].removeprefix('eq.')
         match = {'password_hash': rows[kind]} if kind in rows else None
         if 'application/vnd.pgrst.object+json' in self.headers.get('Accept', ''):
@@ -70,12 +74,22 @@ class FakePostgrest(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path)
         body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
-        if path.path == '/rest/v1/login_failures':
+        if path.path.startswith('/rest/v1/rpc/'):
             if BROKEN['throttle']:
-                return self.write_json(500, {'message': 'broken for test'})
-            for item in (body if isinstance(body, list) else [body]):
-                failures.append({'key': item['key'], 'failed_at': item['failed_at']})
-            return self.write_json(201, {})
+                return self.write_json(404, {'code': 'PGRST202', 'message': 'RPC missing for test'})
+            key = body['p_key']
+            if path.path.endswith('/reserve_login_attempt'):
+                now = datetime.now(timezone.utc)
+                recent = [r for r in failures if r['key'] == key and parse_time(r['failed_at']) >= now - timedelta(minutes=10)]
+                if len(recent) >= 3:
+                    return self.write_json(200, {'locked': True, 'attempt_id': None, 'retry_after_seconds': 600})
+                ident = str(next(NEXT_ID))
+                failures.append({'id': ident, 'key': key, 'failed_at': now.isoformat()})
+                return self.write_json(200, {'locked': False, 'attempt_id': ident, 'retry_after_seconds': 0})
+            assert path.path.endswith('/finish_login_attempt'), path.path
+            ident = int(body['p_attempt_id'])
+            failures[:] = [r for r in failures if not (r['key'] == key and (int(r['id']) <= ident if body['p_success'] else int(r['id']) == ident))]
+            return self.write_json(204, {})
         raise AssertionError(path.path)
 
     def do_PATCH(self):
@@ -99,7 +113,7 @@ class FakePostgrest(BaseHTTPRequestHandler):
 
 
 def verify(kind, password, ip='203.0.113.10'):
-    headers = {'Content-Type': 'application/json', 'x-forwarded-for': f'{ip}, 10.0.0.1'}
+    headers = {'Content-Type': 'application/json', 'x-forwarded-for': f'{ip}, 10.0.0.1', 'cf-connecting-ip': ip}
     data = json.dumps({'action': 'verify', 'passwordType': kind, 'currentPassword': password}).encode()
     req = urllib.request.Request('http://127.0.0.1:8000/', data=data, headers=headers, method='POST')
     try:
@@ -129,6 +143,13 @@ def main():
             time.sleep(0.1)
         else:
             raise RuntimeError('Function failed to start')
+
+        # Reject noncanonical types/passwords before any failure slot is reserved.
+        for kind, password in [(['system'], PASSWORDS['system']), ('System', 'wrong'),
+                               (None, 'wrong'), (1, 'wrong'), ({}, 'wrong'),
+                               ('system', None), ('system', ['wrong']), ('system', 123)]:
+            status, body = verify(kind, password)
+            assert status == 400 and not body.get('token') and failures == [], (kind, status, body, failures)
 
         # 2 failures, then the right password still works and clears the counter.
         for _ in range(2):
@@ -164,7 +185,17 @@ def main():
         status, body = verify('system', PASSWORDS['system'])
         assert status == 200 and body['isValid'], (status, body)
 
-        # A broken throttle table never blocks a correct login (fail-open), and wrong stays wrong.
+        # Password reads fail before comparison: release the reservation instead of
+        # exhausting the login budget during an unrelated backend failure.
+        BROKEN['password_read'] = True
+        for _ in range(5):
+            status, body = verify('system', 'wrong', ip='192.0.2.56')
+            assert status == 500 and failures == [], (status, body, failures)
+        BROKEN['password_read'] = False
+        status, body = verify('system', PASSWORDS['system'], ip='192.0.2.56')
+        assert status == 200 and body['isValid'], (status, body)
+
+        # A missing RPC on an older DB is fail-open; wrong still stays wrong.
         BROKEN['throttle'] = True
         status, body = verify('system', PASSWORDS['system'], ip='192.0.2.55')
         assert status == 200 and body['isValid'], (status, body)

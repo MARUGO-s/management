@@ -1,21 +1,21 @@
 // ログイン試行の回数制限（password-manager の verify で使う）。
-// 同じ接続元（IPアドレス）× パスワード種別ごとに、直近10分間の失敗が3回に達したら、
-// その3回のうち最も古い失敗から10分たつまで照合せずに 429 を返す。
+// 同じ接続元（IPアドレス）× パスワード種別ごとに、直近10分間の枠を照合前に予約する。
+// 失敗・照合中の予約が3件あれば、最も古い予約が窓から外れるまで 429 を返す。
 // 接続元はハッシュ化して保存し、生のIPアドレスは残さない。
 // 制限用テーブルの読み書きに失敗した場合は、ログイン自体を止めない（fail-open）。
 
-export const LOGIN_WINDOW_MS = 10 * 60 * 1000
-export const LOGIN_MAX_FAILURES = 3
-const CLEANUP_AFTER_MS = 24 * 60 * 60 * 1000
-const TABLE = 'login_failures'
+// 閾値と時刻は reserve_login_attempt RPC 内に固定（3回 / 10分）。
 
 // deno-lint-ignore no-explicit-any
 type Client = any
 
 function clientAddress(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for') ?? ''
-  const first = forwarded.split(',')[0]?.trim()
-  return first || req.headers.get('cf-connecting-ip')?.trim() || req.headers.get('x-real-ip')?.trim() || 'unknown'
+  // Managed Supabase ingress is Cloudflare-fronted. Verified on this project:
+  // CF-Connecting-IP is present/stable; forged CF headers are rejected upstream.
+  // Never trust a caller-supplied leftmost X-Forwarded-For or standalone X-Real-IP.
+  const cloudflare = req.headers.get('cf-connecting-ip')?.trim()
+  const forwarded = (req.headers.get('x-forwarded-for') ?? '').split(',').map(value => value.trim()).filter(Boolean)
+  return cloudflare || forwarded.at(-1) || 'unknown'
 }
 
 export async function loginThrottleKey(req: Request, passwordType: string): Promise<string> {
@@ -24,46 +24,31 @@ export async function loginThrottleKey(req: Request, passwordType: string): Prom
   return Array.from(digest).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-export async function checkLoginLock(supabase: Client, key: string, now = Date.now()): Promise<{ locked: boolean, retryAfterSeconds: number }> {
+export async function reserveLoginAttempt(supabase: Client, key: string): Promise<{ locked: boolean, retryAfterSeconds: number, attemptId: string | null }> {
   try {
-    const since = new Date(now - LOGIN_WINDOW_MS).toISOString()
-    const { data, error } = await supabase.from(TABLE)
-      .select('failed_at')
-      .eq('key', key)
-      .gte('failed_at', since)
-      .order('failed_at', { ascending: false })
-      .limit(LOGIN_MAX_FAILURES)
-    if (error || !Array.isArray(data)) {
-      if (error) console.error('ログイン試行の確認エラー:', error.message ?? error)
-      return { locked: false, retryAfterSeconds: 0 }
+    const { data, error } = await supabase.rpc('reserve_login_attempt', { p_key: key })
+    if (error) throw error
+    if (data?.locked === true && Number.isInteger(data.retry_after_seconds) && data.retry_after_seconds > 0) {
+      return { locked: true, retryAfterSeconds: data.retry_after_seconds, attemptId: null }
     }
-    if (data.length < LOGIN_MAX_FAILURES) return { locked: false, retryAfterSeconds: 0 }
-    // 直近の上限件数のうち最も古い失敗が窓から外れるまで待つ。
-    const oldest = Math.min(...data.map((row: { failed_at: string }) => Date.parse(row.failed_at)))
-    const retryAfterSeconds = Math.max(1, Math.ceil((oldest + LOGIN_WINDOW_MS - now) / 1000))
-    return { locked: true, retryAfterSeconds }
+    if (data?.locked === false && typeof data.attempt_id === 'string' && /^[1-9][0-9]*$/.test(data.attempt_id)) {
+      return { locked: false, retryAfterSeconds: 0, attemptId: data.attempt_id }
+    }
+    throw new Error('Invalid login reservation response')
   } catch (error) {
-    console.error('ログイン試行の確認エラー:', error instanceof Error ? error.message : error)
-    return { locked: false, retryAfterSeconds: 0 }
+    // Missing RPC on an older database is also fail-open; never fall back to
+    // the non-atomic read/count/insert implementation.
+    console.error('ログイン試行の予約エラー:', error instanceof Error ? error.message : error)
+    return { locked: false, retryAfterSeconds: 0, attemptId: null }
   }
 }
 
-export async function recordLoginFailure(supabase: Client, key: string, now = Date.now()): Promise<void> {
+export async function finishLoginAttempt(supabase: Client, key: string, attemptId: string | null, success: boolean): Promise<void> {
+  if (attemptId === null) return
   try {
-    const { error } = await supabase.from(TABLE).insert({ key, failed_at: new Date(now).toISOString() })
-    if (error) console.error('ログイン失敗の記録エラー:', error.message ?? error)
-    // 1日より古い記録は残さない。
-    await supabase.from(TABLE).delete().lt('failed_at', new Date(now - CLEANUP_AFTER_MS).toISOString())
+    const { error } = await supabase.rpc('finish_login_attempt', { p_key: key, p_attempt_id: attemptId, p_success: success })
+    if (error) throw error
   } catch (error) {
-    console.error('ログイン失敗の記録エラー:', error instanceof Error ? error.message : error)
-  }
-}
-
-export async function clearLoginFailures(supabase: Client, key: string): Promise<void> {
-  try {
-    const { error } = await supabase.from(TABLE).delete().eq('key', key)
-    if (error) console.error('ログイン失敗記録の削除エラー:', error.message ?? error)
-  } catch (error) {
-    console.error('ログイン失敗記録の削除エラー:', error instanceof Error ? error.message : error)
+    console.error('ログイン試行の完了エラー:', error instanceof Error ? error.message : error)
   }
 }

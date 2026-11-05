@@ -84,10 +84,13 @@ test('changed client scripts have cache-busted references on all entry pages', (
 test('password verify checks the login lock before reading the password and both login screens explain a lock', () => {
   const fn = source('supabase/functions/password-manager/index.ts');
   const verify = fn.slice(fn.indexOf("case 'verify'"), fn.indexOf("case 'change'"));
-  assert.ok(verify.indexOf('checkLoginLock(') > -1 && verify.indexOf('checkLoginLock(') < verify.indexOf(".select('password_hash')"), 'lock check must come first');
+  assert.ok(verify.indexOf('reserveLoginAttempt(') > -1 && verify.indexOf('reserveLoginAttempt(') < verify.indexOf(".select('password_hash')"), 'atomic reservation must come first');
+  assert.ok(verify.indexOf("typeof passwordType !== 'string'") < verify.indexOf('reserveLoginAttempt('), 'type validation must precede reservation');
+  assert.match(verify, /typeof currentPassword !== 'string'/);
   assert.match(verify, /status: 429/);
-  assert.match(verify, /recordLoginFailure\(supabase, throttleKey\)/);
-  assert.match(verify, /clearLoginFailures\(supabase, throttleKey\)/);
+  assert.doesNotMatch(verify, /recordLoginFailure|clearLoginFailures|checkLoginLock/);
+  assert.match(verify, /finishLoginAttempt\(supabase, throttleKey, lock\.attemptId, true\)/);
+  assert.match(verify, /finishLoginAttempt\(supabase, throttleKey, lock\.attemptId, false\)/);
   const admin = source('admin.html');
   assert.match(admin, /response\.status === 429 && result\.locked/);
   assert.match(source('js/simple-auth.js'), /response\.status === 429 && result\.locked/);

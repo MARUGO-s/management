@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { issueSessionToken, verifySessionToken, authorizeLoanSession } from '../_shared/session.ts'
 import { hashPassword, verifyPassword } from '../_shared/password-hash.ts'
-import { checkLoginLock, clearLoginFailures, loginThrottleKey, recordLoginFailure } from '../_shared/login-throttle.ts'
+import { reserveLoginAttempt, finishLoginAttempt, loginThrottleKey } from '../_shared/login-throttle.ts'
 
 // パスワード管理用のEdge Function（データベースベース）
 serve(async (req) => {
@@ -45,9 +45,15 @@ serve(async (req) => {
 
     switch (action) {
       case 'verify': {
-        // 同じ接続元・種別で直近10分に3回失敗していたら、照合せずに断る。
-        const throttleKey = await loginThrottleKey(req, String(passwordType))
-        const lock = await checkLoginLock(supabase, throttleKey)
+        if (typeof passwordType !== 'string' || !['system', 'admin'].includes(passwordType) || typeof currentPassword !== 'string') {
+          return new Response(JSON.stringify({ success: false, isValid: false, error: 'Invalid login input' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          })
+        }
+        // 同じ接続元・種別の枠をDBで不可分に予約する。失敗・照合中が3件なら断る。
+        const throttleKey = await loginThrottleKey(req, passwordType)
+        const lock = await reserveLoginAttempt(supabase, throttleKey)
         if (lock.locked) {
           return new Response(JSON.stringify({
             success: false,
@@ -66,13 +72,19 @@ serve(async (req) => {
         }
 
         // データベースからパスワードハッシュを取得
-        const { data: passwordData, error: fetchError } = await supabase
-          .from('password_management')
-          .select('password_hash')
-          .eq('password_type', passwordType)
-          .single()
+        let passwordData, fetchError
+        try {
+          const result = await supabase.from('password_management')
+            .select('password_hash').eq('password_type', passwordType).single()
+          passwordData = result.data
+          fetchError = result.error
+        } catch (error) {
+          await finishLoginAttempt(supabase, throttleKey, lock.attemptId, false)
+          throw error
+        }
         
-        if (fetchError) {
+        if (fetchError || typeof passwordData?.password_hash !== 'string') {
+          await finishLoginAttempt(supabase, throttleKey, lock.attemptId, false)
           console.error('パスワード取得エラー:', fetchError)
           return new Response(JSON.stringify({
             success: false,
@@ -93,9 +105,9 @@ serve(async (req) => {
 
         console.log(`🔍 パスワード検証: type=${passwordType}, match=${isValid}`)
         if (isValid) {
-          await clearLoginFailures(supabase, throttleKey)
+          await finishLoginAttempt(supabase, throttleKey, lock.attemptId, true)
         } else {
-          await recordLoginFailure(supabase, throttleKey)
+          // 失敗時は照合前に確保した枠を残す。
           // 総当たりを遅らせる。
           await new Promise(resolve => setTimeout(resolve, 1000))
         }

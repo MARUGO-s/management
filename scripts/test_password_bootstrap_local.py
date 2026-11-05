@@ -62,6 +62,12 @@ class FakePostgrest(BaseHTTPRequestHandler):
             self.write_json(200, matches)
 
     def do_POST(self):
+        if self.path.startswith('/rest/v1/rpc/'):
+            self.rfile.read(int(self.headers['Content-Length']))
+            if self.path.endswith('/reserve_login_attempt'):
+                return self.write_json(200, {'locked': False, 'attempt_id': '1', 'retry_after_seconds': 0})
+            assert self.path.endswith('/finish_login_attempt'), self.path
+            return self.write_json(204, {})
         if self.path.startswith('/rest/v1/login_failures'):
             self.rfile.read(int(self.headers['Content-Length']))
             return self.write_json(201, {})
