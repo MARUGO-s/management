@@ -35,13 +35,24 @@ function addDebugLog(message, data = null) {
 function updateDebugDisplay() {
   const debugContent = document.getElementById('debug-content');
   if (debugContent) {
-    debugContent.innerHTML = debugLogs.slice(-10).map(log => 
-      `<div style="margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #333;">
-        <strong>${log.timestamp.split('T')[1].split('.')[0]}</strong><br>
-        ${log.message}<br>
-        ${log.data ? `<pre style="font-size: 10px; margin: 5px 0;">${log.data}</pre>` : ''}
-      </div>`
-    ).join('');
+    debugContent.textContent = '';
+    debugLogs.slice(-10).forEach(log => {
+      const entry = document.createElement('div');
+      entry.style.cssText = 'margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #333;';
+      const timestamp = document.createElement('strong');
+      timestamp.textContent = log.timestamp.split('T')[1].split('.')[0];
+      entry.appendChild(timestamp);
+      entry.appendChild(document.createElement('br'));
+      entry.appendChild(document.createTextNode(log.message));
+      entry.appendChild(document.createElement('br'));
+      if (log.data) {
+        const data = document.createElement('pre');
+        data.style.cssText = 'font-size: 10px; margin: 5px 0;';
+        data.textContent = log.data;
+        entry.appendChild(data);
+      }
+      debugContent.appendChild(entry);
+    });
     debugContent.scrollTop = debugContent.scrollHeight;
   }
 }
@@ -125,7 +136,12 @@ function renderNameList(names) {
     const res = collator.compare(na, nb);
     return res !== 0 ? res : collator.compare(a, b);
   });
-  list.innerHTML = sorted.map(n => `<option value="${n}"></option>`).join('');
+  list.textContent = '';
+  sorted.forEach(n => {
+    const option = document.createElement('option');
+    option.value = n;
+    list.appendChild(option);
+  });
 }
 
 function addManualInputField(config) {
@@ -473,7 +489,19 @@ function displayOriginalData() {
     { key: '📄 行番号', value: originalData.originalRowIndex || '' },
   ];
 
-  confirmList.innerHTML = rows.map(r => `<li><span class="confirm-key">${r.key}</span><span class="confirm-value">${r.value}</span></li>`).join('');
+  confirmList.textContent = '';
+  rows.forEach(r => {
+    const row = document.createElement('li');
+    const key = document.createElement('span');
+    key.className = 'confirm-key';
+    key.textContent = r.key;
+    const value = document.createElement('span');
+    value.className = 'confirm-value';
+    value.textContent = r.value;
+    row.appendChild(key);
+    row.appendChild(value);
+    confirmList.appendChild(row);
+  });
 }
 
 // フォームに逆取引データを自動入力

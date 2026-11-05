@@ -822,7 +822,9 @@
 
                     if (type === 'loading') {
                         this.statusDiv.className = 'status-loading';
-                        this.statusDiv.innerHTML = `<span class="loading-spinner"></span>${logEntry}`;
+                        const spinner = document.createElement('span');
+                        spinner.className = 'loading-spinner';
+                        this.statusDiv.replaceChildren(spinner, document.createTextNode(logEntry));
                     } else {
                         this.statusDiv.className = type === 'error' ? 'status-error' : type === 'success' ? 'status-success' : 'status-info';
                         this.statusDiv.textContent = logEntry;
