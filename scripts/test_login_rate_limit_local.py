@@ -1,6 +1,6 @@
 """Login rate limit for password-manager verify, against a local in-memory PostgREST stand-in.
 
-Checks: 10 failures in 10 minutes lock that client+type (even the right password gets 429),
+Checks: 3 failures in 10 minutes lock that client+type (even the right password gets 429),
 other clients and the other password type are not affected, a success clears the counter,
 old failures fall out of the window, and a broken throttle table never blocks a correct login.
 """
@@ -130,18 +130,18 @@ def main():
         else:
             raise RuntimeError('Function failed to start')
 
-        # 9 failures, then the right password still works and clears the counter.
-        for _ in range(9):
+        # 2 failures, then the right password still works and clears the counter.
+        for _ in range(2):
             status, body = verify('system', 'wrong')
             assert status == 200 and body['isValid'] is False, (status, body)
-        assert len(failures) == 9, len(failures)
+        assert len(failures) == 2, len(failures)
         assert all(len(r['key']) == 64 and '203.0.113.10' not in r['key'] for r in failures), 'client address must be hashed'
         status, body = verify('system', PASSWORDS['system'])
         assert status == 200 and body['isValid'] and body['token'], (status, body)
         assert failures == [], 'a successful login clears that client\'s failures'
 
-        # 10 failures lock this client for the system password; even the right one is refused.
-        for _ in range(10):
+        # 3 failures lock this client for the system password; even the right one is refused.
+        for _ in range(3):
             status, body = verify('system', 'wrong')
             assert status == 200 and body['isValid'] is False, (status, body)
         status, body = verify('system', PASSWORDS['system'])
@@ -171,7 +171,7 @@ def main():
         status, body = verify('system', 'wrong', ip='192.0.2.55')
         assert status == 200 and body['isValid'] is False, (status, body)
         BROKEN['throttle'] = False
-        print('Login rate limit: 10 failures lock per client+type, success clears, window expiry, other client/type unaffected, fail-open passed')
+        print('Login rate limit: 3 failures lock per client+type, success clears, window expiry, other client/type unaffected, fail-open passed')
     finally:
         process.terminate()
         try:

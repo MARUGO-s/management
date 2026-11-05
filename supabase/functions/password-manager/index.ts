@@ -45,7 +45,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'verify': {
-        // 同じ接続元・種別で直近10分に10回失敗していたら、照合せずに断る。
+        // 同じ接続元・種別で直近10分に3回失敗していたら、照合せずに断る。
         const throttleKey = await loginThrottleKey(req, String(passwordType))
         const lock = await checkLoginLock(supabase, throttleKey)
         if (lock.locked) {

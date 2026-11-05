@@ -1,11 +1,11 @@
 // ログイン試行の回数制限（password-manager の verify で使う）。
-// 同じ接続元（IPアドレス）× パスワード種別ごとに、直近10分間の失敗が10回に達したら、
-// 最も古い失敗から10分たつまで照合せずに 429 を返す。
+// 同じ接続元（IPアドレス）× パスワード種別ごとに、直近10分間の失敗が3回に達したら、
+// その3回のうち最も古い失敗から10分たつまで照合せずに 429 を返す。
 // 接続元はハッシュ化して保存し、生のIPアドレスは残さない。
 // 制限用テーブルの読み書きに失敗した場合は、ログイン自体を止めない（fail-open）。
 
 export const LOGIN_WINDOW_MS = 10 * 60 * 1000
-export const LOGIN_MAX_FAILURES = 10
+export const LOGIN_MAX_FAILURES = 3
 const CLEANUP_AFTER_MS = 24 * 60 * 60 * 1000
 const TABLE = 'login_failures'
 
@@ -38,7 +38,7 @@ export async function checkLoginLock(supabase: Client, key: string, now = Date.n
       return { locked: false, retryAfterSeconds: 0 }
     }
     if (data.length < LOGIN_MAX_FAILURES) return { locked: false, retryAfterSeconds: 0 }
-    // 直近10件のうち最も古い失敗が窓から外れるまで待つ。
+    // 直近の上限件数のうち最も古い失敗が窓から外れるまで待つ。
     const oldest = Math.min(...data.map((row: { failed_at: string }) => Date.parse(row.failed_at)))
     const retryAfterSeconds = Math.max(1, Math.ceil((oldest + LOGIN_WINDOW_MS - now) / 1000))
     return { locked: true, retryAfterSeconds }
