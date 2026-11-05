@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { issueSessionToken, verifySessionToken, authorizeLoanSession } from '../_shared/session.ts'
 import { hashPassword, verifyPassword } from '../_shared/password-hash.ts'
+import { reserveLoginAttempt, finishLoginAttempt, loginThrottleKey } from '../_shared/login-throttle.ts'
 
 // パスワード管理用のEdge Function（データベースベース）
 serve(async (req) => {
@@ -43,15 +44,47 @@ serve(async (req) => {
     // 旧形式（塩なしSHA-256）はログイン成功時にPBKDF2へ置き換える。
 
     switch (action) {
-      case 'verify':
+      case 'verify': {
+        if (typeof passwordType !== 'string' || !['system', 'admin'].includes(passwordType) || typeof currentPassword !== 'string') {
+          return new Response(JSON.stringify({ success: false, isValid: false, error: 'Invalid login input' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          })
+        }
+        // 同じ接続元・種別の枠をDBで不可分に予約する。失敗・照合中が3件なら断る。
+        const throttleKey = await loginThrottleKey(req, passwordType)
+        const lock = await reserveLoginAttempt(supabase, throttleKey)
+        if (lock.locked) {
+          return new Response(JSON.stringify({
+            success: false,
+            isValid: false,
+            locked: true,
+            retryAfterSeconds: lock.retryAfterSeconds,
+            error: 'ログインの失敗が続いたため、しばらくログインできません'
+          }), {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Retry-After': String(lock.retryAfterSeconds),
+            },
+          })
+        }
+
         // データベースからパスワードハッシュを取得
-        const { data: passwordData, error: fetchError } = await supabase
-          .from('password_management')
-          .select('password_hash')
-          .eq('password_type', passwordType)
-          .single()
+        let passwordData, fetchError
+        try {
+          const result = await supabase.from('password_management')
+            .select('password_hash').eq('password_type', passwordType).single()
+          passwordData = result.data
+          fetchError = result.error
+        } catch (error) {
+          await finishLoginAttempt(supabase, throttleKey, lock.attemptId, false)
+          throw error
+        }
         
-        if (fetchError) {
+        if (fetchError || typeof passwordData?.password_hash !== 'string') {
+          await finishLoginAttempt(supabase, throttleKey, lock.attemptId, false)
           console.error('パスワード取得エラー:', fetchError)
           return new Response(JSON.stringify({
             success: false,
@@ -71,8 +104,13 @@ serve(async (req) => {
         }
 
         console.log(`🔍 パスワード検証: type=${passwordType}, match=${isValid}`)
-        // 総当たりを遅らせる。
-        if (!isValid) await new Promise(resolve => setTimeout(resolve, 1000))
+        if (isValid) {
+          await finishLoginAttempt(supabase, throttleKey, lock.attemptId, true)
+        } else {
+          // 失敗時は照合前に確保した枠を残す。
+          // 総当たりを遅らせる。
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
         // 成功時はデータ読み取り・登録に使う有効期限付きトークンを発行する。
         const session = isValid ? await issueSessionToken(passwordType) : null
         
@@ -87,6 +125,7 @@ serve(async (req) => {
             'Access-Control-Allow-Origin': '*',
           },
         })
+      }
 
       case 'change':
         {

@@ -84,6 +84,14 @@ def main():
                 status, _, payload = request(admin_body, admin)
                 assert status not in (401, 403), f'{name} denied valid administrator: {status} {payload[:100]!r}'
                 count += 1
+            if name == 'password-manager':
+                # Invalid login shapes must be rejected before touching the
+                # deliberately nonexistent local backend or reserving a slot.
+                for kind, password in [(['system'], 'wrong'), ('system', ['wrong']),
+                                       ('unknown', 'wrong'), ('admin', None)]:
+                    status, _, payload = request({'action': 'verify', 'passwordType': kind, 'currentPassword': password})
+                    assert status == 400 and not json.loads(payload).get('token'), (status, payload)
+                    count += 1
             _, headers, _ = request({}, method='OPTIONS')
             cors_headers = {key.lower(): value for key, value in headers.items()}
             assert 'x-loan-session' in cors_headers.get('access-control-allow-headers', '').lower(), f'{name} missing browser CORS allowance'

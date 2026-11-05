@@ -236,3 +236,24 @@ for (const outcome of ['success', 'invalid', 'cancel', 'unrelated']) {
     assert.equal(h.navigations(), 0);
   });
 }
+test('locked login (429) shows the wait message, keeps no token and clears only the password', async () => {
+  const h = authHarness();
+  h.context.fetch = async () => ({ status: 429, json: async () => ({ success: false, isValid: false, locked: true, retryAfterSeconds: 241 }) });
+  await h.auth.handlePasswordSubmit();
+  assert.match(h.elements['password-error'].textContent, /一時的にログインできません/);
+  assert.match(h.elements['password-error'].textContent, /約5分後/);
+  assert.equal(h.context.LoanSession.get(), null);
+  assert.equal(h.elements['password-input'].value, '');
+  assert.equal(h.elements['password-btn'].disabled, false);
+  assert.equal(h.navigations(), 0);
+});
+test('ordinary wrong password keeps the existing message after a lock message', async () => {
+  const h = authHarness();
+  h.context.fetch = async () => ({ status: 429, json: async () => ({ success: false, isValid: false, locked: true, retryAfterSeconds: 30 }) });
+  await h.auth.handlePasswordSubmit();
+  assert.match(h.elements['password-error'].textContent, /約1分後/);
+  h.elements['password-input'].value = 'another-try';
+  h.context.fetch = async () => ({ status: 200, json: async () => ({ success: true, isValid: false, token: null }) });
+  await h.auth.handlePasswordSubmit();
+  assert.equal(h.elements['password-error'].textContent, 'パスワードが正しくありません');
+});
