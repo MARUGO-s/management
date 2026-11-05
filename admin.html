@@ -1764,14 +1764,12 @@
                 return '';
             }
             const stringValue = typeof value === 'string' ? value : String(value);
-            const replacements = {
-                "&": "&amp;",
-                "<": "&lt;",
-                ">": "&gt;",
-                "\"": "&quot;",
-                "'": "&#39;"
-            };
-            return stringValue.replace(/[&<>"']/g, (char) => replacements[char] || char);
+            return stringValue
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         function formatAccessDeviceInfo(info) {
@@ -1850,14 +1848,14 @@
                 const actions = [];
 
                 if (isAlert) {
-                    actions.push(`<button class="access-log-action ${isAcknowledged ? '' : 'primary'}" data-id="${log.id}" data-action="${isAcknowledged ? 'unack' : 'ack'}">${isAcknowledged ? '未確認に戻す' : '確認済みにする'}</button>`);
+                    actions.push(`<button class="access-log-action ${isAcknowledged ? '' : 'primary'}" data-id="${escapeHtml(log.id)}" data-action="${isAcknowledged ? 'unack' : 'ack'}">${isAcknowledged ? '未確認に戻す' : '確認済みにする'}</button>`);
                 }
 
                 const deleteDisabled = isAlert && !isAcknowledged;
-                actions.push(`<button class="access-log-action danger" data-id="${log.id}" data-action="delete" ${deleteDisabled ? 'disabled title=\"確認後に削除できます\"' : ''}>🗑️ 削除</button>`);
+                actions.push(`<button class="access-log-action danger" data-id="${escapeHtml(log.id)}" data-action="delete" ${deleteDisabled ? 'disabled title=\"確認後に削除できます\"' : ''}>🗑️ 削除</button>`);
 
                 return `
-                    <div class="access-log-item${isActiveAlert ? ' alert' : ''}" data-log-id="${log.id}">
+                    <div class="access-log-item${isActiveAlert ? ' alert' : ''}" data-log-id="${escapeHtml(log.id)}">
                         <div class="access-log-meta">
                             <span class="access-log-event">${escapeHtml(label)}</span>
                             <span class="access-log-time">${escapeHtml(timestamp)}</span>
@@ -2470,7 +2468,7 @@ ${error.message || ''}`);
                 summaryContainer.innerHTML = `
                     <div style="color: #d64541; text-align: center;">
                         ❌ データの読み込みに失敗しました<br>
-                        <small>${error.message}</small>
+                        <small>${escapeHtml(error.message)}</small>
                     </div>
                 `;
                 
@@ -2622,13 +2620,15 @@ ${error.message || ''}`);
             // 日次使用量
             document.getElementById('daily-usage').textContent = `${usage.daily}/300`;
             const dailyBar = document.getElementById('daily-usage-bar');
-            dailyBar.style.width = `${Math.min(usage.dailyPercentage, 100)}%`;
+            const dailyPercentage = Number(usage.dailyPercentage);
+            dailyBar.style.width = `${Number.isFinite(dailyPercentage) ? Math.max(0, Math.min(dailyPercentage, 100)) : 0}%`;
             dailyBar.className = `usage-fill ${usage.dailyPercentage >= 85 ? 'danger' : usage.dailyPercentage >= 70 ? 'warning' : 'safe'}`;
 
             // 月次使用量
             document.getElementById('monthly-usage').textContent = `${usage.monthly}/3,000`;
             const monthlyBar = document.getElementById('monthly-usage-bar');
-            monthlyBar.style.width = `${Math.min(usage.monthlyPercentage, 100)}%`;
+            const monthlyPercentage = Number(usage.monthlyPercentage);
+            monthlyBar.style.width = `${Number.isFinite(monthlyPercentage) ? Math.max(0, Math.min(monthlyPercentage, 100)) : 0}%`;
             monthlyBar.className = `usage-fill ${usage.monthlyPercentage >= 85 ? 'danger' : usage.monthlyPercentage >= 70 ? 'warning' : 'safe'}`;
         }
 
@@ -2855,7 +2855,7 @@ ${error.message || ''}`);
                 const systemUpdatedAt = systemInfo?.lastUpdated
                     ? new Date(systemInfo.lastUpdated).toLocaleString('ja-JP')
                     : '未登録';
-                showPasswordStatus(`📋 システムパスワード状況: ${systemStatus}<br>🕒 最終更新: ${systemUpdatedAt}`, 'info');
+                showPasswordStatus(`📋 システムパスワード状況: ${systemStatus}\n🕒 最終更新: ${systemUpdatedAt}`, 'info');
                 
             } catch (error) {
                 console.error('パスワード確認エラー:', error);
@@ -2888,7 +2888,7 @@ ${error.message || ''}`);
                 const adminUpdatedAt = adminInfo?.lastUpdated
                     ? new Date(adminInfo.lastUpdated).toLocaleString('ja-JP')
                     : '未登録';
-                showPasswordStatus(`📋 管理者パスワード状況: ${adminStatus}<br>🕒 最終更新: ${adminUpdatedAt}`, 'info');
+                showPasswordStatus(`📋 管理者パスワード状況: ${adminStatus}\n🕒 最終更新: ${adminUpdatedAt}`, 'info');
                 
             } catch (error) {
                 console.error('管理者パスワード確認エラー:', error);
@@ -2899,7 +2899,7 @@ ${error.message || ''}`);
         // パスワード変更ステータス表示
         function showPasswordStatus(message, type) {
             const statusDiv = document.getElementById('password-change-status');
-            statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            statusDiv.innerHTML = `<div class="status-message status-${escapeHtml(type)}">${escapeHtml(message).replace(/\n/g, '<br>')}</div>`;
             
             // 成功メッセージは3秒後に消去
             if (type === 'success') {
@@ -2964,7 +2964,7 @@ ${error.message || ''}`);
                     }, 5000);
                 } catch (error) {
                     document.getElementById('alert-test-status').innerHTML = 
-                        `<div class="status-error">❌ テストエラー: ${error.message}</div>`;
+                        `<div class="status-error">❌ テストエラー: ${escapeHtml(error.message)}</div>`;
                 }
             } else {
                 alert('アラートシステムが読み込まれていません');
@@ -3069,7 +3069,7 @@ ${error.message || ''}`);
                     '<div class="status-success" style="margin-top: 10px;">⚡ システム最適化を実行しました</div>';
             } catch (error) {
                 document.getElementById('system-status-display').innerHTML += 
-                    '<div class="status-error" style="margin-top: 10px;">❌ 最適化実行エラー: ' + error.message + '</div>';
+                    '<div class="status-error" style="margin-top: 10px;">❌ 最適化実行エラー: ' + escapeHtml(error.message) + '</div>';
             }
         }
 
@@ -3130,10 +3130,10 @@ ${error.message || ''}`);
                 
                 html += `
                     <div class="alert-item ${levelClass}">
-                        <div style="font-weight: 600;">${icon} ${alert.level.replace('_', ' ').toUpperCase()}</div>
+                        <div style="font-weight: 600;">${icon} ${escapeHtml(alert.level.replace('_', ' ').toUpperCase())}</div>
                         <div style="font-size: 14px; color: rgba(31, 42, 61, 0.55);">${date}</div>
                         <div style="margin-top: 5px;">
-                            月間使用量: ${alert.usage.monthly}件 (${alert.usage.monthlyPercentage}%)
+                            月間使用量: ${escapeHtml(alert.usage.monthly)}件 (${escapeHtml(alert.usage.monthlyPercentage)}%)
                         </div>
                     </div>
                 `;
@@ -3223,7 +3223,7 @@ ${error.message || ''}`);
                         border-radius: 8px;
                         border: 1px solid #e9ecef;
                     ">
-                        <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${usage.daily}</div>
+                        <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${escapeHtml(usage.daily)}</div>
                         <div style="font-size: 0.875rem; color: rgba(31, 42, 61, 0.55);">本日累計 / 300</div>
                     </div>
 
@@ -3234,7 +3234,7 @@ ${error.message || ''}`);
                         border-radius: 8px;
                         border: 1px solid #e9ecef;
                     ">
-                        <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${usage.monthly}</div>
+                        <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${escapeHtml(usage.monthly)}</div>
                         <div style="font-size: 0.875rem; color: rgba(31, 42, 61, 0.55);">今月累計 / 3,000</div>
                     </div>
 
@@ -3245,7 +3245,7 @@ ${error.message || ''}`);
                         border-radius: 8px;
                         border: 1px solid #e9ecef;
                     ">
-                        <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${(usage.total || 0).toLocaleString()}</div>
+                        <div style="font-size: 2rem; font-weight: 600; color: #495057; margin-bottom: 8px;">${escapeHtml((usage.total || 0).toLocaleString())}</div>
                         <div style="font-size: 0.875rem; color: rgba(31, 42, 61, 0.55);">総累計</div>
                     </div>
                 `;
@@ -3562,8 +3562,8 @@ ${error.message || ''}`);
                     const statusHtml = `
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div>
-                                <p><strong>設定上限値:</strong> ${settings.apiLimit.toLocaleString()}回</p>
-                                <p><strong>現在の使用量:</strong> ${monthlyUsage.toLocaleString()}回</p>
+                                <p><strong>設定上限値:</strong> ${escapeHtml(settings.apiLimit.toLocaleString())}回</p>
+                                <p><strong>現在の使用量:</strong> ${escapeHtml(monthlyUsage.toLocaleString())}回</p>
                                 <p><strong>使用率:</strong> ${usagePercentage}%</p>
                             </div>
                             <div>
@@ -3584,7 +3584,7 @@ ${error.message || ''}`);
             } catch (error) {
                 console.error('状況更新エラー:', error);
                 document.getElementById('limit-status-content').innerHTML = `
-                    <p><strong>設定上限値:</strong> ${settings.apiLimit.toLocaleString()}回</p>
+                    <p><strong>設定上限値:</strong> ${escapeHtml(settings.apiLimit.toLocaleString())}回</p>
                     <p style="color: #d64541;">使用量の取得に失敗しました</p>
                 `;
             }
@@ -3640,7 +3640,7 @@ ${error.message || ''}`);
                         </div>
                     `;
                 } else {
-                    container.innerHTML = `<div class="data-mismatch-placeholder">❌ レポートの取得に失敗しました: ${error.message}</div>`;
+                    container.innerHTML = `<div class="data-mismatch-placeholder">❌ レポートの取得に失敗しました: ${escapeHtml(error.message)}</div>`;
                 }
             }
         }
@@ -3659,9 +3659,10 @@ ${error.message || ''}`);
                 const environmentInfo = report.environment_info || {};
                 const browserInfo = environmentInfo.browser || {};
                 const screenInfo = environmentInfo.screen || {};
+                const reportId = Number.isSafeInteger(report.id) && report.id >= 0 ? report.id : null;
                 
                 return `
-                    <div class="data-mismatch-item" data-report-id="${report.id}">
+                    <div class="data-mismatch-item" data-report-id="${reportId ?? ''}">
                         <div class="data-mismatch-meta">
                             <span class="data-mismatch-id">${report.environment_info?.reportType === 'problem_report' ? '問題報告' : 'データ不一致'} #${index + 1}</span>
                             <span class="data-mismatch-time">${createdDate}</span>
@@ -3669,24 +3670,24 @@ ${error.message || ''}`);
                         <div class="data-mismatch-stats">
                             ${report.environment_info?.reportType === 'problem_report' ? 
                                 `<span>報告タイプ: 問題報告</span>` : 
-                                `<span>不一致項目数: ${report.mismatch_count}件</span>`
+                                `<span>不一致項目数: ${escapeHtml(report.mismatch_count)}件</span>`
                             }
-                            <span>送信データ数: ${report.sent_data_count}件</span>
-                            <span>登録データ数: ${report.registered_data_count}件</span>
+                            <span>送信データ数: ${escapeHtml(report.sent_data_count)}件</span>
+                            <span>登録データ数: ${escapeHtml(report.registered_data_count)}件</span>
                         </div>
                         <div class="data-mismatch-environment">
                             <h4>🌐 環境情報</h4>
                             <div class="environment-details">
-                                <p><strong>ブラウザ:</strong> ${browserInfo.name || 'Unknown'} ${browserInfo.version || ''}</p>
-                                <p><strong>画面解像度:</strong> ${screenInfo.width || 'Unknown'}x${screenInfo.height || 'Unknown'}</p>
-                                <p><strong>タイムゾーン:</strong> ${environmentInfo.timezone?.timezone || 'Unknown'}</p>
-                                <p><strong>プラットフォーム:</strong> ${environmentInfo.platform?.platform || 'Unknown'}</p>
-                                <p><strong>言語:</strong> ${browserInfo.language || 'Unknown'}</p>
+                                <p><strong>ブラウザ:</strong> ${escapeHtml(browserInfo.name || 'Unknown')} ${escapeHtml(browserInfo.version || '')}</p>
+                                <p><strong>画面解像度:</strong> ${escapeHtml(screenInfo.width || 'Unknown')}x${escapeHtml(screenInfo.height || 'Unknown')}</p>
+                                <p><strong>タイムゾーン:</strong> ${escapeHtml(environmentInfo.timezone?.timezone || 'Unknown')}</p>
+                                <p><strong>プラットフォーム:</strong> ${escapeHtml(environmentInfo.platform?.platform || 'Unknown')}</p>
+                                <p><strong>言語:</strong> ${escapeHtml(browserInfo.language || 'Unknown')}</p>
                             </div>
                         </div>
                         <div class="data-mismatch-actions">
-                            <button class="btn secondary" onclick="viewReportDetails(${report.id})">👁️ 詳細表示</button>
-                            <button class="btn danger" onclick="deleteReport(${report.id})">🗑️ 削除</button>
+                            <button class="btn secondary" ${reportId === null ? 'disabled' : `onclick="viewReportDetails(${reportId})"`}>👁️ 詳細表示</button>
+                            <button class="btn danger" ${reportId === null ? 'disabled' : `onclick="deleteReport(${reportId})"`}>🗑️ 削除</button>
                         </div>
                     </div>
                 `;
@@ -3791,7 +3792,7 @@ ${error.message || ''}`);
                             <div class="detail-grid">
                                 <div class="detail-item">
                                     <div class="detail-item-label">レポートID</div>
-                                    <div class="detail-item-value">${report.report_id || 'N/A'}</div>
+                                    <div class="detail-item-value">${escapeHtml(report.report_id || 'N/A')}</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">作成日時</div>
@@ -3799,15 +3800,15 @@ ${error.message || ''}`);
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">不一致項目数</div>
-                                    <div class="detail-item-value">${report.mismatch_count || 0}件</div>
+                                    <div class="detail-item-value">${escapeHtml(report.mismatch_count || 0)}件</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">送信データ数</div>
-                                    <div class="detail-item-value">${report.sent_data_count || 0}件</div>
+                                    <div class="detail-item-value">${escapeHtml(report.sent_data_count || 0)}件</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">登録データ数</div>
-                                    <div class="detail-item-value">${report.registered_data_count || 0}件</div>
+                                    <div class="detail-item-value">${escapeHtml(report.registered_data_count || 0)}件</div>
                                 </div>
                             </div>
                         </div>
@@ -3818,15 +3819,15 @@ ${error.message || ''}`);
                             <h3 class="detail-section-title">❌ 不一致詳細</h3>
                             ${report.mismatch_details.map((mismatch, index) => `
                                 <div class="detail-mismatch-item">
-                                    <div class="detail-mismatch-field">項目: ${mismatch.field || 'Unknown'}</div>
+                                    <div class="detail-mismatch-field">項目: ${escapeHtml(mismatch.field || 'Unknown')}</div>
                                     <div class="detail-mismatch-values">
                                         <div class="detail-mismatch-sent">
                                             <strong>送信値:</strong><br>
-                                            ${JSON.stringify(mismatch.sent, null, 2)}
+                                            ${escapeHtml(JSON.stringify(mismatch.sent, null, 2))}
                                         </div>
                                         <div class="detail-mismatch-registered">
                                             <strong>登録値:</strong><br>
-                                            ${JSON.stringify(mismatch.registered, null, 2)}
+                                            ${escapeHtml(JSON.stringify(mismatch.registered, null, 2))}
                                         </div>
                                     </div>
                                 </div>
@@ -3840,35 +3841,35 @@ ${error.message || ''}`);
                             <div class="detail-grid">
                                 <div class="detail-item">
                                     <div class="detail-item-label">ブラウザ</div>
-                                    <div class="detail-item-value">${browserInfo.name || 'Unknown'} ${browserInfo.version || ''}</div>
+                                    <div class="detail-item-value">${escapeHtml(browserInfo.name || 'Unknown')} ${escapeHtml(browserInfo.version || '')}</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">画面解像度</div>
-                                    <div class="detail-item-value">${screenInfo.width || 'Unknown'}x${screenInfo.height || 'Unknown'}</div>
+                                    <div class="detail-item-value">${escapeHtml(screenInfo.width || 'Unknown')}x${escapeHtml(screenInfo.height || 'Unknown')}</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">ウィンドウサイズ</div>
-                                    <div class="detail-item-value">${windowInfo.innerWidth || 'Unknown'}x${windowInfo.innerHeight || 'Unknown'}</div>
+                                    <div class="detail-item-value">${escapeHtml(windowInfo.innerWidth || 'Unknown')}x${escapeHtml(windowInfo.innerHeight || 'Unknown')}</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">タイムゾーン</div>
-                                    <div class="detail-item-value">${timezoneInfo.timezone || 'Unknown'}</div>
+                                    <div class="detail-item-value">${escapeHtml(timezoneInfo.timezone || 'Unknown')}</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">プラットフォーム</div>
-                                    <div class="detail-item-value">${platformInfo.platform || 'Unknown'}</div>
+                                    <div class="detail-item-value">${escapeHtml(platformInfo.platform || 'Unknown')}</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">言語</div>
-                                    <div class="detail-item-value">${browserInfo.language || 'Unknown'}</div>
+                                    <div class="detail-item-value">${escapeHtml(browserInfo.language || 'Unknown')}</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">接続タイプ</div>
-                                    <div class="detail-item-value">${connectionInfo.effectiveType || 'Unknown'}</div>
+                                    <div class="detail-item-value">${escapeHtml(connectionInfo.effectiveType || 'Unknown')}</div>
                                 </div>
                                 <div class="detail-item">
                                     <div class="detail-item-label">デバイスピクセル比</div>
-                                    <div class="detail-item-value">${windowInfo.devicePixelRatio || 'Unknown'}</div>
+                                    <div class="detail-item-value">${escapeHtml(windowInfo.devicePixelRatio || 'Unknown')}</div>
                                 </div>
                             </div>
                         </div>
@@ -3877,7 +3878,7 @@ ${error.message || ''}`);
                         ${report.sent_data ? `
                         <div class="detail-section">
                             <h3 class="detail-section-title">📤 送信データ</h3>
-                            <div class="detail-json">${JSON.stringify(report.sent_data, null, 2)}</div>
+                            <div class="detail-json">${escapeHtml(JSON.stringify(report.sent_data, null, 2))}</div>
                         </div>
                         ` : ''}
 
@@ -3885,14 +3886,14 @@ ${error.message || ''}`);
                         ${report.registered_data ? `
                         <div class="detail-section">
                             <h3 class="detail-section-title">📥 登録データ</h3>
-                            <div class="detail-json">${JSON.stringify(report.registered_data, null, 2)}</div>
+                            <div class="detail-json">${escapeHtml(JSON.stringify(report.registered_data, null, 2))}</div>
                         </div>
                         ` : ''}
 
                         <!-- 完全な環境情報 -->
                         <div class="detail-section">
                             <h3 class="detail-section-title">🔍 完全な環境情報</h3>
-                            <div class="detail-json">${JSON.stringify(environmentInfo, null, 2)}</div>
+                            <div class="detail-json">${escapeHtml(JSON.stringify(environmentInfo, null, 2))}</div>
                         </div>
                     </div>
                 </div>
@@ -4067,17 +4068,17 @@ ${error.message || ''}`);
                     <div>
                         <h5 style="margin: 0 0 8px 0; color: #3c6ee8;">📊 日次データ</h5>
                         <p style="margin: 0; font-size: 14px;">
-                            <strong>件数:</strong> ${data.daily?.record_count || 0}件<br>
-                            <strong>最古:</strong> ${data.daily?.oldest_date || 'N/A'}<br>
-                            <strong>最新:</strong> ${data.daily?.newest_date || 'N/A'}
+                            <strong>件数:</strong> ${escapeHtml(data.daily?.record_count || 0)}件<br>
+                            <strong>最古:</strong> ${escapeHtml(data.daily?.oldest_date || 'N/A')}<br>
+                            <strong>最新:</strong> ${escapeHtml(data.daily?.newest_date || 'N/A')}
                         </p>
                     </div>
                     <div>
                         <h5 style="margin: 0 0 8px 0; color: #2bb67a;">📈 月次データ</h5>
                         <p style="margin: 0; font-size: 14px;">
-                            <strong>件数:</strong> ${data.monthly?.record_count || 0}件<br>
-                            <strong>最古:</strong> ${data.monthly?.oldest_date || 'N/A'}<br>
-                            <strong>最新:</strong> ${data.monthly?.newest_date || 'N/A'}
+                            <strong>件数:</strong> ${escapeHtml(data.monthly?.record_count || 0)}件<br>
+                            <strong>最古:</strong> ${escapeHtml(data.monthly?.oldest_date || 'N/A')}<br>
+                            <strong>最新:</strong> ${escapeHtml(data.monthly?.newest_date || 'N/A')}
                         </p>
                     </div>
                 </div>
@@ -4129,10 +4130,10 @@ ${error.message || ''}`);
                     statusDiv.innerHTML = `
                         ✅ クリーンアップが完了しました！<br>
                         📊 削除されたデータ:<br>
-                        • 日次データ: ${result.deleted_daily_count || 0}件<br>
-                        • 月次データ: ${result.deleted_monthly_count || 0}件<br>
-                        • デバイスデータ: ${result.deleted_device_count || 0}件<br>
-                        • 削除対象日: ${result.cutoff_date || 'N/A'}
+                        • 日次データ: ${escapeHtml(result.deleted_daily_count || 0)}件<br>
+                        • 月次データ: ${escapeHtml(result.deleted_monthly_count || 0)}件<br>
+                        • デバイスデータ: ${escapeHtml(result.deleted_device_count || 0)}件<br>
+                        • 削除対象日: ${escapeHtml(result.cutoff_date || 'N/A')}
                     `;
                     
                     // データ保持状況を更新
@@ -4146,7 +4147,7 @@ ${error.message || ''}`);
                 console.error('クリーンアップエラー:', error);
                 statusDiv.style.background = 'rgba(214, 69, 65, 0.1)';
                 statusDiv.style.color = '#d64541';
-                statusDiv.innerHTML = `❌ クリーンアップに失敗しました: ${error.message}`;
+                statusDiv.innerHTML = `❌ クリーンアップに失敗しました: ${escapeHtml(error.message)}`;
             } finally {
                 button.disabled = false;
                 button.textContent = originalText;
