@@ -570,6 +570,28 @@ body {
     line-height: 1.3;
 }
 
+.summary-card .category-breakdown {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.summary-card .category-breakdown-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2px 12px;
+    text-align: left;
+}
+
+.summary-card .category-breakdown-row strong {
+    margin-left: auto;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
 .summary-card .breakdown-item {
     display: inline-block;
     margin: 1px 0;

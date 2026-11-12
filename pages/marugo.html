@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>店舗別貸借分析システム</title>
-    <link href="css/styles.css?v=2026101401" rel="stylesheet" />
+    <link href="css/styles.css?v=2026111201" rel="stylesheet" />
     <script src="../config.js?v=2026101404"></script>
     <!-- シンプル認証システム -->
     <script src="../js/simple-auth.js?v=2026110501"></script>
@@ -2488,6 +2488,25 @@
                     });
                 }
 
+                // 同じ集計対象の明細から内訳を作る。相殺・期間・店舗・M-martの向きは既存集計に従う。
+                renderBalanceCategoryBreakdown(sortedStores, itemKey) {
+                    const totals = { '食材': 0, '飲料': 0, 'その他': 0 };
+                    sortedStores.forEach(store => {
+                        (store[itemKey] || []).forEach(item => {
+                            const amount = Number(item.amount);
+                            if (Number.isFinite(amount)) totals[this.classifyCategory(item)] += amount;
+                        });
+                    });
+                    const categories = [
+                        { key: 'food', category: '食材', label: 'フード' },
+                        { key: 'drink', category: '飲料', label: '飲料' },
+                        ...(totals['その他'] !== 0 ? [{ key: 'other', category: 'その他', label: 'その他' }] : [])
+                    ];
+                    return `<div class="category-breakdown" aria-label="カテゴリー別内訳">${categories.map(({ key, category, label }) =>
+                        `<div class="category-breakdown-row" data-category="${key}"><span>${label}</span><strong>¥${totals[category].toLocaleString()}</strong></div>`
+                    ).join('')}</div>`;
+                }
+
                 // 店舗別貸借り合計サマリーカード更新
                 updateStoreBalanceSummaryCards(sortedStores) {
                     const summaryCards = document.getElementById('summary-cards');
@@ -2530,6 +2549,7 @@
                     <div class="breakdown">
                         指定期間内の貸出総額
                     </div>
+                    ${this.renderBalanceCategoryBreakdown(sortedStores, 'lentItems')}
                 </div>
                 <div class="summary-card negative">
                     <h3>総借入金額</h3>
@@ -2538,6 +2558,7 @@
                     <div class="breakdown">
                         指定期間内の借入総額
                     </div>
+                    ${this.renderBalanceCategoryBreakdown(sortedStores, 'borrowedItems')}
                 </div>
                 <div class="summary-card ${totalBalance >= 0 ? 'positive' : 'negative'}">
                     <h3>総残高</h3>
@@ -2614,6 +2635,7 @@
                     <div class="breakdown">
                         指定期間内の貸出総額
                     </div>
+                    ${this.renderBalanceCategoryBreakdown(sortedStores, 'lentItems')}
                 </div>
                 <div class="summary-card negative">
                     <h3>総借入金額</h3>
@@ -2622,6 +2644,7 @@
                     <div class="breakdown">
                         指定期間内の借入総額
                     </div>
+                    ${this.renderBalanceCategoryBreakdown(sortedStores, 'borrowedItems')}
                 </div>
                 <div class="summary-card ${totalBalance >= 0 ? 'positive' : 'negative'}">
                     <h3>総残高</h3>
