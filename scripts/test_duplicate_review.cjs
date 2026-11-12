@@ -812,7 +812,7 @@ test('画面: 一覧の数字列は集計カードと同じ書体（¥ の字形
     assert.doesNotMatch(rule, /Courier/);
   }
   assert.match(css, /body \{\s*font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;/, '集計カードは body の書体を継承');
-  assert.match(html, /css\/styles\.css\?v=2026101401/);
+  assert.match(html, /css\/styles\.css\?v=2026111201/);
   assert.match(html, /¥\$\{row\.amount\.toLocaleString\(\)\}/, '円記号は U+00A5 のまま');
 });
 
