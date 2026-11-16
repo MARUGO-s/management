@@ -59,4 +59,28 @@ test('既存のカテゴリー優先・品目推定を継承し新表示に任�
   const rendered=p.analyzer.renderBalanceCategoryBreakdown([{lentItems:items}],'lentItems');assert.equal(value(rendered,'food'),400);assert.equal(value(rendered,'drink'),600);assert.equal(value(rendered,'other'),-20);assert.doesNotMatch(rendered,/<img|onerror/);
 });
 
-test('CSSの更新版を参照する',()=>{assert.match(html,/css\/styles\.css\?v=2026111201/);});
+test('M-martは品名の推定に関係なくフードに含め、うちM-martを明記し本当のその他を残す',()=>{
+  const p=page();p.analyzer.data=[row('M-mart',500,'店舗A','本部',2,'輸入商品Z'),row('M-martカード',300,'店舗A','本部',3,'水煮トマト'),row('食材',200,'店舗B','店舗A',4,'玉ねぎ'),row('飲料',100,'店舗B','店舗A',5,'ワイン'),row('その他',50,'店舗B','店舗A',6,'備品Z')];
+  p.analyzer.analyzeStoreBalance();const c=cards(p);assert.equal(value(c[1],'food'),1000);assert.equal(value(c[1],'drink'),100);assert.equal(value(c[1],'other'),50);assert.match(c[1],/data-subcategory="mmart"[^>]*>[\s\S]*?うちM-mart[\s\S]*?<strong>¥800<\/strong>/);assert.match(c[1],/class="value">¥1,150/);
+});
+
+test('M-martカテゴリはカード・現金・大小文字を同じフードとして扱い、通常の飲料は変えない',()=>{
+  const p=page();for(const category of ['M-mart','M-martカード','M-mart現金','m-MART（カード）']){
+    assert.equal(p.analyzer.classifyCategory(row(category,100,'店舗A','本部',2,'輸入品Z')),'食材');
+    assert.equal(p.analyzer.classifyCategory(row(category,100,'店舗A','本部',2,'料理酒')),'食材');
+  }
+  assert.equal(p.analyzer.classifyCategory(row('飲料',100)),'飲料');assert.equal(p.analyzer.classifyCategory(row('その他',100)),'その他');
+});
+
+test('M-mart内訳は期間・店舗・相殺を守り二重加算せず、CSVと元データを維持する',()=>{
+  const p=page();const base=row('M-mart現金',250,'店舗A','本部',2,'輸入品Z');
+  const original={...row('M-mart',500,'店舗A','本部',3,'取消対象'),date:'2026-09-30',inputDate:'2026/09/30 10:00:00'};
+  const cancel={...original,lender:'本部',borrower:'店舗A',date:'2026-10-01',inputDate:'2026/10/01 10:00:00',correction:'✏️修正',originalRowIndex:4};
+  p.analyzer.data=[base,original,cancel,row('M-mart',999,'店舗C','本部',5),{...base,date:'2026-09-01',amount:700,originalRowIndex:6}];const snapshot=JSON.stringify(p.analyzer.data);
+  p.analyzer.analyzeStoreBalance();const c=cards(p);assert.equal(value(c[1],'food'),250);assert.equal(value(c[1],'drink'),0);assert.doesNotMatch(c[1],/data-category="other"/);assert.match(c[1],/うちM-mart<\/span><strong>¥250/);assert.match(c[1],/class="value">¥250/);assert.doesNotMatch(c[0],/data-subcategory="mmart"/);
+  let csv;p.analyzer.downloadCsv=v=>csv=JSON.parse(v);p.analyzer.exportResults();assert.equal(csv[0].借入金額,250);assert.equal(csv[0].貸出金額,0);assert.equal(JSON.stringify(p.analyzer.data),snapshot);
+  const all=page('');all.analyzer.data=[base];all.analyzer.analyzeStoreBalance();for(const card of cards(all).slice(0,2)){assert.equal(value(card,'food'),250);assert.match(card,/うちM-mart<\/span><strong>¥250/);}
+  const zero=p.analyzer.renderBalanceCategoryBreakdown([{lentItems:[{...base,amount:100},{...base,amount:-100}]}],'lentItems');assert.equal(value(zero,'food'),0);assert.doesNotMatch(zero,/data-subcategory="mmart"/);
+});
+
+test('CSSの更新版を参照する',()=>{assert.match(html,/css\/styles\.css\?v=2026111601/);});
