@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>店舗別貸借分析システム</title>
-    <link href="css/styles.css?v=2026111201" rel="stylesheet" />
+    <link href="css/styles.css?v=2026111601" rel="stylesheet" />
     <script src="../config.js?v=2026101404"></script>
     <!-- シンプル認証システム -->
     <script src="../js/simple-auth.js?v=2026110501"></script>
@@ -1086,9 +1086,14 @@
                 }
 
                 // 集計用カテゴリー（食材・飲料・その他）
-                // シートのカテゴリーが「食材」「飲料」ならそれを優先し、それ以外（M-mart・その他・空欄）だけ品目名から推定する
+                // M-martは食材。通常の食材・飲料を優先し、その他・空欄だけ品目名から推定する。
+                isMmartCategory(category) {
+                    return /^m-mart/i.test(category || '');
+                }
+
                 classifyCategory(row) {
                     const category = row.category || '';
+                    if (this.isMmartCategory(category)) return '食材';
                     const item = (row.item || '').toLowerCase();
                     if (category.includes('飲料') || category.includes('ドリンク') || category.includes('酒')) return '飲料';
                     if (category.includes('食材') || category.includes('食品')) return '食材';
@@ -2491,10 +2496,14 @@
                 // 同じ集計対象の明細から内訳を作る。相殺・期間・店舗・M-martの向きは既存集計に従う。
                 renderBalanceCategoryBreakdown(sortedStores, itemKey) {
                     const totals = { '食材': 0, '飲料': 0, 'その他': 0 };
+                    let mmartTotal = 0;
                     sortedStores.forEach(store => {
                         (store[itemKey] || []).forEach(item => {
                             const amount = Number(item.amount);
-                            if (Number.isFinite(amount)) totals[this.classifyCategory(item)] += amount;
+                            if (Number.isFinite(amount)) {
+                                totals[this.classifyCategory(item)] += amount;
+                                if (this.isMmartCategory(item.category)) mmartTotal += amount;
+                            }
                         });
                     });
                     const categories = [
@@ -2503,7 +2512,7 @@
                         ...(totals['その他'] !== 0 ? [{ key: 'other', category: 'その他', label: 'その他' }] : [])
                     ];
                     return `<div class="category-breakdown" aria-label="カテゴリー別内訳">${categories.map(({ key, category, label }) =>
-                        `<div class="category-breakdown-row" data-category="${key}"><span>${label}</span><strong>¥${totals[category].toLocaleString()}</strong></div>`
+                        `<div class="category-breakdown-row" data-category="${key}"><span>${label}</span><strong>¥${totals[category].toLocaleString()}</strong></div>${key === 'food' && mmartTotal !== 0 ? `<div class="category-breakdown-row category-breakdown-subrow" data-subcategory="mmart"><span>うちM-mart</span><strong>¥${mmartTotal.toLocaleString()}</strong></div>` : ''}`
                     ).join('')}</div>`;
                 }
 

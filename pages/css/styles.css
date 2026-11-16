@@ -586,6 +586,12 @@ body {
     text-align: left;
 }
 
+.summary-card .category-breakdown-subrow {
+    padding-left: 1em;
+    font-size: 0.85em;
+    opacity: 0.85;
+}
+
 .summary-card .category-breakdown-row strong {
     margin-left: auto;
     white-space: nowrap;
